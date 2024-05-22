@@ -13,6 +13,7 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count 
 
+
 def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwargs):
     index = 0
     for name, module in model.named_modules():
@@ -29,6 +30,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
                 break
 
     return model
+
 
 def anyq(module: torch.nn.Module, n_bits: int=4, n_rows: int= 2048, n_iter: int=20):
     out_features, in_features = module.weight.shape
@@ -51,22 +53,46 @@ def anyq(module: torch.nn.Module, n_bits: int=4, n_rows: int= 2048, n_iter: int=
     return module
 
 
-def any4(module: torch.nn.Module):
-    out_features, in_features = module.weight.shape
-    d = in_features
-    # QT_4bit allocates 4 bits per dimension
-    sq = faiss.ScalarQuantizer(d, faiss.ScalarQuantizer.QT_4bit)
+def any4(module: torch.nn.Module, granularity: str = "col"):
+    weight = module.weight.clone()
 
-    w = module.weight
+    # reshape based on granularity
+    match granularity:
+        case "row":
+            pass
+        case "col":
+            weight = weight.transpose(0, 1)
+        case "8x8":
+            # TODO: reshape or review into <fo//8, fi//8, 8, 8>
+            raise ValueError(f"Unsupported {granularity} type")
+        case _:
+            raise ValueError(f"Unsupported {granularity} type")
+
+    groups, dim = weight.shape
+    # QT_4bit allocates 4 bits per dimension
+    sq = faiss.ScalarQuantizer(dim, faiss.ScalarQuantizer.QT_4bit)
+
+    w = weight
     w_proc = w # torch.cat((w, w.quantile(q=0.0, dim=-1).repeat(1, 20), w.quantile(q=1.0, dim=-1).repeat(1, 20)), dim=-1)
     sq.train(w_proc.detach())
 
-    # encode 
+    # decode 
     codes_proc = sq.compute_codes(w_proc.detach())
     wq_proc = sq.decode(codes_proc)
     wq = wq_proc # wq_proc[:out_features, :in_features]
 
-    # decode
+    # reshape based on granularity
+    match granularity:
+        case "row":
+            pass
+        case "col":
+            wq = np.transpose(wq)
+        case "8x8":
+            # TODO: reshape or review into <fo, fi>
+            raise ValueError(f"Unsupported {granularity} type")
+        case _:
+            raise ValueError(f"Unsupported {granularity} type")
+
     module.weight.data = torch.from_numpy(wq).to(module.weight.device)
 
     return module
