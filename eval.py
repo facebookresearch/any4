@@ -1,16 +1,19 @@
 import lm_eval
-import lm_eval.models
-from transformers import AutoModelForCausalLM
+import torch
+import transformers
 
-# model_name = "meta-llama/Meta-Llama-3-8B"
-model_name = "facebook/opt-125m"
-# model = AutoModelForCausalLM.from_pretrained(model_name)
+from any4 import convert, any4
+
+model_name = "meta-llama/Meta-Llama-3-8B"
+# model_name = "facebook/opt-125m"
+# model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
 
 # instantiate an LM subclass that takes initialized model and can run
 # - `Your_LM.loglikelihood()`
 # - `Your_LM.loglikelihood_rolling()`
 # - `Your_LM.generate_until()`
 lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, batch_size=16)
+lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=any4)
 
 # indexes all tasks from the `lm_eval/tasks` subdirectory.
 # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
