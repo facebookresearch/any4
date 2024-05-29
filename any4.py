@@ -74,10 +74,22 @@ def any4(module: torch.nn.Module, granularity: str = "col"):
 
     w = weight
     w_proc = w # torch.cat((w, w.quantile(q=0.0, dim=-1).repeat(1, 20), w.quantile(q=1.0, dim=-1).repeat(1, 20)), dim=-1)
-    sq.train(w_proc.detach())
+    try:
+        # this should work if faiss-gpu is working
+        sq.train(w_proc.detach())
+    except:
+        # this should work if faiss-cpu is working
+        if module.weight.dtype == torch.bfloat16:
+            w_proc = w_proc.half()
+        sq.train(w_proc.detach().cpu())
 
     # decode 
-    codes_proc = sq.compute_codes(w_proc.detach())
+    try:
+        # this should work if faiss-gpu is working
+        codes_proc = sq.compute_codes(w_proc.detach())
+    except:
+        # this should work if faiss-cpu is working
+        codes_proc = sq.compute_codes(w_proc.detach().cpu())
     wq_proc = sq.decode(codes_proc)
     wq = wq_proc # wq_proc[:out_features, :in_features]
 
@@ -93,6 +105,6 @@ def any4(module: torch.nn.Module, granularity: str = "col"):
         case _:
             raise ValueError(f"Unsupported {granularity} type")
 
-    module.weight.data = torch.from_numpy(wq).to(module.weight.device)
+    module.weight.data = torch.from_numpy(wq).to(device=module.weight.device, dtype=module.weight.dtype)
 
     return module
