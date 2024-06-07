@@ -2,6 +2,8 @@ from typing import Callable, Type
 import torch
 import numpy as np
 import faiss
+from sklearn.cluster import KMeans
+
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -53,7 +55,7 @@ def anyq(module: torch.nn.Module, n_bits: int=4, n_rows: int= 2048, n_iter: int=
     return module
 
 
-def any4(module: torch.nn.Module, granularity: str = "col"):
+def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = "clustering"):
     weight = module.weight.clone()
 
     # reshape based on granularity
@@ -68,30 +70,46 @@ def any4(module: torch.nn.Module, granularity: str = "col"):
         case _:
             raise ValueError(f"Unsupported {granularity} type")
 
-    groups, dim = weight.shape
-    # QT_4bit allocates 4 bits per dimension
-    sq = faiss.ScalarQuantizer(dim, faiss.ScalarQuantizer.QT_4bit)
+    match quantization:
+        case "scalar":
+            groups, dim = weight.shape
+            # QT_4bit allocates 4 bits per dimension
+            sq = faiss.ScalarQuantizer(dim, faiss.ScalarQuantizer.QT_4bit)
 
-    w = weight
-    w_proc = w # torch.cat((w, w.quantile(q=0.0, dim=-1).repeat(1, 20), w.quantile(q=1.0, dim=-1).repeat(1, 20)), dim=-1)
-    try:
-        # this should work if faiss-gpu is working
-        sq.train(w_proc.detach())
-    except:
-        # this should work if faiss-cpu is working
-        if module.weight.dtype == torch.bfloat16:
-            w_proc = w_proc.half()
-        sq.train(w_proc.detach().cpu())
+            w = weight
+            w_proc = w # torch.cat((w, w.quantile(q=0.0, dim=-1).repeat(1, 20), w.quantile(q=1.0, dim=-1).repeat(1, 20)), dim=-1)
+            try:
+                # this should work if faiss-gpu is working
+                sq.train(w_proc.detach())
+            except:
+                # this should work if faiss-cpu is working
+                if module.weight.dtype == torch.bfloat16:
+                    w_proc = w_proc.half()
+                sq.train(w_proc.detach().cpu())
 
-    # decode 
-    try:
-        # this should work if faiss-gpu is working
-        codes_proc = sq.compute_codes(w_proc.detach())
-    except:
-        # this should work if faiss-cpu is working
-        codes_proc = sq.compute_codes(w_proc.detach().cpu())
-    wq_proc = sq.decode(codes_proc)
-    wq = wq_proc # wq_proc[:out_features, :in_features]
+            # decode 
+            try:
+                # this should work if faiss-gpu is working
+                codes_proc = sq.compute_codes(w_proc.detach())
+            except:
+                # this should work if faiss-cpu is working
+                codes_proc = sq.compute_codes(w_proc.detach().cpu())
+            wq_proc = sq.decode(codes_proc)
+            wq = wq_proc # wq_proc[:out_features, :in_features]
+
+        case "clustering":
+            w = weight.detach().numpy()
+            wq = w
+
+            def kmeans_clustering_vector(v):
+                kmeans = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(v.reshape(-1, 1))
+                return kmeans.cluster_centers_[kmeans.predict(v.reshape(-1, 1))].flatten()
+
+            for i in range(weight.shape[0]):
+                wq[i, :] = kmeans_clustering_vector(w[i,:])
+
+        case _:
+            raise ValueError(f"Unsupported {quantization} type")
 
     # reshape based on granularity
     match granularity:
