@@ -5,7 +5,7 @@ import torch
 import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
-from any4 import convert, any4, intq
+from any4 import convert, any4, intq, anyq
 
 def main(
     model_name: str,
@@ -53,6 +53,7 @@ if __name__ == '__main__':
     quant_methods = {
         "any4": any4,
         "intq": intq,
+        "anyq": anyq,
     }
 
     import argparse

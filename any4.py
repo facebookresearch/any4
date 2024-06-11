@@ -105,30 +105,75 @@ def group_dequantize_tensor(x, scales_and_zeros, n_bit, q_group_size=128):
 
 
 def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128):
-    w_q, scales_and_zeros = group_quantize_tensor(module.weight, n_bit, group_size)
+    w_q, scales_and_zeros = group_quantize_tensor(module.weight.t(), n_bit, group_size)
     w_deq = group_dequantize_tensor(w_q, scales_and_zeros, n_bit, group_size)
 
-    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-def anyq(module: torch.nn.Module, n_bits: int=4, n_rows: int= 2048, n_iter: int=20):
-    out_features, in_features = module.weight.shape
-    n_rows = n_rows if n_rows else out_features
-    for fo in range(0, out_features, n_rows):
-        rem_rows = min(out_features - fo, n_rows)
-        kmeans = faiss.Kmeans(d=1, k=2**n_bits, niter=n_iter, gpu=torch.cuda.is_available())
-        points: torch.Tensor = module.weight[fo:fo+rem_rows, :].detach().flatten().unsqueeze(dim=1)
-        kmeans.train(x=points)
+# TBD:
+def cluster_row(row):
+    assign = torch.zeros(x.size(1), dtype=torch.int32, device=x.device)
+    any4 = torch.zeros((16), dtype=x.dtype, device=x.device)
 
-        # D is the distances from each vector to its assigned cluster center
-        # I is the index of the assigned cluster for each vector
-        # centroid is the centre of each cluster
-        D, I = kmeans.assign(x=points)
-        centroids = kmeans.centroids
-        clustered_points = centroids[I]
+    r = row.reshape(row.size(1), 1).cpu().numpy()
+    clusters = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(r)
+    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(16)
+    assign = torch.from_numpy(clusters.labels_)
 
-        module.weight.data[fo:fo+rem_rows, :] = torch.from_numpy(clustered_points).reshape(rem_rows, in_features).to(module.weight.device)
+    return assign, any4
 
+
+def cluster_matrix(x, n_bit=4):
+    assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
+    any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
+    assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
+    for row in range(x.size(0)):
+        r = x[row].reshape(x.size(1), 1).cpu().numpy()
+        clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
+        any4[row] = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
+        assign[row] = torch.from_numpy(clusters.labels_)
+        assign_val[row] = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
+
+    return assign, any4, assign_val
+
+
+def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True):
+    to_cluster, scales_and_zeros = group_quantize_tensor(x, n_bit, q_group_size)
+
+    assign = None
+    any4 = None
+
+    if bias_extreme_values:
+        # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
+        # for greater representation.
+        # Values are in the range [0, 15] so subtract (15 - 0) / 2 = 7.5 to approximately zero center the data
+        #
+        # Note that there is no guarantee that each q-group is itself zero centered (there can be a "DC bias")
+        # but note that across all q-groups, values closer to 0 and closer to 15 are extremal values
+        to_cluster = to_cluster - ((2 ** n_bit) - 1) / 2. 
+        # give more weight to extremal values by considering the signed square
+        to_cluster = (to_cluster ** 2) * torch.sign(to_cluster)
+
+    assign, any4, assign_val = cluster_matrix(to_cluster)
+    if bias_extreme_values:
+        # undo the square
+        any4 = torch.sqrt(any4.abs()) * torch.sign(any4)
+
+        # map values back to [0, 15]
+        any4 = any4 + ((2 ** n_bit) - 1) / 2.
+
+    # dequant is in the range [-8, 7] so adjust again
+    any4 = any4 - 2 ** (n_bit - 1)
+
+    return assign, any4.to(dtype=x.dtype), assign_val.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
+
+
+def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_extreme_values: bool = False):
+    _, _, assign_val, scales_and_zeros = quantize_to_any4(module.weight.t(), n_bit, group_size, bias_extreme_values)
+    w_deq = group_dequantize_tensor(assign_val, scales_and_zeros, n_bit, group_size)
+
+    module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
 
