@@ -40,6 +40,19 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
 # size with values quantized to [0, 2^n_bit - 1], along with scale and zero point
 # Reconstruction is bf16(int4_value) * scale + min_val
 def group_quantize_tensor(w_orig, n_bit, q_group_size=128):
+    out, scales_and_zeros = apply_q_groups(w_orig, n_bit, q_group_size)
+
+    max_int = 2**n_bit - 1
+    min_int = 0
+
+    out = out.round().clamp_(min_int, max_int)
+    out = out.to(dtype=torch.int32).reshape(w_orig.shape)
+
+    scales_and_zeros = scales_and_zeros.to(w_orig.dtype)
+
+    return out, scales_and_zeros
+
+def apply_q_groups(w_orig, n_bit, q_group_size=128):
     w = w_orig.float()
     assert q_group_size > 1
     assert w.shape[-1] % q_group_size == 0
@@ -58,10 +71,8 @@ def group_quantize_tensor(w_orig, n_bit, q_group_size=128):
     zeros = min_val + scales * (2 ** (n_bit - 1))
     assert torch.isnan(zeros).sum() == 0
 
-    out = to_quant.sub(min_val).div(scales).round().clamp_(min_int, max_int)
+    out = to_quant.sub(min_val).div(scales)
     assert torch.isnan(out).sum() == 0
-
-    out = out.to(dtype=torch.int32).reshape(w.shape)
 
     # Scales and zeros for the same q-group should be contiguous, so we can
     # load as a 32-bit word
@@ -79,7 +90,8 @@ def group_quantize_tensor(w_orig, n_bit, q_group_size=128):
         .contiguous()
     )
 
-    return out, scales_and_zeros.to(w_orig.dtype)
+    return out, scales_and_zeros
+
 
 
 # takes the scale or offset per each quantization group and reshapes/duplicates it to map
@@ -140,20 +152,21 @@ def cluster_matrix_parallel(x, n_bit=4):
     any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
     assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
-    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r, n_bit: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).cpu().numpy(), n_bit) for r in x)
+    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r, n_bit: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).detach().cpu().numpy(), n_bit) for r in x)
     assign = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.labels_))(kmeans) for kmeans in kmeans_list)
     any4 = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.cluster_centers_).reshape(2**n_bit))(kmeans) for kmeans in kmeans_list)
-    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1).cpu().numpy()) for kmeans, r in zip(kmeans_list, x))
+    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1).detach().cpu().numpy()) for kmeans, r in zip(kmeans_list, x))
 
-    assign = torch.stack(assign, dim=0).contiguous()
-    any4 = torch.stack(any4, dim=0).contiguous()
-    assign_val = torch.stack(assign_val, dim=0).contiguous()
+    assign = torch.stack(assign, dim=0).to(x.device).contiguous()
+    any4 = torch.stack(any4, dim=0).to(x.device).contiguous()
+    assign_val = torch.stack(assign_val, dim=0).to(x.device).contiguous()
 
     return assign, any4, assign_val
 
 
 def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, parallelize=True):
-    to_cluster, scales_and_zeros = group_quantize_tensor(x, n_bit, q_group_size)
+    to_cluster, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size)
+    print(to_cluster.unique())
 
     assign = None
     any4 = None
