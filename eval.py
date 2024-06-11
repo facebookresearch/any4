@@ -1,13 +1,14 @@
-from typing import List, Optional
+from typing import Callable, List, Optional
 from pathlib import Path
+import json
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 import lm_eval
 
-from any4 import convert, any4
+from any4 import convert, any4, intq
 
 def main(
     model_name: str,
+    quant_method: Callable,
     tasks: List[str],
     device: str,
     batch_size: int,
@@ -15,7 +16,6 @@ def main(
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
 ):
-    import json
     log_dir.mkdir(exist_ok=True)
 
     # instantiate an LM subclass that takes initialized model and can run
@@ -23,7 +23,7 @@ def main(
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
     lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize)
-    lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=any4)
+    lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method)
 
     # indexes all tasks from the `lm_eval/tasks` subdirectory.
     # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -48,16 +48,22 @@ def main(
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
+    quant_methods = {
+        "any4": any4,
+        "intq": intq,
+    }
 
     import argparse
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
-    parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
+    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
+    parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open","piqa","race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size.")
-    parser.add_argument("--log_dir", type=Path, default="./logs", help="Directory to log to.")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
+    parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
+    parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
 
     args = parser.parse_args()
 
-    main(model_name=args.model_name, tasks=args.tasks, device=args.device, batch_size=args.batch_size, log_dir=args.log_dir)
+    main(model_name=args.model_name, quant_method=quant_methods[args.quantize], tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
