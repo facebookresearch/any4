@@ -104,9 +104,9 @@ def group_dequantize_tensor(x, scales_and_zeros, n_bit, q_group_size=128):
     return out
 
 
-def intq(module: torch.nn.Module, n_bit: int = 4, q_group_size: int = 128):
-    w_q, scales_and_zeros = group_quantize_tensor(module.weight, n_bit, q_group_size)
-    w_deq = group_dequantize_tensor(w_q, scales_and_zeros, n_bit, q_group_size)
+def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128):
+    w_q, scales_and_zeros = group_quantize_tensor(module.weight, n_bit, group_size)
+    w_deq = group_dequantize_tensor(w_q, scales_and_zeros, n_bit, group_size)
 
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module

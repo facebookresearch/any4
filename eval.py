@@ -1,14 +1,16 @@
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import json
 import torch
 import lm_eval
+from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, any4, intq
 
 def main(
     model_name: str,
     quant_method: Callable,
+    quant_args: Dict,
     tasks: List[str],
     device: str,
     batch_size: int,
@@ -58,6 +60,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
+    parser.add_argument("--quantize-args", type=str, help="Arguments to pass to quantization method.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open","piqa","race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
@@ -66,4 +69,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(model_name=args.model_name, quant_method=quant_methods[args.quantize], tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
+    quant_args = None if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+
+    main(model_name=args.model_name, quant_method=quant_methods[args.quantize], quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
