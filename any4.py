@@ -152,7 +152,7 @@ def cluster_matrix_parallel(x, n_bit=4):
     any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
     assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
-    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r, n_bit: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).detach().cpu().numpy(), n_bit) for r in x)
+    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).detach().cpu().numpy()) for r in x)
     assign = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.labels_))(kmeans) for kmeans in kmeans_list)
     any4 = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.cluster_centers_).reshape(2**n_bit))(kmeans) for kmeans in kmeans_list)
     assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1).detach().cpu().numpy()) for kmeans, r in zip(kmeans_list, x))
@@ -166,7 +166,7 @@ def cluster_matrix_parallel(x, n_bit=4):
 
 def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, parallelize=True):
     to_cluster, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size)
-    print(to_cluster.unique())
+    # print(to_cluster.unique())
 
     assign = None
     any4 = None
