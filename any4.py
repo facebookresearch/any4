@@ -1,5 +1,6 @@
 from typing import Callable, Type
 import torch
+from joblib import Parallel, delayed
 import numpy as np
 import faiss
 from sklearn.cluster import KMeans
@@ -105,8 +106,7 @@ def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = 
                 kmeans = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(v.reshape(-1, 1))
                 return kmeans.cluster_centers_[kmeans.predict(v.reshape(-1, 1))].flatten()
 
-            for i in range(weight.shape[0]):
-                wq[i, :] = kmeans_clustering_vector(w[i,:])
+            wq = Parallel(n_jobs=-1)(delayed(kmeans_clustering_vector)(v) for v in w)
 
         case _:
             raise ValueError(f"Unsupported {quantization} type")
