@@ -42,7 +42,8 @@ task_manager = lm_eval.tasks.TaskManager()
 # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
 results = lm_eval.simple_evaluate( # call simple_evaluate
     model=lm_obj,
-    tasks=["social_iqa", "piqa"],
+    # tasks=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open","piqa","race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"],
+    tasks=["arc_easy","arc_challenge","hellaswag","piqa","race","social_iqa","winogrande"],
     num_fewshot=0,
     task_manager=task_manager,
     # model_args={"parallelize": True},
