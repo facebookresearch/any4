@@ -13,13 +13,8 @@ def main(
     batch_size: int,
     log_dir: Path,
     num_fewshot: Optional[int] = None,
+    parallelize: bool = True,
 ):
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
-
-    model.eval()
-    model = convert(model, layer_from=torch.nn.Linear, layer_to=any4)
-    model = model.to(device)
-
     import json
     log_dir.mkdir(exist_ok=True)
 
@@ -27,8 +22,8 @@ def main(
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
-    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model, batch_size=batch_size)#, parallelize=True)
-    # lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=any4)
+    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize)
+    lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=any4)
 
     # indexes all tasks from the `lm_eval/tasks` subdirectory.
     # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -41,9 +36,9 @@ def main(
     results = lm_eval.simple_evaluate( # call simple_evaluate
         model=lm_obj,
         tasks=tasks,
-        num_fewshot=None,
+        num_fewshot=num_fewshot,
         task_manager=task_manager,
-        # model_args={"parallelize": True},
+        model_args={"parallelize": parallelize},
     )
 
     print(results["results"])
