@@ -128,24 +128,26 @@ def cluster_matrix(x, n_bit=4):
 
 def cluster_row(r, n_bit=4):
     clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
-    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
     assign = torch.from_numpy(clusters.labels_)
+    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
     assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
 
     return assign, any4, assign_val
 
 
 def cluster_matrix_parallel(x, n_bit=4):
-    results: List = Parallel(n_jobs=-1)(delayed(cluster_row)(r.reshape(x.size(1), 1).cpu().numpy(), n_bit) for r in x)
-    # Transpose the list of tuples to a tuple of lists
-    results_transposed = tuple(zip(*results))
-    # Convert each item in the tuple (which are tuples) to lists
-    results_transposed = tuple(list(item) for item in results_transposed)
+    assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
+    any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
+    assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
-    # Unpack into different matrices
-    assign = torch.stack(results_transposed[0], dim=0).contiguous().to(x.device)
-    any4 = torch.stack(results_transposed[1], dim=0).contiguous().to(x.device)
-    assign_val = torch.stack(results_transposed[2], dim=0).contiguous().to(x.device)
+    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r, n_bit: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).cpu().numpy(), n_bit) for r in x)
+    assign = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.labels_))(kmeans) for kmeans in kmeans_list)
+    any4 = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.cluster_centers_).reshape(2**n_bit))(kmeans) for kmeans in kmeans_list)
+    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1).cpu().numpy()) for kmeans, r in zip(kmeans_list, x))
+
+    assign = torch.stack(assign, dim=0).contiguous()
+    any4 = torch.stack(any4, dim=0).contiguous()
+    assign_val = torch.stack(assign_val, dim=0).contiguous()
 
     return assign, any4, assign_val
 
