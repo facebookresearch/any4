@@ -152,10 +152,12 @@ def cluster_matrix_parallel(x, n_bit=4):
     any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
     assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
-    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1).detach().cpu().numpy()) for r in x)
+    x_np = x.detach().cpu().numpy()
+
+    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1)) for r in x_np)
     assign = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.labels_))(kmeans) for kmeans in kmeans_list)
     any4 = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.cluster_centers_).reshape(2**n_bit))(kmeans) for kmeans in kmeans_list)
-    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1).detach().cpu().numpy()) for kmeans, r in zip(kmeans_list, x))
+    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1)) for kmeans, r in zip(kmeans_list, x_np))
 
     assign = torch.stack(assign, dim=0).to(x.device).contiguous()
     any4 = torch.stack(any4, dim=0).to(x.device).contiguous()
