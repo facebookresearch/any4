@@ -1,4 +1,4 @@
-from typing import Callable, Type
+from typing import Callable, List, Tuple, Type
 import torch
 from joblib import Parallel, delayed
 import numpy as np
@@ -111,18 +111,6 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128):
     module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-# TBD:
-def cluster_row(row):
-    assign = torch.zeros(x.size(1), dtype=torch.int32, device=x.device)
-    any4 = torch.zeros((16), dtype=x.dtype, device=x.device)
-
-    r = row.reshape(row.size(1), 1).cpu().numpy()
-    clusters = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(r)
-    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(16)
-    assign = torch.from_numpy(clusters.labels_)
-
-    return assign, any4
-
 
 def cluster_matrix(x, n_bit=4):
     assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
@@ -138,11 +126,36 @@ def cluster_matrix(x, n_bit=4):
     return assign, any4, assign_val
 
 
-def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True):
+def cluster_row(r, n_bit=4):
+    clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
+    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
+    assign = torch.from_numpy(clusters.labels_)
+    assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
+
+    return assign, any4, assign_val
+
+
+def cluster_matrix_parallel(x, n_bit=4):
+    results: List = Parallel(n_jobs=-1)(delayed(cluster_row)(r.reshape(x.size(1), 1).cpu().numpy(), n_bit) for r in x)
+    # Transpose the list of tuples to a tuple of lists
+    results_transposed = tuple(zip(*results))
+    # Convert each item in the tuple (which are tuples) to lists
+    results_transposed = tuple(list(item) for item in results_transposed)
+
+    # Unpack into different matrices
+    assign = torch.stack(results_transposed[0], dim=0).contiguous().to(x.device)
+    any4 = torch.stack(results_transposed[1], dim=0).contiguous().to(x.device)
+    assign_val = torch.stack(results_transposed[2], dim=0).contiguous().to(x.device)
+
+    return assign, any4, assign_val
+
+
+def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, parallelize=True):
     to_cluster, scales_and_zeros = group_quantize_tensor(x, n_bit, q_group_size)
 
     assign = None
     any4 = None
+    assign_val = None
 
     if bias_extreme_values:
         # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
@@ -155,7 +168,10 @@ def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True):
         # give more weight to extremal values by considering the signed square
         to_cluster = (to_cluster ** 2) * torch.sign(to_cluster)
 
-    assign, any4, assign_val = cluster_matrix(to_cluster)
+    if parallelize:
+        assign, any4, assign_val = cluster_matrix_parallel(to_cluster, n_bit)
+    else:
+        assign, any4, assign_val = cluster_matrix(to_cluster, n_bit)
     if bias_extreme_values:
         # undo the square
         any4 = torch.sqrt(any4.abs()) * torch.sign(any4)
