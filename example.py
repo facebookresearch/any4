@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 
-from any4 import convert, any4
+from any4 import convert, any4, anyq
 device = "cpu"
 # device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -28,7 +28,7 @@ outputs = model.generate(inputs, streamer=streamer, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
 
 print("Any4:")
-model = convert(model, layer_from=torch.nn.Linear, layer_to=any4)
+model = convert(model, layer_from=torch.nn.Linear, layer_to=anyq)
 outputs = model.generate(inputs, streamer=streamer, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
 
