@@ -99,10 +99,17 @@ def group_dequantize_tensor(x, scales_and_zeros, n_bit, q_group_size=128):
 
     min_val = zeros - scales * (2 ** (n_bit - 1))
 
-    out = x.bfloat16() * scales + min_val
+    out = x * scales + min_val
 
     return out
 
+
+def intq(module: torch.nn.Module, n_bit: int = 4, q_group_size: int = 128):
+    w_q, scales_and_zeros = group_quantize_tensor(module.weight, n_bit, q_group_size)
+    w_deq = group_dequantize_tensor(w_q, scales_and_zeros, n_bit, q_group_size)
+
+    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    return module
 
 def anyq(module: torch.nn.Module, n_bits: int=4, n_rows: int= 2048, n_iter: int=20):
     out_features, in_features = module.weight.shape
