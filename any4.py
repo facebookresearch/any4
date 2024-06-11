@@ -99,7 +99,10 @@ def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = 
             wq = wq_proc # wq_proc[:out_features, :in_features]
 
         case "clustering":
-            w = weight.detach().numpy()
+            try:
+                w = weight.detach().numpy()
+            except:
+                w = weight.cpu().detach().numpy()
             wq = w
 
             def kmeans_clustering_vector(v):
