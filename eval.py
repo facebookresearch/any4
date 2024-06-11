@@ -50,3 +50,5 @@ results = lm_eval.simple_evaluate( # call simple_evaluate
 )
 
 print(results["results"])
+with open(f"{log_dir}/results.json", "w") as f:
+    json.dump(results["results"], f, indent=4)
