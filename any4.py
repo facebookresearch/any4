@@ -21,7 +21,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
     index = 0
     for name, module in model.named_modules():
         if isinstance(module, (layer_from)):
-            print(f"name: {name}", end="")
+            print(f"\t{name}", end="")
             # TODO: do this in a cleaner way
             # if "mlp" not in name:
             #     print("...Skip")
