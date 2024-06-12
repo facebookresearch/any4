@@ -6,6 +6,7 @@ import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, any4, intq, anyq
+from utils import PosixPathEncoder
 
 def main(
     model_name: str,
@@ -18,14 +19,21 @@ def main(
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
 ):
-    log_dir.mkdir(exist_ok=True)
+    # Log args
+    args = locals()
+    print(args)
+    with Path(log_dir/"args.json").open("w") as f:
+        json.dump(args, f, indent=4, cls=PosixPathEncoder)
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
     lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize)
-    lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method)
+
+    # Apply our quantization algorithms
+    if quant_method:
+        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
 
     # indexes all tasks from the `lm_eval/tasks` subdirectory.
     # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -43,6 +51,7 @@ def main(
         model_args={"parallelize": parallelize},
     )
 
+    # Log results
     print(results["results"])
     with Path(log_dir/"results.json").open("w") as f:
         json.dump(results["results"], f, indent=4)
