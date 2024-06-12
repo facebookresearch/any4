@@ -12,8 +12,9 @@ from utils import CustomJSONEncoder
 
 def main(
     model_name: str,
-    quant_method: Callable,
     quant_args: Dict,
+    quant_method: Callable,
+    model_args: Dict,
     tasks: List[str],
     device: str,
     batch_size: int,
@@ -21,17 +22,23 @@ def main(
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
 ):
+    log_dir.mkdir(exist_ok=True)
     # Log args
     args = locals()
     print(args)
     with Path(log_dir/"args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
+    # Log command to a file
+    arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
+    with open(log_dir / "command_line.txt", "w") as f:
+        f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
+
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
-    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize)
+    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize, **model_args)
 
     # Apply our quantization algorithms
     if quant_method:
@@ -71,8 +78,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
+    parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
-    parser.add_argument("--quantize-args", type=str, help="Arguments to pass to quantization method.")
+    parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open","piqa","race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
@@ -81,14 +89,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Log command to a file
-    arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
-    with open(args.log_dir / "command_line.txt", "w") as f:
-        f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
-
     # Pre-process some args
+    model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
+    main(model_name=args.model_name, model_args=model_args, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
