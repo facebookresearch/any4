@@ -209,6 +209,9 @@ def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_ex
     module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
+def kmeans_clustering_vector(v):
+    kmeans = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(v.reshape(-1, 1))
+    return kmeans.cluster_centers_[kmeans.predict(v.reshape(-1, 1))].flatten()
 
 def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = "clustering"):
     weight = module.weight.clone()
@@ -258,11 +261,6 @@ def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = 
             except:
                 w = weight.cpu().detach().numpy()
             wq = w
-
-            def kmeans_clustering_vector(v):
-                kmeans = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(v.reshape(-1, 1))
-                return kmeans.cluster_centers_[kmeans.predict(v.reshape(-1, 1))].flatten()
-
             wq = Parallel(n_jobs=-1)(delayed(kmeans_clustering_vector)(v) for v in w)
 
         case _:
