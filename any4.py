@@ -140,28 +140,25 @@ def cluster_matrix(x, n_bit=4):
 
 def cluster_row(r, n_bit=4):
     clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
-    assign = torch.from_numpy(clusters.labels_)
     any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
+    assign = torch.from_numpy(clusters.labels_)
     assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
 
     return assign, any4, assign_val
 
 
 def cluster_matrix_parallel(x, n_bit=4):
-    assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
-    any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
-    assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
-
     x_np = x.detach().cpu().numpy()
+    results: List = Parallel(n_jobs=-1)(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
+    # Transpose the list of tuples to a tuple of lists
+    results_transposed = tuple(zip(*results))
+    # Convert each item in the tuple (which are tuples) to lists
+    results_transposed = tuple(list(item) for item in results_transposed)
 
-    kmeans_list: List[KMeans] = Parallel(n_jobs=-1)(delayed(lambda r: KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r))(r.reshape(x.size(1), 1)) for r in x_np)
-    assign = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.labels_))(kmeans) for kmeans in kmeans_list)
-    any4 = Parallel(n_jobs=-1)(delayed(lambda kmeans: torch.from_numpy(kmeans.cluster_centers_).reshape(2**n_bit))(kmeans) for kmeans in kmeans_list)
-    assign_val = Parallel(n_jobs=-1)(delayed(lambda kmeans, r: torch.from_numpy(kmeans.cluster_centers_[kmeans.predict(r)]).flatten())(kmeans, r.reshape(x.size(1), 1)) for kmeans, r in zip(kmeans_list, x_np))
-
-    assign = torch.stack(assign, dim=0).to(x.device).contiguous()
-    any4 = torch.stack(any4, dim=0).to(x.device).contiguous()
-    assign_val = torch.stack(assign_val, dim=0).to(x.device).contiguous()
+    # Unpack into different matrices
+    assign = torch.stack(results_transposed[0], dim=0).contiguous().to(x.device)
+    any4 = torch.stack(results_transposed[1], dim=0).contiguous().to(x.device)
+    assign_val = torch.stack(results_transposed[2], dim=0).contiguous().to(x.device)
 
     return assign, any4, assign_val
 
@@ -203,10 +200,19 @@ def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, p
 
 
 def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_extreme_values: bool = False):
-    _, _, assign_val, scales_and_zeros = quantize_to_any4(module.weight.t(), n_bit, group_size, bias_extreme_values)
-    w_deq = group_dequantize_tensor(assign_val, scales_and_zeros, n_bit, group_size)
+    w = module.weight.t()
 
-    module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
+    if w.shape[-1] % group_size != 0:
+        # group_size = w.shape[-1]
+        # TODO: perhaps check if emedding and unembedding are tied, and exit if that's the case
+        return module
+
+    _, _, assign_val, scales_and_zeros = quantize_to_any4(w, n_bit, group_size, bias_extreme_values)
+    w_deq = group_dequantize_tensor(assign_val, scales_and_zeros, n_bit, group_size)
+    w_deq = w_deq.reshape(w.shape).t()
+    assert w_deq.shape == module.weight.shape
+
+    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
 def kmeans_clustering_vector(v):
