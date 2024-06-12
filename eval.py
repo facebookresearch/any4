@@ -1,12 +1,14 @@
 from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import json
+import os
+import sys
 import torch
 import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, any4, intq, anyq
-from utils import PosixPathEncoder
+from utils import CustomJSONEncoder
 
 def main(
     model_name: str,
@@ -23,7 +25,7 @@ def main(
     args = locals()
     print(args)
     with Path(log_dir/"args.json").open("w") as f:
-        json.dump(args, f, indent=4, cls=PosixPathEncoder)
+        json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
@@ -79,6 +81,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    quant_args = None if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    # Log command to a file
+    arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
+    with open(args.log_dir / "command_line.txt", "w") as f:
+        f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
-    main(model_name=args.model_name, quant_method=quant_methods[args.quantize], quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
+    # Pre-process some args
+    quant_method = None if not args.quantize else quant_methods[args.quantize]
+    quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+
+    # Run Evaluation
+    main(model_name=args.model_name, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
