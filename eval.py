@@ -5,6 +5,7 @@ import os
 import sys
 import torch
 import lm_eval
+import transformers
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, any4, intq, anyq
@@ -21,6 +22,7 @@ def main(
     log_dir: Path,
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
+    bnb_args: Optional[Dict] = None,
 ):
     log_dir.mkdir(exist_ok=True)
     # Log args
@@ -33,6 +35,15 @@ def main(
     arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
+
+    if bnb_args:
+        bnb_config = transformers.BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        model_args["quantization_config"] = bnb_config
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
@@ -81,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
+    parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open","piqa","race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
@@ -93,6 +105,7 @@ if __name__ == '__main__':
     model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, model_args=model_args, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir)
+    main(model_name=args.model_name, model_args=model_args, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir, bnb_args=bnb_args)
