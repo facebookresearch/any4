@@ -28,7 +28,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
             #     print("...Skip")
             #     continue
             layer_to(module, **kwargs)
-            print("...Done", flush=True)
+            print("... Done", flush=True)
             index += 1
             if index == 6e6:
                 break
@@ -133,38 +133,73 @@ def expand_q_groups(x, orig_size, q_group_size):
     return out.contiguous().view(orig_size)
 
 
-def group_dequantize_tensor(x, scales_and_zeros, n_bit, q_group_size=128):
-    scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
-    zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
+# performs quantization and dequantization under N-bit grouped integer quantization
+# (i.e., returns the effective result of the quantization algorithm)
+def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
+    n_bit = 4
+    int4, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(8)
 
-    scales = expand_q_groups(scales, x.size(), q_group_size)
-    zeros = expand_q_groups(zeros, x.size(), q_group_size)
+    assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
 
-    min_val = zeros - scales * (2 ** (n_bit - 1))
+    if parallelize:
+        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
+        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
-    out = x * scales + min_val
+        scales = expand_q_groups(scales, x.size(), q_group_size)
+        zeros = expand_q_groups(zeros, x.size(), q_group_size)
 
-    return out
+        reconstructed = int4 * scales + zeros
+    else:
+        reconstructed = torch.zeros_like(x)
+
+        for r in range(x.size(0)):
+            for c in range(x.size(1)):
+                q_group = c // q_group_size
+                reconstructed[r][c] = int4[r][c] * scales_and_zeros[q_group][r][0] + scales_and_zeros[q_group][r][1]
+
+    return reconstructed
 
 
-def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128):
-    w_q, scales_and_zeros = group_quantize_tensor(module.weight.t(), n_bit, group_size)
-    w_deq = group_dequantize_tensor(w_q, scales_and_zeros, n_bit, group_size)
+def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=True):
+    w = module.weight.clone()
 
-    module.weight.data = w_deq.t().to(device=module.weight.device, dtype=module.weight.dtype)
+    if transpose:
+        w = w.t()
+
+    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size)
+
+    if transpose:
+        w_deq = w_deq.t()
+
+    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
 
-def cluster_matrix(x, n_bit=4):
-    assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
-    any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
-    assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
-    for row in range(x.size(0)):
-        r = x[row].reshape(x.size(1), 1).detach().cpu().numpy()
-        clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
-        any4[row] = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
-        assign[row] = torch.from_numpy(clusters.labels_)
-        assign_val[row] = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
+def cluster_matrix(x, n_bit=4, bias_pow=1.0, parallelize=True):
+    if bias_pow > 1.0:
+        # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
+        # for greater representation.
+        # Values are in the range [0, 15] so subtract (15 - 0) / 2 = 7.5 to approximately zero center the data
+        #
+        # Note that there is no guarantee that each q-group is itself zero centered (there can be a "DC bias")
+        # but note that across all q-groups, values closer to 0 and closer to 15 are extremal values
+        x = x - ((2 ** n_bit) - 1) / 2. 
+        # give more weight to extremal values by considering the signed square
+        x = (x.abs() ** bias_pow) * torch.sign(x)
+
+    if parallelize:
+        assign, any4, assign_val = cluster_rows_parallel(x)
+    else:
+        assign, any4, assign_val = cluster_rows(x)
+
+    if bias_pow > 1.0:
+        # undo the pow
+
+        any4 = (any4.abs() ** (1. / bias_pow)) * torch.sign(any4)
+
+        # map values back to [0, 15]
+        any4 = any4 + ((2 ** n_bit) - 1) / 2.
 
     return assign, any4, assign_val
 
@@ -177,12 +212,23 @@ def cluster_row(r, n_bit=4):
 
     return assign, any4, assign_val
 
+def cluster_rows(x, n_bit=4):
+    assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
+    any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
+    assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
-def cluster_matrix_parallel(x, n_bit=4):
+    for row in range(x.size(0)):
+        r = x[row].reshape(x.size(1), 1).cpu().numpy()
+        any4[row], assign[row], assign_val[row] = cluster_row(r, n_bit)
+
+    return assign, any4, assign_val
+
+
+def cluster_rows_parallel(x, n_bit=4):
     x_np = x.cpu().detach().numpy()
     start = time.time()
     results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
-    print(f"...{time.time() - start} s", end="", flush=True)
+    print(f"... {time.time() - start:.2f} s ", end="", flush=True)
     # Transpose the list of tuples to a tuple of lists
     results_transposed = tuple(zip(*results))
     # Convert each item in the tuple (which are tuples) to lists
@@ -195,128 +241,56 @@ def cluster_matrix_parallel(x, n_bit=4):
 
     return assign, any4, assign_val
 
+def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0):
+    to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow)
 
-def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, parallelize=True):
-    to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size)
-    # print(to_cluster.unique())
+    # any4 above is roughly in the range [0+eps, 15+eps], but dequant expects [-8+eps, 7+eps]
+    # so adjust for usage
+    any4 = any4 - 2.0 ** (n_bit - 1)
+    any4 = any4.to(dtype=x.dtype)
+    print(any4)
 
-    assign = None
-    any4 = None
-    assign_val = None
+    return assign, any4.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
 
-    if bias_extreme_values:
-        # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
-        # for greater representation.
-        # Values are in the range [0, 15] so subtract (15 - 0) / 2 = 7.5 to approximately zero center the data
-        #
-        # Note that there is no guarantee that each q-group is itself zero centered (there can be a "DC bias")
-        # but note that across all q-groups, values closer to 0 and closer to 15 are extremal values
-        to_cluster = to_cluster - ((2 ** n_bit) - 1) / 2. 
-        # give more weight to extremal values by considering the signed square
-        to_cluster = (to_cluster ** 2) * torch.sign(to_cluster)
+
+# performs quantization and dequantization under any4 scalar k-means grouped integer quantization
+# (i.e., returns the effective result of the quantization algorithm)
+def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, parallelize=True):
+    to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+
+    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow)
+    any4.sub_(2**(n_bit - 1))
+    assign_val.sub_(2**(n_bit - 1))
 
     if parallelize:
-        assign, any4, assign_val = cluster_matrix_parallel(to_cluster.clone(), n_bit)
+        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
+        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
+
+        scales = expand_q_groups(scales, x.size(), q_group_size)
+        zeros = expand_q_groups(zeros, x.size(), q_group_size)
+
+        reconstructed = assign_val * scales + zeros
     else:
-        assign, any4, assign_val = cluster_matrix(to_cluster, n_bit)
-    if bias_extreme_values:
-        # undo the square
-        any4 = torch.sqrt(any4.abs()) * torch.sign(any4)
+        reconstructed = torch.zeros_like(x)
+        for r in range(x.size(0)):
+            for c in range(x.size(1)):
+                q_group = c // q_group_size
+                reconstructed[r][c] = (any4[r][assign[r][c]]) * scales_and_zeros[q_group][r][0] + scales_and_zeros[q_group][r][1]
 
-        # map values back to [0, 15]
-        any4 = any4 + ((2 ** n_bit) - 1) / 2.
-
-    # dequant is in the range [-8, 7] so adjust again
-    any4 = any4 - 2 ** (n_bit - 1)
-
-    return assign, any4.to(dtype=x.dtype), assign_val.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
+    return reconstructed
 
 
-def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_extreme_values: bool = False):
-    w = module.weight.t()
+def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_pow=1.0, transpose=False):
+    w = module.weight.clone()
+    if transpose:
+        w = w.t()
 
-    if w.shape[-1] % group_size != 0:
-        # group_size = w.shape[-1]
-        # TODO: perhaps check if emedding and unembedding are tied, and exit if that's the case
-        return module
+    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, bias_pow=bias_pow)
 
-    _, _, assign_val, scales_and_zeros = quantize_to_any4(w, n_bit, group_size, bias_extreme_values)
-    w_deq = group_dequantize_tensor(assign_val, scales_and_zeros, n_bit, group_size)
-    w_deq = w_deq.reshape(w.shape).t()
-    assert w_deq.shape == module.weight.shape
+    if transpose:
+        w_deq = w_deq.t()
 
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-def kmeans_clustering_vector(v):
-    kmeans = KMeans(n_clusters=16, random_state=0, n_init="auto").fit(v.reshape(-1, 1))
-    return kmeans.cluster_centers_[kmeans.predict(v.reshape(-1, 1))].flatten()
-
-def any4(module: torch.nn.Module, granularity: str = "col", quantization: str = "clustering"):
-    weight = module.weight.clone()
-
-    # reshape based on granularity
-    match granularity:
-        case "row":
-            pass
-        case "col":
-            weight = weight.transpose(0, 1)
-        case "8x8":
-            # TODO: reshape or review into <fo//8, fi//8, 8, 8>
-            raise ValueError(f"Unsupported {granularity} type")
-        case _:
-            raise ValueError(f"Unsupported {granularity} type")
-
-    match quantization:
-        case "scalar":
-            groups, dim = weight.shape
-            # QT_4bit allocates 4 bits per dimension
-            sq = faiss.ScalarQuantizer(dim, faiss.ScalarQuantizer.QT_4bit)
-
-            w = weight
-            w_proc = w # torch.cat((w, w.quantile(q=0.0, dim=-1).repeat(1, 20), w.quantile(q=1.0, dim=-1).repeat(1, 20)), dim=-1)
-            try:
-                # this should work if faiss-gpu is working
-                sq.train(w_proc.detach())
-            except:
-                # this should work if faiss-cpu is working
-                if module.weight.dtype == torch.bfloat16:
-                    w_proc = w_proc.half()
-                sq.train(w_proc.detach().cpu())
-
-            # decode 
-            try:
-                # this should work if faiss-gpu is working
-                codes_proc = sq.compute_codes(w_proc.detach())
-            except:
-                # this should work if faiss-cpu is working
-                codes_proc = sq.compute_codes(w_proc.detach().cpu())
-            wq_proc = sq.decode(codes_proc)
-            wq = wq_proc # wq_proc[:out_features, :in_features]
-
-        case "clustering":
-            try:
-                w = weight.detach().numpy()
-            except:
-                w = weight.cpu().detach().numpy()
-            wq = w
-            wq = Parallel(n_jobs=-1)(delayed(kmeans_clustering_vector)(v) for v in w)
-
-        case _:
-            raise ValueError(f"Unsupported {quantization} type")
-
-    # reshape based on granularity
-    match granularity:
-        case "row":
-            pass
-        case "col":
-            wq = np.transpose(wq)
-        case "8x8":
-            # TODO: reshape or review into <fo, fi>
-            raise ValueError(f"Unsupported {granularity} type")
-        case _:
-            raise ValueError(f"Unsupported {granularity} type")
-
-    module.weight.data = torch.from_numpy(wq).to(device=module.weight.device, dtype=module.weight.dtype)
-
-    return module

@@ -8,7 +8,7 @@ import transformers
 import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
-from any4 import convert, any4, intq, anyq
+from any4 import convert, intq, anyq
 from utils import CustomJSONEncoder
 
 def main(
@@ -80,7 +80,6 @@ def main(
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
     quant_methods = {
-        "any4": any4,
         "intq": intq,
         "anyq": anyq,
     }
