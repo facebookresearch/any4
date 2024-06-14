@@ -149,7 +149,9 @@ def cluster_row(r, n_bit=4):
 
 def cluster_matrix_parallel(x, n_bit=4):
     x_np = x.detach().cpu().numpy()
-    results: List = Parallel(n_jobs=-1)(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
+    start = time.time()
+    results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
+    print(f"...{time.time() - start} s", end="", flush=True)
     # Transpose the list of tuples to a tuple of lists
     results_transposed = tuple(zip(*results))
     # Convert each item in the tuple (which are tuples) to lists
