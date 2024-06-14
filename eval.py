@@ -4,8 +4,8 @@ import json
 import os
 import sys
 import torch
-import lm_eval
 import transformers
+import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, any4, intq, anyq

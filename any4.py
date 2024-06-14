@@ -1,4 +1,5 @@
 from typing import Callable, List, Tuple, Type
+import time
 import torch
 from joblib import Parallel, delayed
 import numpy as np
@@ -185,7 +186,7 @@ def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, p
         to_cluster = (to_cluster ** 2) * torch.sign(to_cluster)
 
     if parallelize:
-        assign, any4, assign_val = cluster_matrix_parallel(to_cluster, n_bit)
+        assign, any4, assign_val = cluster_matrix_parallel(to_cluster.clone(), n_bit)
     else:
         assign, any4, assign_val = cluster_matrix(to_cluster, n_bit)
     if bias_extreme_values:
