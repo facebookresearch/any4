@@ -21,13 +21,13 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
     index = 0
     for name, module in model.named_modules():
         if isinstance(module, (layer_from)):
-            print(f"\t{name}", end="")
+            print(f"\t{name}", end="", flush=True)
             # TODO: do this in a cleaner way
             # if "mlp" not in name:
             #     print("...Skip")
             #     continue
             layer_to(module, **kwargs)
-            print("...Done")
+            print("...Done", flush=True)
             index += 1
             if index == 6e6:
                 break
