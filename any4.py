@@ -129,7 +129,7 @@ def cluster_matrix(x, n_bit=4):
     any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
     assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
     for row in range(x.size(0)):
-        r = x[row].reshape(x.size(1), 1).cpu().numpy()
+        r = x[row].reshape(x.size(1), 1).detach().cpu().numpy()
         clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
         any4[row] = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
         assign[row] = torch.from_numpy(clusters.labels_)
