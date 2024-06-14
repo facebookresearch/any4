@@ -24,7 +24,7 @@ def main(
     parallelize: bool = True,
     bnb_args: Optional[Dict] = None,
 ):
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
     args = locals()
     print(args)
