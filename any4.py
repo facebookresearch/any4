@@ -148,9 +148,14 @@ def cluster_row(r, n_bit=4):
     return assign, any4, assign_val
 
 
-def cluster_matrix_parallel(x, n_bit=4):
+def cluster_matrix_parallel(x, n_bit=4, hack=True):
     x_np = x.detach().cpu().numpy()
     start = time.time()
+    if hack:
+        assign_val = Parallel(n_jobs=-1)(delayed(kmeans_clustering_vector)(v) for v in x_np)
+        assign_val = torch.from_numpy(np.stack(assign_val, axis=0)).contiguous().to(x.device)
+        print(f"...{time.time() - start} s", end="", flush=True)
+        return None, None, assign_val
     results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
     print(f"...{time.time() - start} s", end="", flush=True)
     # Transpose the list of tuples to a tuple of lists
@@ -187,6 +192,7 @@ def quantize_to_any4(x, n_bit = 4, q_group_size=128, bias_extreme_values=True, p
 
     if parallelize:
         assign, any4, assign_val = cluster_matrix_parallel(to_cluster.clone(), n_bit)
+        return None, None, assign_val.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
     else:
         assign, any4, assign_val = cluster_matrix(to_cluster, n_bit)
     if bias_extreme_values:
