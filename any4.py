@@ -177,7 +177,7 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
 
 
 def cluster_matrix(x, n_bit=4, bias_pow=1.0, parallelize=True):
-    if bias_pow > 1.0:
+    if bias_pow != 1.0:
         # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
         # for greater representation.
         # Values are in the range [0, 15] so subtract (15 - 0) / 2 = 7.5 to approximately zero center the data
@@ -193,7 +193,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, parallelize=True):
     else:
         assign, any4, assign_val = cluster_rows(x)
 
-    if bias_pow > 1.0:
+    if bias_pow != 1.0:
         # undo the pow
 
         any4 = (any4.abs() ** (1. / bias_pow)) * torch.sign(any4)
