@@ -177,7 +177,7 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
     return module
 
 def cluster_row_custom(r, n_bit=4):
-    assign, any4, assign_val = kmeans.KMeans(r, K=2**n_bit, Niter=100)
+    assign, any4, assign_val = kmeans.KMeans(r, n_clusters=2**n_bit, max_iter=100)
     return assign, any4.flatten(), assign_val.flatten()
 
 def cluster_row_scikit(r, n_bit=4):

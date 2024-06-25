@@ -1,8 +1,9 @@
 import torch
 import time
 
-def KMeans(x, K=10, Niter=10, verbose=False):
+def KMeans(x, n_clusters=10, max_iter=10, verbose=False):
     """Implements Lloyd's algorithm for the Euclidean metric."""
+    K = n_clusters
 
     start = time.time()
     N, D = x.shape  # Number of samples, dimension of the ambient space
@@ -18,7 +19,7 @@ def KMeans(x, K=10, Niter=10, verbose=False):
     # - x  is the (N, D) point cloud,
     # - cl is the (N,) vector of class labels
     # - c  is the (K, D) cloud of cluster centroids
-    for i in range(Niter):
+    for i in range(max_iter):
         # E step: assign points to the closest cluster -------------------------
         D_ij = ((x_i - c_j) ** 2).sum(-1)  # (N, K) symbolic squared distances
         cl = D_ij.argmin(dim=1).long().view(-1)  # Points -> Nearest cluster
@@ -42,7 +43,7 @@ def KMeans(x, K=10, Niter=10, verbose=False):
         )
         print(
             "Timing for {} iterations: {:.5f}s = {} x {:.5f}s\n".format(
-                Niter, end - start, Niter, (end - start) / Niter
+                max_iter, end - start, max_iter, (end - start) / max_iter
             )
         )
 
