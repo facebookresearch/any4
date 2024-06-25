@@ -3,9 +3,9 @@ import time
 import torch
 from joblib import Parallel, delayed
 import numpy as np
-import faiss
-from sklearn.cluster import KMeans
+import sklearn.cluster
 
+import kmeans
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -150,6 +150,7 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
         zeros = expand_q_groups(zeros, x.size(), q_group_size)
 
         reconstructed = int4 * scales + zeros
+        reconstructed = reconstructed.to(dtype=x.dtype)
     else:
         reconstructed = torch.zeros_like(x)
 
@@ -175,8 +176,20 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
+def cluster_row_custom(r, n_bit=4):
+    assign, any4, assign_val = kmeans.KMeans(r, K=2**n_bit, Niter=100)
+    return assign, any4.flatten(), assign_val.flatten()
 
-def cluster_matrix(x, n_bit=4, bias_pow=1.0, parallelize=True):
+def cluster_row_scikit(r, n_bit=4):
+    r = r.numpy()
+    clusters = sklearn.cluster.KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
+    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
+    assign = torch.from_numpy(clusters.labels_)
+    assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
+
+    return assign, any4, assign_val
+
+def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, parallelize=True):
     if bias_pow != 1.0:
         # k-means should be roughly zero centered, since we should bias larger magnitude (negative or positive) values
         # for greater representation.
@@ -188,62 +201,68 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, parallelize=True):
         # give more weight to extremal values by considering the signed square
         x = (x.abs() ** bias_pow) * torch.sign(x)
 
+    start = time.time()
     if parallelize:
-        assign, any4, assign_val = cluster_rows_parallel(x)
+        assign, any4, assign_val = cluster_rows_parallel(x.cpu().detach(), cluster_row=cluster_row)
     else:
-        assign, any4, assign_val = cluster_rows(x)
+        assign, any4, assign_val = cluster_rows(x.cpu().detach(), cluster_row=cluster_row)
+    assign = assign.to(x.device)
+    any4 = any4.to(x.device)
+    assign_val = assign_val.to(x.device)
+    print(f"... {time.time() - start:.2f} s ", end="", flush=True)
+
+
+    if keep_outliers:
+        max_outliers = torch.amax(x, dim=1, keepdim=True)
+        min_outliers = torch.amin(x, dim=1, keepdim=True)
+
+        any4.scatter_(dim=1, index=torch.argmax(any4, dim=1, keepdim=True), src=max_outliers)
+        any4.scatter_(dim=1, index=torch.argmin(any4, dim=1, keepdim=True), src=min_outliers)
+
+        assign_val.scatter_(dim=1, index=torch.argmax(assign_val, dim=1, keepdim=True), src=max_outliers)
+        assign_val.scatter_(dim=1, index=torch.argmin(assign_val, dim=1, keepdim=True), src=min_outliers)
 
     if bias_pow != 1.0:
         # undo the pow
 
         any4 = (any4.abs() ** (1. / bias_pow)) * torch.sign(any4)
+        assign_val = (assign_val.abs() ** (1. / bias_pow)) * torch.sign(assign_val)
 
         # map values back to [0, 15]
         any4 = any4 + ((2 ** n_bit) - 1) / 2.
+        assign_val = assign_val + ((2 ** n_bit) - 1) / 2.
 
     return assign, any4, assign_val
 
-
-def cluster_row(r, n_bit=4):
-    clusters = KMeans(n_clusters=2**n_bit, random_state=0, n_init="auto").fit(r)
-    any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
-    assign = torch.from_numpy(clusters.labels_)
-    assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
-
-    return assign, any4, assign_val
-
-def cluster_rows(x, n_bit=4):
+def cluster_rows(x, n_bit=4, cluster_row: Callable = cluster_row_scikit):
     assign = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
     any4 = torch.zeros((x.size(0), 2**n_bit), dtype=x.dtype, device=x.device)
     assign_val = torch.zeros(x.size(), dtype=torch.int32, device=x.device)
 
     for row in range(x.size(0)):
-        r = x[row].reshape(x.size(1), 1).cpu().numpy()
-        any4[row], assign[row], assign_val[row] = cluster_row(r, n_bit)
+        r = x[row].reshape(x.size(1), 1)
+        assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit)
 
     return assign, any4, assign_val
 
 
-def cluster_rows_parallel(x, n_bit=4):
-    x_np = x.cpu().detach().numpy()
-    start = time.time()
-    results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x_np)
-    print(f"... {time.time() - start:.2f} s ", end="", flush=True)
+def cluster_rows_parallel(x, n_bit=4, cluster_row: Callable = cluster_row_scikit):
+    results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), n_bit) for r in x)
     # Transpose the list of tuples to a tuple of lists
     results_transposed = tuple(zip(*results))
     # Convert each item in the tuple (which are tuples) to lists
     results_transposed = tuple(list(item) for item in results_transposed)
 
     # Unpack into different matrices
-    assign = torch.stack(results_transposed[0], dim=0).contiguous().to(x.device)
-    any4 = torch.stack(results_transposed[1], dim=0).contiguous().to(x.device)
-    assign_val = torch.stack(results_transposed[2], dim=0).contiguous().to(x.device)
+    assign = torch.stack(results_transposed[0], dim=0).contiguous()
+    any4 = torch.stack(results_transposed[1], dim=0).contiguous()
+    assign_val = torch.stack(results_transposed[2], dim=0).contiguous()
 
     return assign, any4, assign_val
 
-def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0):
+def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit):
     to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
-    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow)
+    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row)
 
     # any4 above is roughly in the range [0+eps, 15+eps], but dequant expects [-8+eps, 7+eps]
     # so adjust for usage
@@ -256,14 +275,14 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0):
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, parallelize=True):
+def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, parallelize=True):
     to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
 
-    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow)
+    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, parallelize=parallelize)
     any4.sub_(2**(n_bit - 1))
     assign_val.sub_(2**(n_bit - 1))
 
-    if parallelize:
+    if True:
         scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
         zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
@@ -280,13 +299,17 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, paralle
 
     return reconstructed
 
+cluster_row_fn_dict = {
+    "scikit": cluster_row_scikit,
+    "custom": cluster_row_custom,
+}
 
-def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, bias_pow=1.0, transpose=False):
+def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit"):
     w = module.weight.clone()
     if transpose:
         w = w.t()
 
-    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, bias_pow=bias_pow)
+    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row])
 
     if transpose:
         w_deq = w_deq.t()
