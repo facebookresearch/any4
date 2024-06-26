@@ -1,16 +1,60 @@
 import torch
 import time
+from utils import log
+import numpy as np
 
-def KMeans(x, n_clusters=10, max_iter=10, verbose=False):
-    """Implements Lloyd's algorithm for the Euclidean metric."""
+nf4 = [-1.0, -0.6961928009986877, -0.5250730514526367, -0.39491748809814453, -0.28444138169288635, -0.18477343022823334, -0.09105003625154495, 0.0, 0.07958029955625534, 0.16093020141124725, 0.24611230194568634, 0.33791524171829224, 0.44070982933044434, 0.5626170039176941, 0.7229568362236023, 1.0]
+
+def build_init(x, n_clusters, init_type):
     K = n_clusters
-
-    start = time.time()
     N, D = x.shape  # Number of samples, dimension of the ambient space
 
-    # c = x[:K, :].clone()  # Simplistic initialization for the centroids
-    index = torch.randint_like(x[:K, :], low=0, high=N, dtype=int)
-    c = x[index].squeeze(-1)
+    match init_type:
+        case None:
+            return None
+
+        case "random":
+            return "random"
+
+        case "int":
+            # NOTE: What I did hear doesn't really make sense for D > 1. 
+            init = torch.zeros(K, D)
+            for i in range(D):
+                init[:, i] = torch.linspace(start=x[:, i].min(), end=x[:, i].max(), steps=K)
+            return init
+
+        case "pow":
+            # NOTE: What I did hear doesn't really make sense for D > 1
+            init = torch.zeros(K, D)
+            for i in range(D):
+                init[:, i] = torch.logspace(start=1, end=log(x[:, i].max()) / log(x[:, i].min()), steps=K, base=x[:, i].min())
+            return init
+
+        case "nf4":
+            # NOTE: What I did hear doesn't really make sense for D > 1. 
+            assert K == 16, "nf4 only works with 16 clusters"
+            init = torch.zeros(K, D)
+            for i in range(D):                
+                init_vals = torch.Tensor(nf4)       # -1 to +1
+                init_vals += 1                  # 0 to +2
+                init_vals /= 2                  # 0 to +1
+                init_vals *= x[:, i].max() - x[:, i].min() # 0 to max-min
+                init_vals += x[:, i].min()      # min to max 
+                init[:, i] = init_vals
+            return init
+
+
+def KMeans(x, n_clusters=10, max_iter=10, init=None, verbose=False):
+    """Implements Lloyd's algorithm for the Euclidean metric."""
+    start = time.time()
+    K = n_clusters
+    N, D = x.shape  # Number of samples, dimension of the ambient space
+
+    if init is None or init=="random":
+        index = torch.randint_like(x[:K, :], low=0, high=N, dtype=int)
+        c = x[index].squeeze(-1)
+    else:
+        c = init
 
     x_i = torch.Tensor(x.view(N, 1, D))  # (N, 1, D) samples
     c_j = torch.Tensor(c.view(1, K, D))  # (1, K, D) centroids
