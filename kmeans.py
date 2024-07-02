@@ -1,7 +1,8 @@
 import torch
 import time
-from utils import log
+from utils import log, get_max_n_numbers, get_min_n_numbers
 import numpy as np
+import re
 
 nf4 = [-1.0, -0.6961928009986877, -0.5250730514526367, -0.39491748809814453, -0.28444138169288635, -0.18477343022823334, -0.09105003625154495, 0.0, 0.07958029955625534, 0.16093020141124725, 0.24611230194568634, 0.33791524171829224, 0.44070982933044434, 0.5626170039176941, 0.7229568362236023, 1.0]
 
@@ -44,7 +45,36 @@ def build_init(x, n_clusters, init_type):
             return init
 
 
-def KMeans(x, n_clusters=10, max_iter=10, init=None, verbose=False):
+def build_sample_weight(x, sample_weight_type: str):
+    N, _ = x.shape  # Number of samples, dimension of the ambient space
+
+    if sample_weight_type is None:
+        return None
+    elif sample_weight_type.startswith("outlier"):
+        # This pattern now expects 'factor' to be a float (with optional decimal part)
+        pattern = r'^outlier_([0-9]*\.?[0-9]+)(?:_([0-9]+))?$'
+
+        # Match the input string against the pattern
+        match = re.match(pattern, sample_weight_type)
+
+        if match:
+            # Extract 'factor' and 'num' (if present)
+            factor = float(match.group(1))  # Convert factor to float
+            num = int(match.group(2))  # This will be None if 'num' is not present
+
+            sample_weight = np.ones(N)
+            max_values = np.partition(np.unique(x), -num)[-num:]
+            min_values = np.partition(np.unique(x), num)[:num]
+            sample_weight[np.argwhere(np.isin(x, max_values))] = factor
+            sample_weight[np.argwhere(np.isin(x, min_values))] = factor
+
+            return sample_weight
+        else:
+            # Raise Error
+            raise ValueError(f"Failed to parse {sample_weight_type}")
+
+
+def KMeans(x, n_clusters=10, max_iter=10, init=None, sample_weight=None, verbose=False):
     """Implements Lloyd's algorithm for the Euclidean metric."""
     start = time.time()
     K = n_clusters

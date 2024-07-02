@@ -18,3 +18,9 @@ def log(x):
         return torch.log(x)
     else:
         return np.log(x)
+
+def get_max_n_numbers(arr, n):
+    return np.sort(arr)[-n:]
+
+def get_min_n_numbers(arr, n):
+    return np.sort(arr)[:n]
