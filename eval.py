@@ -92,7 +92,7 @@ if __name__ == '__main__':
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
-    parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande"], help="lm-evaluation-harness tasks to evaluate.")
+    parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
