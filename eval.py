@@ -87,7 +87,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
-    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
+    parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
     parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
