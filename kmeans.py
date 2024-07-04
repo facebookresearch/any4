@@ -50,6 +50,10 @@ def build_sample_weight(x, sample_weight_type: str):
 
     if sample_weight_type is None:
         return None
+    elif isinstance(sample_weight_type, torch.Tensor):
+        sample_weight = sample_weight_type.squeeze().cpu().numpy()
+        assert sample_weight.shape == (N,), f"sample_weight.shape {sample_weight.shape} should be ({N},)"
+        return sample_weight
     elif sample_weight_type.startswith("outlier"):
         # This pattern accepts "outlier_{factor}_{num}" or "outlier_{factor}".
         pattern = r'^outlier_([0-9]*\.?[0-9]+)(?:_([0-9]+))?$'

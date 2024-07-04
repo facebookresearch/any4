@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Type
+from typing import Callable, Dict, List, Tuple, Type
 import time
 import torch
 from joblib import Parallel, delayed
@@ -27,7 +27,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwar
             # if "mlp" not in name:
             #     print("...Skip")
             #     continue
-            layer_to(module, **kwargs)
+            layer_to(module, name=name, **kwargs)
             print("... Done", flush=True)
             index += 1
             if index == 6e6:
@@ -313,10 +313,13 @@ cluster_row_fn_dict = {
     "custom": cluster_row_custom,
 }
 
-def anyq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None):
     w = module.weight.clone()
     if transpose:
         w = w.t()
+
+    if isinstance(sample_weight, Dict):
+        sample_weight = sample_weight[name]
 
     w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight)
 

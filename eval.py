@@ -2,6 +2,7 @@ from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import json
 import os
+import pickle
 import sys
 import torch
 import transformers
@@ -36,6 +37,7 @@ def main(
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
+    # Pre-process some args
     if bnb_args:
         bnb_config = transformers.BitsAndBytesConfig(
             load_in_4bit=True,
@@ -44,6 +46,12 @@ def main(
             bnb_4bit_compute_dtype=torch.bfloat16
         )
         model_args["quantization_config"] = bnb_config
+
+    if quant_args:
+        if "sample_weight" in quant_args:
+            if quant_args["sample_weight"].endswith(".pickle"):
+                with open(quant_args["sample_weight"], 'rb') as handle:
+                    quant_args["sample_weight"] = pickle.load(handle)
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
