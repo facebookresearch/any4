@@ -51,7 +51,7 @@ def build_sample_weight(x, sample_weight_type: str):
     if sample_weight_type is None:
         return None
     elif sample_weight_type.startswith("outlier"):
-        # This pattern now expects 'factor' to be a float (with optional decimal part)
+        # This pattern accepts "outlier_{factor}_{num}" or "outlier_{factor}".
         pattern = r'^outlier_([0-9]*\.?[0-9]+)(?:_([0-9]+))?$'
 
         # Match the input string against the pattern
@@ -60,7 +60,7 @@ def build_sample_weight(x, sample_weight_type: str):
         if match:
             # Extract 'factor' and 'num' (if present)
             factor = float(match.group(1))  # Convert factor to float
-            num = int(match.group(2))  # This will be None if 'num' is not present
+            num = int(match.group(2)) if match.group(2) is not None else 1  # This will be None if 'num' is not present
 
             sample_weight = np.ones(N)
             max_values = np.partition(np.unique(x), -num)[-num:]
@@ -69,9 +69,30 @@ def build_sample_weight(x, sample_weight_type: str):
             sample_weight[np.argwhere(np.isin(x, min_values))] = factor
 
             return sample_weight
+    elif sample_weight_type.startswith("gradual"):
+        # This pattern accepts "gradual_{factor_max}_{factor_min}" or "gradual_{factor_max}".
+        pattern = r'^gradual_([0-9]*\.?[0-9]+)(?:_([0-9]*\.?[0-9]+))?(?:_pow([0-9]*\.?[0-9]+))?$'
+
+        # Match the input string against the pattern
+        match = re.match(pattern, sample_weight_type)
+
+        if match:
+            # Extract 'factor_max' and 'factor_min' (if present)
+            factor_max = float(match.group(1))  # Convert factor_max to float
+            factor_min = float(match.group(2)) if match.group(2) is not None else 1.0
+            pow = float(match.group(3)) if match.group(3) is not None else 1.0
+
+            x_max = np.max(x)
+            x_min = np.min(x)
+            x_mid = (x_max + x_min) / 2
+            sample_weight = (factor_max - factor_min) * (np.abs(x - x_mid) / (x_max - x_mid))**pow + factor_min
+
+            return sample_weight.squeeze()
         else:
             # Raise Error
             raise ValueError(f"Failed to parse {sample_weight_type}")
+    else:
+        raise ValueError(f"Unsupported sample weight type {sample_weight_type}.")
 
 
 def KMeans(x, n_clusters=10, max_iter=10, init=None, sample_weight=None, verbose=False):
