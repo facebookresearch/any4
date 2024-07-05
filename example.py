@@ -1,9 +1,11 @@
+import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 
 from any4 import convert, any4, anyq
-device = "cpu"
-# device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# device = "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_name = "meta-llama/Llama-2-7b-hf"
 # model_name = "meta-llama/Llama-2-7b-chat-hf"
