@@ -59,7 +59,12 @@ else:
 
 print(layer_to_mean_activations)
 
-pickle_name = Path(f"./profiles/{model_name}_prompt.pickle")
+pickle_name = Path(f"./profiles/{model_name}_prompt.pt")
 pickle_name.parent.mkdir(parents=True, exist_ok=True)
-with open(pickle_name, 'wb') as handle:
-    pickle.dump(layer_to_mean_activations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+if pickle_name.endswith(".pt"):
+    torch.save(layer_to_mean_activations, pickle_name)
+elif pickle_name.endswith(".pickle"):
+    with open(pickle_name, 'wb') as handle:
+        pickle.dump(layer_to_mean_activations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    raise ValueError(f"Unsupported file type {pickle_name}")

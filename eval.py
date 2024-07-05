@@ -51,7 +51,9 @@ def main(
         if "sample_weight" in quant_args:
             if quant_args["sample_weight"].endswith(".pickle"):
                 with open(quant_args["sample_weight"], 'rb') as handle:
-                    quant_args["sample_weight"] = pickle.load(handle)
+                   quant_args["sample_weight"] = pickle.load(handle)
+            elif quant_args["sample_weight"].endswith(".pt"):
+                quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(device))
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
