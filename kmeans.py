@@ -60,7 +60,7 @@ def build_sample_weight(x, sample_weight_type: str):
     if sample_weight_type is None:
         return None
     elif isinstance(sample_weight_type, torch.Tensor):
-        sample_weight = sample_weight_type.squeeze().cpu().numpy()
+        sample_weight = sample_weight_type.abs().squeeze().cpu().numpy()
         assert sample_weight.shape == (N,), f"sample_weight.shape {sample_weight.shape} should be ({N},)"
         return sample_weight
     elif sample_weight_type.startswith("outlier"):
@@ -108,6 +108,7 @@ def build_sample_weight(x, sample_weight_type: str):
         raise ValueError(f"Unsupported sample weight type {sample_weight_type}.")
 
 
+# TODO: change to numpy
 def KMeans(x, n_clusters=10, max_iter=10, init=None, sample_weight=None, verbose=False):
     """Implements Lloyd's algorithm for the Euclidean metric."""
     start = time.time()
