@@ -17,22 +17,28 @@ def build_init(x, n_clusters, init_type):
         case "random":
             return "random"
 
+        case "manual_random":
+            index = np.random.choice(N, K, replace=False)
+            init = x[index, :]
+            return init
+
+        # TODO: change to numpy
         case "int":
-            # NOTE: What I did hear doesn't really make sense for D > 1. 
+            # NOTE: What I did here doesn't really make sense for D > 1.
             init = torch.zeros(K, D)
             for i in range(D):
                 init[:, i] = torch.linspace(start=x[:, i].min(), end=x[:, i].max(), steps=K)
             return init
 
         case "pow":
-            # NOTE: What I did hear doesn't really make sense for D > 1
+            # NOTE: What I did here doesn't really make sense for D > 1.
             init = torch.zeros(K, D)
             for i in range(D):
                 init[:, i] = torch.logspace(start=1, end=log(x[:, i].max()) / log(x[:, i].min()), steps=K, base=x[:, i].min())
             return init
 
         case "nf4":
-            # NOTE: What I did hear doesn't really make sense for D > 1. 
+            # NOTE: What I did here doesn't really make sense for D > 1.
             assert K == 16, "nf4 only works with 16 clusters"
             init = torch.zeros(K, D)
             for i in range(D):                
@@ -43,6 +49,9 @@ def build_init(x, n_clusters, init_type):
                 init_vals += x[:, i].min()      # min to max 
                 init[:, i] = init_vals
             return init
+
+        case _:
+            raise ValueError(f"Unsupported init type {init_type}")
 
 
 def build_sample_weight(x, sample_weight_type: str):
