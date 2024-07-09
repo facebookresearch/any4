@@ -8,6 +8,7 @@ import sys
 import torch
 import transformers
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, intq, anyq
@@ -37,6 +38,9 @@ def main(
     arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
+
+    # Create PDF for logs
+    p = PdfPages(log_dir / "plots.pdf")
 
     if bnb_args:
         bnb_config = transformers.BitsAndBytesConfig(
@@ -78,7 +82,8 @@ def main(
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.savefig(log_dir / f"w_{name}_{row}.png")
+        plt.title(f"w_{name}_{row}")
+        plt.savefig(p, format="pdf")
         plt.close()
 
         # Apply our quantization algorithms
@@ -103,8 +108,11 @@ def main(
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.savefig(log_dir / f"wdeq_{name}_{row}.png")
+        plt.title(f"wdeq_{name}_{row}")
+        plt.savefig(p, format="pdf")
         plt.close()
+
+    p.close()
 
     # Log stats
     df = pd.DataFrame(layers_stats)
