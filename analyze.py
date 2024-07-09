@@ -18,7 +18,7 @@ from utils import CustomJSONEncoder
 def main(
     model_name: str,
     layers: List[int],
-    sub_layer: str,
+    sub_layers: List[str],
     row: int,
     quant_args: Dict,
     quant_method: Callable,
@@ -64,10 +64,11 @@ def main(
     layers_stats = []
     for name, module in model.named_modules():
         for layer in layers:
-            if name == f"model.layers.{layer}.{sub_layer}":
-                modules.append(module)
-                names.append(name)
-                layers_stats.append({})
+            for sub_layer in sub_layers:
+                if name == f"model.layers.{layer}.{sub_layer}":
+                    modules.append(module)
+                    names.append(name)
+                    layers_stats.append({})
 
     # Analyze each module
     for name, module, layer_stats in zip(names, modules, layers_stats):
@@ -127,6 +128,7 @@ if __name__ == '__main__':
         "intq": intq,
         "anyq": anyq,
     }
+    sub_layer_choices = ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"]
 
     import argparse
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
@@ -139,7 +141,7 @@ if __name__ == '__main__':
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--log-dir", type=Path, default="./analysis", help="Directory to log to.")
     parser.add_argument("--layers", type=int, nargs="+", default=None, help="Transformer layers to analyze")
-    parser.add_argument("--sub-layer", type=str, choices=["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"], default="self_attn.q_proj", help="Linear module within a transformer layer to analyze.")
+    parser.add_argument("--sub-layers", type=str, nargs="+", choices=sub_layer_choices, default=sub_layer_choices, help="Linear module within a transformer layer to analyze.")
     parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
 
     args = parser.parse_args()
@@ -151,4 +153,4 @@ if __name__ == '__main__':
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, layers=args.layers, sub_layer=args.sub_layer, row=args.row, model_args=model_args, quant_method=quant_method, quant_args=quant_args, device=args.device, log_dir=args.log_dir, bnb_args=bnb_args)
+    main(model_name=args.model_name, layers=args.layers, sub_layers=args.sub_layers, row=args.row, model_args=model_args, quant_method=quant_method, quant_args=quant_args, device=args.device, log_dir=args.log_dir, bnb_args=bnb_args)
