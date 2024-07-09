@@ -7,6 +7,7 @@ import pandas as pd
 import sys
 import torch
 import transformers
+import lm_eval
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from lm_eval.utils import simple_parse_args_string
@@ -26,6 +27,7 @@ def main(
     log_dir: Path,
     bnb_args: Optional[Dict] = None,
     bs: int = 10,
+    parallelize: bool = True,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -51,7 +53,8 @@ def main(
         )
         model_args["quantization_config"] = bnb_config
 
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
+    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=bs, parallelize=parallelize, **model_args)
+    model = lm_obj._model
 
     # Create list of modules
     if layers is None:
