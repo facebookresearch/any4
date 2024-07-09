@@ -2,6 +2,7 @@ from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import json
 import os
+import numpy as np
 import pandas as pd
 import sys
 import torch
@@ -48,6 +49,8 @@ def main(
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
 
     # Create list of modules
+    if layers is None:
+        layers = np.arange(0, len(model.model.layers))
     modules = []
     names = []
     layers_stats = []
@@ -116,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--log-dir", type=Path, default="./analysis", help="Directory to log to.")
-    parser.add_argument("--layers", type=int, nargs="+", default=0, help="Transformer layer to analyze")
+    parser.add_argument("--layers", type=int, nargs="+", default=None, help="Transformer layers to analyze")
     parser.add_argument("--sub-layer", type=str, choices=["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"], default="self_attn.q_proj", help="Linear module within a transformer layer to analyze.")
     parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
 
