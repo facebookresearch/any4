@@ -24,6 +24,7 @@ def main(
     device: str,
     log_dir: Path,
     bnb_args: Optional[Dict] = None,
+    bs: int = 10,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -65,8 +66,12 @@ def main(
     for name, module, layer_stats in zip(names, modules, layers_stats):
         print(f"{name}", end="", flush=True)
         layer_stats["layer"] = name
+
         # Store the weight
         w = module.weight.data.clone()
+        # Apply on random inputs
+        x = torch.rand(size=(bs, module.in_features), device=w.device)
+        y = module(x)
 
         # Plot original weight distribution
         counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
@@ -82,9 +87,12 @@ def main(
 
         # Get mean square error
         wdeq = module.weight.data
+        ydeq = module(x)
         w_mse = torch.mean((w - wdeq)**2)
+        y_mse = torch.mean((y - ydeq)**2)
         layer_stats["w_mse"] = w_mse.item()
-        print(f"\tWeight Mean Square Error: {w_mse}")
+        layer_stats["y_mse"] = y_mse.item()
+        print(f"\tMean Square Error: Weight:{w_mse}, Output:{y_mse}")
 
         # Overlay quantized values
         for wdeq_val in module.weight.data[row].unique().float().cpu():
