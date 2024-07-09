@@ -5,6 +5,8 @@ from joblib import Parallel, delayed
 import numpy as np
 import sklearn.cluster
 
+import bitsandbytes as bnb
+
 import kmeans
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
@@ -329,3 +331,41 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
+def fp4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False):
+    assert n_bit==4, "fp4 only supports 4-bit"
+
+    w = module.weight.clone()
+    if transpose:
+        w = w.t()
+
+    wq, wq_state = bnb.functional.quantize_fp4(w, blocksize=group_size)
+    w_deq = bnb.functional.dequantize_fp4(wq, wq_state, blocksize=group_size)
+
+    if transpose:
+        w_deq = w_deq.t()
+
+    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    return module
+
+def nf4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False):
+    assert n_bit==4, "nf4 only supports 4-bit"
+
+    w = module.weight.clone()
+    if transpose:
+        w = w.t()
+
+    wq, wq_state = bnb.functional.quantize_nf4(w, blocksize=group_size)
+    w_deq = bnb.functional.dequantize_nf4(wq, wq_state, blocksize=group_size)
+
+    if transpose:
+        w_deq = w_deq.t()
+
+    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    return module
+
+quant_methods = {
+    "intq": intq,
+    "anyq": anyq,
+    "nf4": nf4,
+    "fp4": fp4,
+}

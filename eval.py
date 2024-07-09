@@ -9,7 +9,7 @@ import transformers
 import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
-from any4 import convert, intq, anyq
+from any4 import convert, quant_methods
 from utils import CustomJSONEncoder
 
 def main(
@@ -89,10 +89,6 @@ def main(
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
-    quant_methods = {
-        "intq": intq,
-        "anyq": anyq,
-    }
 
     import argparse
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")

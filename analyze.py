@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from lm_eval.utils import simple_parse_args_string
 
-from any4 import convert, intq, anyq
+from any4 import convert, quant_methods
 from utils import CustomJSONEncoder
 
 def main(
@@ -124,10 +124,6 @@ def main(
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
-    quant_methods = {
-        "intq": intq,
-        "anyq": anyq,
-    }
     sub_layer_choices = ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"]
 
     import argparse
