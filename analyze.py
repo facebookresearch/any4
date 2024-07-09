@@ -78,7 +78,7 @@ def main(
         # Store the weight
         w = module.weight.data.clone()
         # Apply on random inputs
-        x = torch.rand(size=(bs, module.in_features), device=w.device)
+        x = torch.rand(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
         y = module(x)
 
         # Plot original weight distribution
@@ -104,7 +104,7 @@ def main(
         print(f"\tMean Square Error: Weight:{w_mse}, Output:{y_mse}")
 
         # Overlay quantized values
-        for wdeq_val in module.weight.data[row].unique().float().cpu():
+        for wdeq_val in module.weight.data[row].float().unique().cpu():
             plt.axvline(x=wdeq_val, color="b", linestyle="--")
 
         # Plot reconstructed weight distribution
