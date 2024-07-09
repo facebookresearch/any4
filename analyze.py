@@ -49,6 +49,9 @@ def main(
         if name == f"model.layers.{layer}.{sub_layer}":
             break
 
+    # Store the weight
+    w = module.weight.data.clone()
+
     # Plot original weight distribution
     counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
     plt.figure()
@@ -60,6 +63,11 @@ def main(
     if quant_method:
         module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
 
+    # Get mean square error
+    wq = module.weight.data
+    mse = torch.mean((w - wq)**2)
+    print(f"Mean Square Error: {mse}")
+
     # Overlay quantized values
     for wq_val in module.weight.data[row].unique().float().cpu():
         plt.axvline(x=wq_val, color="b", linestyle="--")
@@ -70,6 +78,7 @@ def main(
     plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
     plt.show()
     plt.savefig(log_dir / "w_reconstructed.png")
+
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
