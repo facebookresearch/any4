@@ -162,7 +162,7 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
     return reconstructed
 
 
-def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=True):
+def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=True, **kwargs):
     w = module.weight.clone()
 
     if transpose:
