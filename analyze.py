@@ -2,6 +2,7 @@ from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import json
 import os
+import pandas as pd
 import sys
 import torch
 import transformers
@@ -45,16 +46,22 @@ def main(
         model_args["quantization_config"] = bnb_config
 
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
+
+    # Create list of modules
     modules = []
     names = []
+    layers_stats = []
     for name, module in model.named_modules():
         for layer in layers:
             if name == f"model.layers.{layer}.{sub_layer}":
                 modules.append(module)
                 names.append(name)
+                layers_stats.append({})
 
-    for name, module in zip(names, modules):
-        print(f"{name}...", end="", flush=True)
+    # Analyze each module
+    for name, module, layer_stats in zip(names, modules, layers_stats):
+        print(f"{name}", end="", flush=True)
+        layer_stats["layer"] = name
         # Store the weight
         w = module.weight.data.clone()
 
@@ -63,29 +70,34 @@ def main(
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.savefig(log_dir / "w.png")
+        plt.savefig(log_dir / f"w_{name}_{row}.png")
+        plt.close()
 
         # Apply our quantization algorithms
         if quant_method:
             module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
 
         # Get mean square error
-        wq = module.weight.data
-        mse = torch.mean((w - wq)**2)
-        print(f"\tMean Square Error: {mse}")
-        # TODO: Log to CSV file
+        wdeq = module.weight.data
+        w_mse = torch.mean((w - wdeq)**2)
+        layer_stats["w_mse"] = w_mse.item()
+        print(f"\tWeight Mean Square Error: {w_mse}")
 
         # Overlay quantized values
-        for wq_val in module.weight.data[row].unique().float().cpu():
-            plt.axvline(x=wq_val, color="b", linestyle="--")
+        for wdeq_val in module.weight.data[row].unique().float().cpu():
+            plt.axvline(x=wdeq_val, color="b", linestyle="--")
 
         # Plot reconstructed weight distribution
         counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.savefig(log_dir / "w_reconstructed.png")
+        plt.savefig(log_dir / f"wdeq_{name}_{row}.png")
+        plt.close()
 
+    # Log stats
+    df = pd.DataFrame(layers_stats)
+    df.to_csv(log_dir / "stats.csv", index=False)
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -103,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
+    parser.add_argument("--log-dir", type=Path, default="./analysis", help="Directory to log to.")
     parser.add_argument("--layers", type=int, nargs="+", default=0, help="Transformer layer to analyze")
     parser.add_argument("--sub-layer", type=str, choices=["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj"], default="self_attn.q_proj", help="Linear module within a transformer layer to analyze.")
     parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
