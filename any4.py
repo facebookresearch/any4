@@ -20,15 +20,14 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     return count 
 
 
-def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, **kwargs):
+def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], **kwargs):
     index = 0
     for name, module in model.named_modules():
         if isinstance(module, (layer_from)):
             print(f"\t{name}", end="", flush=True)
-            # TODO: do this in a cleaner way
-            # if "mlp" not in name:
-            #     print("...Skip")
-            #     continue
+            if name in skip_modules:
+                print("Skip")
+                continue
             layer_to(module, name=name, **kwargs)
             print("... Done", flush=True)
             index += 1
