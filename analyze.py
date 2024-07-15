@@ -4,6 +4,7 @@ import json
 import os
 import numpy as np
 import pandas as pd
+import pickle
 import sys
 import torch
 import transformers
@@ -28,6 +29,7 @@ def main(
     bnb_args: Optional[Dict] = None,
     bs: int = 10,
     parallelize: bool = True,
+    calib_activations_file: Optional[Dict] = None,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -56,6 +58,15 @@ def main(
     lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=bs, parallelize=parallelize, **model_args)
     model = lm_obj._model
 
+    # Load calibration activations
+    calib_activations = None
+    if calib_activations_file:
+        if calib_activations_file.endswith(".pickle"):
+            with open(calib_activations_file, 'rb') as handle:
+                calib_activations = pickle.load(handle)
+        elif calib_activations_file.endswith(".pt"):
+            calib_activations = torch.load(calib_activations_file, map_location=torch.device(device))
+
     # Create list of modules
     if layers is None:
         layers = np.arange(0, len(model.model.layers))
@@ -78,8 +89,14 @@ def main(
         # Store the weight
         w = module.weight.data.clone()
         # Apply on random inputs
-        x = torch.rand(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
-        y = module(x)
+        x_uni = torch.rand(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
+        y_uni = module(x_uni)
+        x_norm = torch.randn(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
+        y_norm = module(x_norm)
+        if calib_activations:
+            x_calib = calib_activations[name].to(w.device).to(w.dtype)
+            y_calib = module(x_calib)
+
 
         # Plot original weight distribution
         counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
@@ -96,12 +113,22 @@ def main(
 
         # Get mean square error
         wdeq = module.weight.data
-        ydeq = module(x)
+        y_uni_deq = module(x_uni)
+        y_norm_deq = module(x_norm)
         w_mse = torch.mean((w - wdeq)**2)
-        y_mse = torch.mean((y - ydeq)**2)
+        y_uni_mse = torch.mean((y_uni - y_uni_deq)**2)
+        y_norm_mse = torch.mean((y_norm - y_norm_deq)**2)
         layer_stats["w_mse"] = w_mse.item()
-        layer_stats["y_mse"] = y_mse.item()
-        print(f"\tMean Square Error: Weight:{w_mse}, Output:{y_mse}")
+        layer_stats["y_uni_mse"] = y_uni_mse.item()
+        layer_stats["y_norm_mse"] = y_norm_mse.item()
+        print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ", flush=True)
+        if calib_activations:
+            y_calib_deq = module(x_calib)
+            y_calib_mse = torch.mean((y_calib - y_calib_deq)**2)
+            layer_stats["y_calib_mse"] = y_calib_mse.item()
+            print(f"Calib: {y_calib_mse}")
+        else:
+            print()
 
         # Overlay quantized values
         for wdeq_val in module.weight.data[row].float().unique().cpu():
@@ -139,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument("--layers", type=int, nargs="+", default=None, help="Transformer layers to analyze")
     parser.add_argument("--sub-layers", type=str, nargs="+", choices=sub_layer_choices, default=sub_layer_choices, help="Linear module within a transformer layer to analyze.")
     parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
+    parser.add_argument("--calib-file", type=str, default=None, help="Path to calibration activations")
 
     args = parser.parse_args()
 
@@ -149,4 +177,4 @@ if __name__ == '__main__':
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, layers=args.layers, sub_layers=args.sub_layers, row=args.row, model_args=model_args, quant_method=quant_method, quant_args=quant_args, device=args.device, log_dir=args.log_dir, bnb_args=bnb_args)
+    main(model_name=args.model_name, layers=args.layers, sub_layers=args.sub_layers, row=args.row, model_args=model_args, quant_method=quant_method, quant_args=quant_args, device=args.device, log_dir=args.log_dir, bnb_args=bnb_args, calib_activations_file=args.calib_file)
