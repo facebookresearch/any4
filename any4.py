@@ -178,9 +178,16 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
 
 def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None):
     init = kmeans.build_init(x=r, n_clusters=2 ** n_bit, init_type=init)
+    if init is None:
+        init = "k-means++"
     sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight)
-    assign, any4, assign_val = kmeans.KMeans(r, n_clusters=2**n_bit, init=init, max_iter=30, sample_weight=sample_weight)
-    return assign, any4.flatten(), assign_val.flatten()
+    assign, any4, assign_val = kmeans.kmeans(r, n_clusters=2**n_bit, init=init, sample_weight=sample_weight)
+
+    any4 = torch.from_numpy(any4).reshape(2**n_bit)
+    assign = torch.from_numpy(assign).flatten()
+    assign_val = torch.from_numpy(assign_val).flatten()
+
+    return assign, any4, assign_val
 
 def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None):
     init = kmeans.build_init(x=r, n_clusters=2 ** n_bit, init_type=init)
@@ -209,8 +216,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
 
     start = time.time()
     to_cluster = x.cpu().detach()
-    if cluster_row == cluster_row_scikit:
-        to_cluster = to_cluster.numpy()
+    to_cluster = to_cluster.numpy()
     if parallelize:
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, init=init, sample_weight=sample_weight)
     else:

@@ -2,7 +2,10 @@ import torch
 import time
 from utils import log, get_max_n_numbers, get_min_n_numbers
 import numpy as np
+from scipy.sparse import csr_matrix
 import re
+
+from typing import Union, Optional, Callable, Tuple
 
 nf4 = [-1.0, -0.6961928009986877, -0.5250730514526367, -0.39491748809814453, -0.28444138169288635, -0.18477343022823334, -0.09105003625154495, 0.0, 0.07958029955625534, 0.16093020141124725, 0.24611230194568634, 0.33791524171829224, 0.44070982933044434, 0.5626170039176941, 0.7229568362236023, 1.0]
 
@@ -107,53 +110,139 @@ def build_sample_weight(x, sample_weight_type: str):
     else:
         raise ValueError(f"Unsupported sample weight type {sample_weight_type}.")
 
+# Example usage:
+# X = np.random.rand(100, 5)  # 100 samples, 5 features
+# centroids, inertia, labels = kmeans(X, n_clusters=3, verbose=1)
 
-# TODO: change to numpy
-def KMeans(x, n_clusters=10, max_iter=10, init=None, sample_weight=None, verbose=False):
-    """Implements Lloyd's algorithm for the Euclidean metric."""
-    start = time.time()
-    K = n_clusters
-    N, D = x.shape  # Number of samples, dimension of the ambient space
+def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[str, Callable, np.ndarray] = 'k-means++',
+           n_init: Union[str, int] = 'auto', max_iter: int = 300, tol: float = 1e-4, verbose: int = 0,
+           random_state: Optional[int] = None, sample_weight: Optional[np.ndarray] = None) -> Tuple[np.ndarray, float, np.ndarray]:
+    """
+    Perform KMeans clustering on data.
 
-    if init is None or init=="random":
-        index = torch.randint_like(x[:K, :], low=0, high=N, dtype=int)
-        c = x[index].squeeze(-1)
+    Args:
+        X (Union[np.ndarray, csr_matrix]): Training instances to cluster.
+        n_clusters (int): The number of clusters to form as well as the number of centroids to generate.
+        init (Union[str, Callable, np.ndarray]): Method for initialization.
+        n_init (Union[str, int]): Number of times the k-means algorithm is run with different centroid seeds.
+        max_iter (int): Maximum number of iterations of the k-means algorithm for a single run.
+        tol (float): Relative tolerance with regards to Frobenius norm of the difference in the cluster centers.
+        verbose (int): Verbosity mode.
+        random_state (Optional[int]): Determines random number generation for centroid initialization.
+        sample_weight (Optional[np.ndarray]): The weights for each observation in X.
+
+    Returns:
+        Tuple[np.ndarray, float, np.ndarray]: Centroids, inertia, and labels for each sample.
+    """
+    if isinstance(X, csr_matrix):
+        X = X.tocsr()
     else:
-        c = init
+        X = np.ascontiguousarray(X)
 
-    x_i = torch.Tensor(x.view(N, 1, D))  # (N, 1, D) samples
-    c_j = torch.Tensor(c.view(1, K, D))  # (1, K, D) centroids
+    if random_state is not None:
+        np.random.seed(random_state)
 
-    # K-means loop:
-    # - x  is the (N, D) point cloud,
-    # - cl is the (N,) vector of class labels
-    # - c  is the (K, D) cloud of cluster centroids
+    if sample_weight is None:
+        sample_weight = np.ones(X.shape[0])
+
+    if n_init == 'auto':
+        n_init = 10 if init in ['random', callable] else 1
+
+    best_inertia = np.inf
+    best_centroids = None
+    best_labels = None
+
+    for _ in range(n_init):  # Multiple initializations to find best clustering
+        centroids = initialize_centroids(X, n_clusters, init)
+        inertia, centroids, labels = run_kmeans(X, centroids, max_iter, tol, verbose, sample_weight)
+
+        if inertia < best_inertia:
+            best_inertia = inertia
+            best_centroids = centroids
+            best_labels = labels
+
+    return best_centroids[best_labels], best_centroids, best_labels
+
+def initialize_centroids(X: np.ndarray, n_clusters: int, init: Union[str, Callable, np.ndarray]) -> np.ndarray:
+    """
+    Initialize centroids for KMeans clustering.
+
+    Args:
+        X (np.ndarray): Data points.
+        n_clusters (int): Number of clusters.
+        init (Union[str, Callable, np.ndarray]): Initialization method.
+
+    Returns:
+        np.ndarray: Initialized centroids.
+    """
+    if init == 'k-means++':
+        centroids = [X[np.random.randint(0, X.shape[0])]]
+        for _ in range(1, n_clusters):  # k-means++ initialization
+            distances = np.min(np.square(X[:, np.newaxis] - centroids).sum(axis=2), axis=1)
+            probabilities = distances / distances.sum()
+            centroids.append(X[np.random.choice(X.shape[0], p=probabilities)])
+        return np.array(centroids)
+    elif init == 'random':
+        indices = np.random.choice(X.shape[0], n_clusters, replace=False)
+        return X[indices]
+    elif callable(init):
+        return init(X, n_clusters, np.random.RandomState())
+    elif isinstance(np.ndarray):
+        return np.array(init)
+    else:
+        raise ValueError(f"Unsupported data type for init: {type(init)}.")
+
+def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, verbose: int, sample_weight: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
+    """
+    Run the KMeans clustering algorithm.
+
+    Args:
+        X (np.ndarray): Data points.
+        centroids (np.ndarray): Initial centroids.
+        max_iter (int): Maximum number of iterations.
+        tol (float): Tolerance for convergence.
+        verbose (int): Verbosity level.
+        sample_weight (np.ndarray): Weights for each sample.
+
+    Returns:
+        Tuple[float, np.ndarray, np.ndarray]: Inertia, final centroids, and labels.
+    """
+    n_samples = X.shape[0]
+    n_clusters = centroids.shape[0]
+    labels = np.zeros(n_samples, dtype=int)
+
     for i in range(max_iter):
-        # E step: assign points to the closest cluster -------------------------
-        D_ij = ((x_i - c_j) ** 2).sum(-1)  # (N, K) symbolic squared distances
-        cl = D_ij.argmin(dim=1).long().view(-1)  # Points -> Nearest cluster
+        # Calculate distances from each point to each centroid
+        distances = np.linalg.norm(X[:, np.newaxis] - centroids, axis=2)
 
-        # M step: update the centroids to the normalized cluster average: ------
-        # Compute the sum of points per cluster:
-        c.zero_()
-        c.scatter_add_(0, cl[:, None].repeat(1, D), x)
+        # Assign labels based on closest centroid
+        new_labels = np.argmin(distances, axis=1)
 
-        # Divide by the number of points per cluster:
-        Ncl = torch.bincount(cl, minlength=K).type_as(c).view(K, 1)
-        c /= Ncl  # in-place division to compute the average
-    xc = c[cl]
+        # Check if labels have changed, if not, possibly break the loop
+        if np.array_equal(labels, new_labels):
+            if verbose:
+                print(f"Convergence reached at iteration {i} (labels did not change)")
+            break
+        labels = new_labels
 
-    if verbose:  # Fancy display -----------------------------------------------
-        if "cuda" in x.device:
-            torch.cuda.synchronize()
-        end = time.time()
-        print(
-            f"K-means for the Euclidean metric with {N:,} points in dimension {D:,}, K = {K:,}:"
-        )
-        print(
-            "Timing for {} iterations: {:.5f}s = {} x {:.5f}s\n".format(
-                max_iter, end - start, max_iter, (end - start) / max_iter
-            )
-        )
+        # Compute new centroids
+        for j in range(n_clusters):
+            # Select data points assigned to cluster j
+            cluster_points = X[labels == j]
+            cluster_weights = sample_weight[labels == j] if sample_weight is not None else None
 
-    return cl, c, xc
+            # Calculate weighted average to find new centroid
+            if cluster_points.size:
+                centroids[j] = np.average(cluster_points, axis=0, weights=cluster_weights)
+
+        # Check for convergence: if the centroids do not change significantly, break the loop
+        if i > 0 and np.linalg.norm(centroids - old_centroids) < tol:
+            if verbose:
+                print(f"Convergence reached at iteration {i} (centroid positions changed less than {tol})")
+            break
+        old_centroids = centroids.copy()
+
+    # Calculate inertia: sum of squared distances of samples to their closest cluster center
+    inertia = np.sum((X - centroids[labels])**2)
+
+    return inertia, centroids, labels
