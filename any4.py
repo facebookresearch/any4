@@ -319,7 +319,7 @@ cluster_row_fn_dict = {
     "custom": cluster_row_custom,
 }
 
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None):
     w = module.weight.clone()
     if transpose:
         w = w.t()
@@ -327,7 +327,13 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
 
+    if any_group_size:
+        w = w.view(-1, any_group_size)
+
     w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight)
+
+    if any_group_size:
+        w_deq = w_deq.view(module.weight.shape)
 
     if transpose:
         w_deq = w_deq.t()
