@@ -137,7 +137,6 @@ def expand_q_groups(x, orig_size, q_group_size):
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
-    n_bit = 4
     int4, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
     int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(8)
 
