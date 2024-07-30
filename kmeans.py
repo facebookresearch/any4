@@ -57,7 +57,7 @@ def build_init(x, n_clusters, init_type):
             raise ValueError(f"Unsupported init type {init_type}")
 
 
-def build_sample_weight(x, sample_weight_type: str, abs: bool = False):
+def build_sample_weight(x, sample_weight_type: str, abs: bool = True):
     N, _ = x.shape  # Number of samples, dimension of the ambient space
 
     if sample_weight_type is None:
@@ -115,7 +115,7 @@ def build_sample_weight(x, sample_weight_type: str, abs: bool = False):
         raise ValueError(f"Unsupported sample weight type {sample_weight_type}.")
 
     if abs:
-        sample_weight = sample_weight.absolute()
+        sample_weight = np.absolute(sample_weight)
 
     return sample_weight
 
