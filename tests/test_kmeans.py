@@ -74,10 +74,14 @@ class TestKMeansFunctions(unittest.TestCase):
             build_sample_weight(self.X, sample_weight_type)
 
     def test_kmeans_basic(self):
-        Xc, centroids, labels = kmeans(self.X, n_clusters=self.n_clusters)
-        self.assertEqual(Xc.shape, self.X.shape)
-        self.assertEqual(centroids.shape, (self.n_clusters, self.X.shape[1]))
-        self.assertEqual(labels.shape, (self.X.shape[0],))
+        X = np.array([0,0,0, 1,1,1, 2,2,2, 3,3,3]).reshape(-1, 1)
+        n_clusters = 4
+        Xc, centroids, labels = kmeans(X, n_clusters=n_clusters)
+        self.assertEqual(Xc.shape, X.shape)
+        self.assertEqual(centroids.shape, (n_clusters, X.shape[1]))
+        self.assertEqual(labels.shape, (X.shape[0],))
+        self.assertTrue(np.allclose(Xc, X, rtol=0, atol=0))
+        self.assertTrue(np.allclose(np.sort(centroids, axis=0), np.array([0,1,2,3]).reshape(-1,1), rtol=0, atol=0))
 
     def test_initialize_centroids_kmeans_plus_plus(self):
         init = 'k-means++'
