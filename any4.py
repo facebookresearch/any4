@@ -138,7 +138,7 @@ def expand_q_groups(x, orig_size, q_group_size):
 # (i.e., returns the effective result of the quantization algorithm)
 def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
     int4, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
-    int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(8)
+    int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
 
     assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
 
