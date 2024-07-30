@@ -181,7 +181,7 @@ def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
     if init is None:
         init = "k-means++"
     sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight)
-    assign, any4, assign_val = kmeans.kmeans(r, n_clusters=2**n_bit, init=init, sample_weight=sample_weight, X_surrogate=r_surrogate, **kwargs)
+    assign_val, any4, assign = kmeans.kmeans(r, n_clusters=2**n_bit, init=init, sample_weight=sample_weight, X_surrogate=r_surrogate, **kwargs)
 
     any4 = torch.from_numpy(any4).reshape(2**n_bit)
     assign = torch.from_numpy(assign).flatten()
