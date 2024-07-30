@@ -57,15 +57,14 @@ def build_init(x, n_clusters, init_type):
             raise ValueError(f"Unsupported init type {init_type}")
 
 
-def build_sample_weight(x, sample_weight_type: str):
+def build_sample_weight(x, sample_weight_type: str, abs: bool = False):
     N, _ = x.shape  # Number of samples, dimension of the ambient space
 
     if sample_weight_type is None:
         return None
     elif isinstance(sample_weight_type, torch.Tensor):
-        sample_weight = sample_weight_type.abs().squeeze().cpu().numpy()
+        sample_weight = sample_weight_type.squeeze().cpu().numpy()
         assert sample_weight.shape == (N,), f"sample_weight.shape {sample_weight.shape} should be ({N},)"
-        return sample_weight
     elif sample_weight_type.startswith("outlier"):
         # This pattern accepts "outlier_{factor}_{num}" or "outlier_{factor}".
         pattern = r'^outlier_([0-9]*\.?[0-9]+)(?:_([0-9]+))?$'
@@ -83,8 +82,8 @@ def build_sample_weight(x, sample_weight_type: str):
             min_values = np.partition(np.unique(x), num)[:num]
             sample_weight[np.argwhere(np.isin(x, max_values))] = factor
             sample_weight[np.argwhere(np.isin(x, min_values))] = factor
-
-            return sample_weight
+        else:
+            raise ValueError(f"Failed to parse {sample_weight_type}.")
     elif sample_weight_type.startswith("gradual"):
         # This pattern accepts "gradual_{factor_max}_{factor_min}" or "gradual_{factor_max}".
         pattern = r'^gradual_([0-9]*\.?[0-9]+)(?:_([0-9]*\.?[0-9]+))?(?:_pow([0-9]*\.?[0-9]+))?$'
