@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import os
+import sklearn.cluster
 import sys
 import torch
 
@@ -9,7 +10,7 @@ from kmeans import build_init, build_sample_weight, kmeans, run_kmeans, initiali
 
 class TestKMeansFunctions(unittest.TestCase):
     def setUp(self):
-        self.X = np.random.rand(100, 2)  # 100 samples, 1 features
+        self.X = np.random.rand(100, 2)  # 100 samples, 2 features
         self.n_clusters = 3
 
     def test_build_init_random(self):
@@ -82,6 +83,24 @@ class TestKMeansFunctions(unittest.TestCase):
         self.assertEqual(labels.shape, (X.shape[0],))
         self.assertTrue(np.allclose(Xc, X, rtol=0, atol=0))
         self.assertTrue(np.allclose(np.sort(centroids, axis=0), np.array([0,1,2,3]).reshape(-1,1), rtol=0, atol=0))
+
+    def test_kmeans_basic2(self):
+        n_samples, n_features = 100, 1
+        X = np.random.rand(n_samples, n_features)
+        n_clusters = 3
+
+        Xc, centroids, labels = kmeans(X, n_clusters=n_clusters)
+        self.assertEqual(Xc.shape, X.shape)
+        self.assertEqual(centroids.shape, (n_clusters, X.shape[1]))
+        self.assertEqual(labels.shape, (X.shape[0],))
+
+        clusters = sklearn.cluster.KMeans(n_clusters=n_clusters).fit(X)
+        centroids1 = torch.from_numpy(clusters.cluster_centers_).reshape(n_clusters, X.shape[1])
+        labels1 = torch.from_numpy(clusters.labels_)
+        Xc1 = torch.from_numpy(clusters.cluster_centers_[clusters.predict(X)])
+
+        self.assertTrue(np.allclose(Xc, Xc1))
+        self.assertTrue(np.allclose(np.sort(centroids, axis=0), np.sort(centroids1, axis=0)))
 
     def test_initialize_centroids_kmeans_plus_plus(self):
         init = 'k-means++'
