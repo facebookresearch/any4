@@ -244,7 +244,10 @@ def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, 
 
             # Calculate weighted average to find new centroid
             if cluster_points.size:
-                centroids[j] = np.average(cluster_points, axis=0, weights=cluster_weights)
+                if np.sum(cluster_weights)==0:
+                    centroids[j] = np.average(cluster_points, axis=0)
+                else:
+                    centroids[j] = np.average(cluster_points, axis=0, weights=cluster_weights)
 
         # Check for convergence: if the centroids do not change significantly, break the loop
         if i > 0 and np.linalg.norm(centroids - old_centroids) < tol:
