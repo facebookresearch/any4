@@ -77,6 +77,9 @@ def build_sample_weight(x, sample_weight_type: str, abs: bool = False):
             factor = float(match.group(1))  # Convert factor to float
             num = int(match.group(2)) if match.group(2) is not None else 1  # This will be None if 'num' is not present
 
+            # reduce x along features dimension
+            x = np.mean(x, axis=1)
+
             sample_weight = np.ones(N)
             max_values = np.partition(np.unique(x), -num)[-num:]
             min_values = np.partition(np.unique(x), num)[:num]
@@ -194,7 +197,7 @@ def initialize_centroids(X: np.ndarray, n_clusters: int, init: Union[str, Callab
         return X[indices]
     elif callable(init):
         return init(X, n_clusters, np.random.RandomState())
-    elif isinstance(np.ndarray):
+    elif isinstance(init, np.ndarray):
         return np.array(init)
     else:
         raise ValueError(f"Unsupported data type for init: {type(init)}.")
