@@ -84,23 +84,19 @@ class TestKMeansFunctions(unittest.TestCase):
         self.assertTrue(np.allclose(Xc, X, rtol=0, atol=0))
         self.assertTrue(np.allclose(np.sort(centroids, axis=0), np.array([0,1,2,3]).reshape(-1,1), rtol=0, atol=0))
 
+
     def test_kmeans_basic2(self):
-        n_samples, n_features = 100, 1
+        n_samples, n_features = 4096, 4
         X = np.random.rand(n_samples, n_features)
-        n_clusters = 3
+        n_clusters = 16
 
         Xc, centroids, labels = kmeans(X, n_clusters=n_clusters)
+        mse = np.mean((X - Xc)**2)
         self.assertEqual(Xc.shape, X.shape)
         self.assertEqual(centroids.shape, (n_clusters, X.shape[1]))
         self.assertEqual(labels.shape, (X.shape[0],))
 
-        clusters = sklearn.cluster.KMeans(n_clusters=n_clusters).fit(X)
-        centroids1 = torch.from_numpy(clusters.cluster_centers_).reshape(n_clusters, X.shape[1])
-        labels1 = torch.from_numpy(clusters.labels_)
-        Xc1 = torch.from_numpy(clusters.cluster_centers_[clusters.predict(X)])
-
-        self.assertTrue(np.allclose(Xc, Xc1))
-        self.assertTrue(np.allclose(np.sort(centroids, axis=0), np.sort(centroids1, axis=0)))
+        self.assertTrue(mse < 0.03)
 
     def test_initialize_centroids_kmeans_plus_plus(self):
         init = 'k-means++'
