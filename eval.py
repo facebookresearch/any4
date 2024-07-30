@@ -21,6 +21,8 @@ def main(
     device: str,
     batch_size: int,
     log_dir: Path,
+    tokenizer_name: Optional[str] = None,
+    save_weights: Optional[bool] = False,
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
     bnb_args: Optional[Dict] = None,
@@ -59,11 +61,24 @@ def main(
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
-    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=batch_size, parallelize=parallelize, **model_args)
+    lm_obj = lm_eval.models.huggingface.HFLM(
+        pretrained=model_name,
+        tokenizer=tokenizer_name,
+        device=device,
+        batch_size=batch_size,
+        parallelize=parallelize,
+        trust_remote_code=True,
+        **model_args
+    )
 
     # Apply our quantization algorithms
     if quant_method:
         lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
+
+    # Save weights
+    if save_weights:
+        weights = lm_obj._model.state_dict()
+        torch.save(weights, Path(log_dir/"weights.pth"))
 
     # indexes all tasks from the `lm_eval/tasks` subdirectory.
     # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -95,14 +110,17 @@ if __name__ == '__main__':
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
     parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
+    parser.add_argument("--tokenizer-name", type=str, default=None, help="HuggingFace tokenizer name or path.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa"], help="lm-evaluation-harness tasks to evaluate.")
+    parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
+    parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
 
     args = parser.parse_args()
 
@@ -113,4 +131,18 @@ if __name__ == '__main__':
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, model_args=model_args, quant_method=quant_method, quant_args=quant_args, tasks=args.tasks, device=args.device, batch_size=args.batch_size, parallelize=args.parallelize, log_dir=args.log_dir, bnb_args=bnb_args)
+    main(
+        model_name=args.model_name,
+        tokenizer_name=args.tokenizer_name,
+        model_args=model_args,
+        quant_method=quant_method,
+        quant_args=quant_args,
+        tasks=args.tasks,
+        num_fewshot=args.num_fewshot,
+        device=args.device,
+        batch_size=args.batch_size,
+        parallelize=args.parallelize,
+        log_dir=args.log_dir,
+        save_weights=args.save_weights,
+        bnb_args=bnb_args,
+    )
