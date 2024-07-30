@@ -98,17 +98,24 @@ def build_sample_weight(x, sample_weight_type: str):
             factor_min = float(match.group(2)) if match.group(2) is not None else 1.0
             pow = float(match.group(3)) if match.group(3) is not None else 1.0
 
+            # reduce x along features dimension
+            x = np.mean(x, axis=1)
+
             x_max = np.max(x)
             x_min = np.min(x)
             x_mid = (x_max + x_min) / 2
             sample_weight = (factor_max - factor_min) * (np.abs(x - x_mid) / (x_max - x_mid))**pow + factor_min
 
-            return sample_weight.squeeze()
+            sample_weight = sample_weight.squeeze()
         else:
-            # Raise Error
-            raise ValueError(f"Failed to parse {sample_weight_type}")
+            raise ValueError(f"Failed to parse {sample_weight_type}.")
     else:
         raise ValueError(f"Unsupported sample weight type {sample_weight_type}.")
+
+    if abs:
+        sample_weight = sample_weight.absolute()
+
+    return sample_weight
 
 # Example usage:
 # X = np.random.rand(100, 5)  # 100 samples, 5 features
@@ -116,7 +123,7 @@ def build_sample_weight(x, sample_weight_type: str):
 
 def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[str, Callable, np.ndarray] = 'k-means++',
            n_init: Union[str, int] = 'auto', max_iter: int = 300, tol: float = 1e-4, verbose: int = 0,
-           random_state: Optional[int] = None, sample_weight: Optional[np.ndarray] = None) -> Tuple[np.ndarray, float, np.ndarray]:
+           random_state: Optional[int] = None, sample_weight: Optional[np.ndarray] = None, X_surrogate: Optional[Union[np.ndarray, csr_matrix]] = None) -> Tuple[np.ndarray, float, np.ndarray]:
     """
     Perform KMeans clustering on data.
 
@@ -130,6 +137,7 @@ def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[st
         verbose (int): Verbosity mode.
         random_state (Optional[int]): Determines random number generation for centroid initialization.
         sample_weight (Optional[np.ndarray]): The weights for each observation in X.
+        X_surrogate (Optional[Union[np.ndarray, csr_matrix]]): Optional values to use when finding centre of instances. Should have the same shape of X.
 
     Returns:
         Tuple[np.ndarray, float, np.ndarray]: Centroids, inertia, and labels for each sample.
@@ -154,7 +162,7 @@ def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[st
 
     for _ in range(n_init):  # Multiple initializations to find best clustering
         centroids = initialize_centroids(X, n_clusters, init)
-        inertia, centroids, labels = run_kmeans(X, centroids, max_iter, tol, verbose, sample_weight)
+        inertia, centroids, labels = run_kmeans(X, centroids, max_iter, tol, verbose, sample_weight, X_surrogate)
 
         if inertia < best_inertia:
             best_inertia = inertia
@@ -192,7 +200,7 @@ def initialize_centroids(X: np.ndarray, n_clusters: int, init: Union[str, Callab
     else:
         raise ValueError(f"Unsupported data type for init: {type(init)}.")
 
-def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, verbose: int, sample_weight: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
+def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, verbose: int, sample_weight: np.ndarray, X_surrogate: Optional[np.ndarray] = None, sample_weight_eps: Optional[float] = 1e-6) -> Tuple[float, np.ndarray, np.ndarray]:
     """
     Run the KMeans clustering algorithm.
 
@@ -203,6 +211,7 @@ def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, 
         tol (float): Tolerance for convergence.
         verbose (int): Verbosity level.
         sample_weight (np.ndarray): Weights for each sample.
+        X (np.ndarray): Surrogate data points to use when finding centre of points.
 
     Returns:
         Tuple[float, np.ndarray, np.ndarray]: Inertia, final centroids, and labels.
@@ -228,7 +237,7 @@ def run_kmeans(X: np.ndarray, centroids: np.ndarray, max_iter: int, tol: float, 
         # Compute new centroids
         for j in range(n_clusters):
             # Select data points assigned to cluster j
-            cluster_points = X[labels == j]
+            cluster_points = X[labels == j] if X_surrogate is None else X_surrogate[labels == j]
             cluster_weights = sample_weight[labels == j] if sample_weight is not None else None
 
             # Calculate weighted average to find new centroid
