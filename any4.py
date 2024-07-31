@@ -285,7 +285,10 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
     return assign, any4, assign_val
 
 def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False):
-    to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    if q_group_size:
+        to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    else:
+        to_cluster = x.float()
 
     if surrogate_cluster:
         surrogate_to_cluster = x
@@ -294,10 +297,11 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers
 
     assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, x_cluster=surrogate_to_cluster)
 
-    # any4 above is roughly in the range [0+eps, 15+eps], but dequant expects [-8+eps, 7+eps]
-    # so adjust for usage
-    any4 = any4 - 2.0 ** (n_bit - 1)
-    any4 = any4.to(dtype=x.dtype)
+    if q_group_size:
+        # any4 above is roughly in the range [0+eps, 15+eps], but dequant expects [-8+eps, 7+eps]
+        # so adjust for usage
+        any4 = any4 - 2.0 ** (n_bit - 1)
+        any4 = any4.to(dtype=x.dtype)
     print(any4)
 
     return assign, any4.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
@@ -306,7 +310,10 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, parallelize=True, surrogate_cluster=False):
-    to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    if q_group_size:
+        to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+    else:
+        to_cluster = x.float()
 
     if surrogate_cluster:
         surrogate_to_cluster = x
@@ -314,10 +321,10 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_ou
         surrogate_to_cluster = None
 
     assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster)
-    any4.sub_(2**(n_bit - 1))
-    assign_val.sub_(2**(n_bit - 1))
 
-    if True:
+    if q_group_size:
+        any4.sub_(2**(n_bit - 1))
+        assign_val.sub_(2**(n_bit - 1))
         scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
         zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
@@ -326,11 +333,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_ou
 
         reconstructed = assign_val * scales + zeros
     else:
-        reconstructed = torch.zeros_like(x)
-        for r in range(x.size(0)):
-            for c in range(x.size(1)):
-                q_group = c // q_group_size
-                reconstructed[r][c] = (any4[r][assign[r][c]]) * scales_and_zeros[q_group][r][0] + scales_and_zeros[q_group][r][1]
+        reconstructed = assign_val
 
     return reconstructed
 
