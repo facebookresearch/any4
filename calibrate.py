@@ -57,6 +57,7 @@ def main(
     split: str = "train",
     field: Optional[str] = None,
     num_batches: Optional[int] = None,
+    max_seq_len: Optional[int] = None,
     padding: bool = True,
     truncate: bool = False,
     save_type: str = "pt",
@@ -79,13 +80,14 @@ def main(
 
     register_forward_hook(model)
 
+    # Apply inputs
     if dataset:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        for idx, batch in enumerate(load_dataset(dataset, name=config, split=split, streaming=True).iter(batch_size=batch_size)):
+        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).iter(batch_size=batch_size))):
             if num_batches is not None and idx >= num_batches:
                 break
-            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate).to(device)
+            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(device)
             model(**inputs)
     else:
         inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
@@ -113,6 +115,8 @@ if __name__ == '__main__':
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size.")
+    parser.add_argument("--max-seq-len", type=int, default=None, help="Maximum sequence length.")
+    parser.add_argument("--num-batches", type=int, default=None, help="Limit on number of batches.")
     parser.add_argument("--log-dir", type=Path, default="./profiles", help="Directory to log to.")
     parser.add_argument("--save-type", type=str, default="pt", choices=["pt", "pickle"], help="Type of file to save calibrated activations.")
     parser.add_argument("--dataset", type=str, help="Dataset to load samples from.")
@@ -127,6 +131,8 @@ if __name__ == '__main__':
         model_name=args.model_name,
         device=args.device,
         batch_size=args.batch_size,
+        max_seq_len=args.max_seq_len,
+        num_batches=args.num_batches,
         dataset=args.dataset,
         config=args.config,
         split=args.split,
