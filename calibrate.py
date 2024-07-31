@@ -20,15 +20,23 @@ default_prompt = """This is a diverse prompt that contains:
                 - Facts: "The capital of Egypt is Cairo. It is the largest city in the region and is home to..."
                 """
 
-layer_to_mean_activations = {}
+layer_to_sum_activations = {}
+layer_to_num_activations = {}
 
 def get_mean_activations(name):
     def hook(model, input, output):
         if isinstance(input, (List, Tuple)):
             input = input[0]
         # take the mean along all dimensions except the embedding dimension (which is the last dimension)
-        mean_activation = input.detach().mean(dim=torch.arange(input.ndim - 1).tolist())
-        layer_to_mean_activations[name] = mean_activation
+        sum_activation = input.detach().cpu().sum(dim=torch.arange(input.ndim - 1).tolist())
+        num_activations = np.prod(input.shape[:input.ndim - 1])
+
+        if name not in layer_to_sum_activations:
+            layer_to_sum_activations[name] = sum_activation
+            layer_to_num_activations[name] = num_activations
+        else:
+            layer_to_sum_activations[name] += sum_activation
+            layer_to_num_activations[name] += num_activations
     return hook
 
 def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Linear, **kwargs):
@@ -83,7 +91,9 @@ def main(
         inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
         model(inputs)
 
-    print(layer_to_mean_activations)
+    # Calculate mean activation per layer
+    layer_to_mean_activations = {layer : sum/layer_to_num_activations[layer] for layer,sum in layer_to_sum_activations.items()}
+    print(layer_to_num_activations)
 
     log_name = dataset.split("/")[-1] if dataset else "prompt"
     if save_type == "pt":
