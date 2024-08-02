@@ -84,7 +84,7 @@ def group_quantize_tensor(w_orig, n_bit, q_group_size=128):
     return out, scales_and_zeros.to(w_orig.dtype)
 
 
-def apply_q_groups(w_orig, n_bit, q_group_size=128):
+def apply_q_groups(w_orig, n_bit, q_group_size=128, scale_only=False):
     w = w_orig.float()
     assert q_group_size > 1
     assert w.shape[-1] % q_group_size == 0
@@ -95,16 +95,27 @@ def apply_q_groups(w_orig, n_bit, q_group_size=128):
 
     max_val = to_quant.amax(dim=1, keepdim=True)
     min_val = to_quant.amin(dim=1, keepdim=True)
-    max_int = 2**n_bit - 1
-    min_int = 0
-    scales = (max_val - min_val).clamp(min=1e-6) / max_int
+    if scale_only:
+        # TODO: this wastes one bit. Review with Jeff.
+        absmax_val = to_quant.abs().amax(dim=1, keepdim=True)
+        absmax_int = 2**(n_bit - 1) - 1
+        scales = absmax_val.clamp(min=1e-6) / absmax_int
+        zeros = torch.zeros_like(scales)
+
+        w_new = to_quant.div(scales).reshape(w_orig.size())
+        w_new_zeros = torch.zeros_like(w_new)
+    else:
+        max_int = 2**n_bit - 1
+        min_int = 0
+        scales = (max_val - min_val).clamp(min=1e-6) / (max_int - min_int)
+        zeros = min_val + scales * (2 ** (n_bit - 1))
+
+        w_new = to_quant.sub(min_val).div(scales).reshape(w_orig.size())
+        w_new_zeros = torch.zeros(to_quant.size(), dtype=to_quant.dtype, device=to_quant.device).sub(min_val).div(scales).reshape(w_orig.size())
+
+
     assert torch.isnan(scales).sum() == 0
-
-    zeros = min_val + scales * (2 ** (n_bit - 1))
     assert torch.isnan(zeros).sum() == 0
-
-    w_new = to_quant.sub(min_val).div(scales).reshape(w_orig.size())
-    w_new_zeros = torch.zeros(to_quant.size(), dtype=to_quant.dtype, device=to_quant.device).sub(min_val).div(scales).reshape(w_orig.size())
 
     # Scales and zeros for the same q-group should be contiguous, so we can
     # load as a 32-bit word
@@ -136,8 +147,8 @@ def expand_q_groups(x, orig_size, q_group_size):
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True):
-    int4, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False):
+    int4, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
     int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
 
     assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
@@ -168,7 +179,7 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
     if transpose:
         w = w.t()
 
-    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size)
+    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
 
     if transpose:
         w_deq = w_deq.t()
@@ -284,9 +295,10 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False):
+# TODO: this needs to be revisited to verify that it is in sync with reconstruct_any4_grouped
+def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False):
     if q_group_size:
-        to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+        to_cluster, to_cluster_group_zero_point, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
     else:
         to_cluster = x.float()
 
@@ -309,9 +321,9 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, bias_pow=1.0, keep_outliers
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, parallelize=True, surrogate_cluster=False):
+def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, parallelize=True, surrogate_cluster=False):
     if q_group_size:
-        to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size)
+        to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
     else:
         to_cluster = x.float()
 
@@ -323,8 +335,9 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, bias_pow=1.0, keep_ou
     assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster)
 
     if q_group_size:
-        any4.sub_(2**(n_bit - 1))
-        assign_val.sub_(2**(n_bit - 1))
+        if not scale_only:
+            any4.sub_(2**(n_bit - 1))
+            assign_val.sub_(2**(n_bit - 1))
         scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
         zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
@@ -342,7 +355,7 @@ cluster_row_fn_dict = {
     "custom": cluster_row_custom,
 }
 
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False):
     w = module.weight.clone()
     if transpose:
         w = w.t()
@@ -353,7 +366,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     if any_group_size:
         w = w.view(-1, any_group_size)
 
-    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster)
+    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster)
 
     if any_group_size:
         w_deq = w_deq.view(module.weight.shape)
