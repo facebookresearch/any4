@@ -230,6 +230,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
     start = time.time()
     to_cluster = x.cpu().detach().numpy()
     surrogate_to_cluster = x_cluster.float().cpu().detach().numpy() if x_cluster is not None else None
+    sample_weight = sample_weight.float().cpu().detach().numpy() if sample_weight is not None else None
     if parallelize:
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, n_bit=n_bit, init=init, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster)
     else:
@@ -262,7 +263,15 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
 
     return assign, any4, assign_val
 
-def cluster_rows(x, cluster_row: Callable = cluster_row_scikit, n_bit=4, x_surrogate=None, **kwargs):
+def get_sample_weight(sample_weight, index):
+    if sample_weight is None:
+        return None
+    elif np.squeeze(sample_weight).ndim == 1:
+        return sample_weight
+    elif np.squeeze(sample_weight).ndim == 2:
+        return sample_weight[index]
+
+def cluster_rows(x, cluster_row: Callable = cluster_row_scikit, n_bit=4, x_surrogate=None, sample_weight=None, **kwargs):
     assign = torch.zeros(x.shape, dtype=torch.int32)
     any4 = torch.zeros((x.shape[0], 2**n_bit))
     assign_val = torch.zeros(x.shape)
@@ -271,18 +280,18 @@ def cluster_rows(x, cluster_row: Callable = cluster_row_scikit, n_bit=4, x_surro
         r = x[row].reshape(x.shape[1], 1)
         if x_surrogate is not None:
             r_surrogate = x_surrogate[row].reshape(x_surrogate.shape[1], 1)
-            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, r_surrogate=r_surrogate,**kwargs)
+            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), r_surrogate=r_surrogate,**kwargs)
         else:
-            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, **kwargs)
+            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), **kwargs)
 
     return assign, any4, assign_val
 
 
-def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surrogate=None, **kwargs):
+def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surrogate=None, sample_weight=None, **kwargs):
     if x_surrogate is None:
-        results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), **kwargs) for r in x)
+        results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(x[row].reshape(-1, 1), sample_weight=get_sample_weight(sample_weight, row), **kwargs) for row in range(x.shape[0]))
     else:
-        results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(r.reshape(-1, 1), r_surrogate=r_surrogate.reshape(-1, 1), **kwargs) for r, r_surrogate in zip(x, x_surrogate))
+        results: List = Parallel(n_jobs=-1, pre_dispatch="n_jobs//2")(delayed(cluster_row)(x[row].reshape(-1, 1), sample_weight=get_sample_weight(sample_weight, row), r_surrogate=x_surrogate[row].reshape(-1, 1), **kwargs) for row in range(x.shape[0]))
     # Transpose the list of tuples to a tuple of lists
     results_transposed = tuple(zip(*results))
     # Convert each item in the tuple (which are tuples) to lists
@@ -324,8 +333,21 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=
 def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, parallelize=True, surrogate_cluster=False):
     if q_group_size:
         to_cluster, _, scales_and_zeros = apply_q_groups(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
+
+        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
+        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
+
+        scales = expand_q_groups(scales, x.size(), q_group_size)
+        zeros = expand_q_groups(zeros, x.size(), q_group_size)
+
+        if sample_weight is not None:
+            # TODO: add options here to apply absolute() as well as scaling to sample weights
+            sample_weight = sample_weight.to(scales.device) * scales
     else:
         to_cluster = x.float()
+
+    to_cluster = to_cluster.contiguous()
+    sample_weight = sample_weight.contiguous()
 
     if surrogate_cluster:
         surrogate_to_cluster = x
@@ -338,12 +360,6 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         if not scale_only:
             any4.sub_(2**(n_bit - 1))
             assign_val.sub_(2**(n_bit - 1))
-        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
-        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
-
-        scales = expand_q_groups(scales, x.size(), q_group_size)
-        zeros = expand_q_groups(zeros, x.size(), q_group_size)
-
         reconstructed = assign_val * scales + zeros
     else:
         reconstructed = assign_val

@@ -63,7 +63,10 @@ def build_sample_weight(x, sample_weight_type: str, abs: bool = True):
     if sample_weight_type is None:
         return None
     elif isinstance(sample_weight_type, torch.Tensor):
-        sample_weight = sample_weight_type.squeeze().cpu().numpy()
+        sample_weight = sample_weight_type.squeeze().cpu().detach().numpy()
+        assert sample_weight.shape == (N,), f"sample_weight.shape {sample_weight.shape} should be ({N},)"
+    elif isinstance(sample_weight_type, np.ndarray):
+        sample_weight = sample_weight_type
         assert sample_weight.shape == (N,), f"sample_weight.shape {sample_weight.shape} should be ({N},)"
     elif sample_weight_type.startswith("outlier"):
         # This pattern accepts "outlier_{factor}_{num}" or "outlier_{factor}".
