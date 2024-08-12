@@ -201,7 +201,7 @@ def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
     return assign, any4, assign_val
 
 def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
-    assert r_surrogate==None, "sciki clustering does not support surrogate_to_cluster"
+    assert r_surrogate==None, "scikit clustering does not support surrogate_to_cluster"
     init = kmeans.build_init(x=r, n_clusters=2 ** n_bit, init_type=init)
     if init is None:
         init = "k-means++"
@@ -213,6 +213,18 @@ def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
     assign_val = torch.from_numpy(clusters.cluster_centers_[clusters.predict(r)]).flatten()
 
     return assign, any4, assign_val
+
+def cluster_row_agglomerative(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
+    assert r_surrogate==None, "scikit clustering does not support surrogate_to_cluster"
+    assert init==None, "agglomerative clustering does not support init"
+    assert sample_weight==None, "agglomerative clustering does not support sample weight"
+
+    clusters = sklearn.cluster.AgglomerativeClustering(n_clusters=2**n_bit, **kwargs).fit(r)
+    assign = np.array(clusters.labels_)
+    any4 = np.array([np.mean(r[assign == label]) for label in np.unique(assign)])
+    assign_val = any4[assign]
+
+    return torch.from_numpy(assign), torch.from_numpy(any4), torch.from_numpy(assign_val)
 
 # TODO: change arg name x_cluster to x_surrogate
 def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, parallelize=True, x_cluster=None):
@@ -347,7 +359,8 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         to_cluster = x.float()
 
     to_cluster = to_cluster.contiguous()
-    sample_weight = sample_weight.contiguous()
+    if sample_weight is not None:
+        sample_weight = sample_weight.contiguous()
 
     if surrogate_cluster:
         surrogate_to_cluster = x
@@ -369,6 +382,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
 cluster_row_fn_dict = {
     "scikit": cluster_row_scikit,
     "custom": cluster_row_custom,
+    "agglomerative": cluster_row_agglomerative,
 }
 
 def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False):
