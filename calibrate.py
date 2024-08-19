@@ -123,6 +123,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
+    # TODO: add --task option to load data using lm_eval
 
     args = parser.parse_args()
 
