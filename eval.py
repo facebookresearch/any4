@@ -10,6 +10,7 @@ import lm_eval
 from lm_eval.utils import simple_parse_args_string
 
 from any4 import convert, quant_methods
+from calibrate import calibrate
 from utils import CustomJSONEncoder
 
 def main(
@@ -56,6 +57,8 @@ def main(
                    quant_args["sample_weight"] = pickle.load(handle)
             elif quant_args["sample_weight"].endswith(".pt"):
                 quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(device))
+            elif quant_args["sample_weight"] == "calibrate":
+                quant_args["sample_weight"] = calibrate
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
@@ -73,7 +76,8 @@ def main(
 
     # Apply our quantization algorithms
     if quant_method:
-        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
+        os.environ["TOKENIZERS_PARALLELISM"] = "True"
+        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, **quant_args)
 
     # Save weights
     if save_weights:

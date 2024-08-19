@@ -46,16 +46,50 @@ def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Li
 
     return model
 
-def main(
-    model_name: str,
-    device: str,
-    log_dir: Path,
-    batch_size: int,
+def calibrate(
+    model: torch.nn.Module,
+    tokenizer: AutoTokenizer,
     prompt: str = default_prompt,
     dataset: Optional[str] = None,
     config: Optional[str] = None,
     split: str = "train",
     field: Optional[str] = None,
+    batch_size: int = 1,
+    num_batches: Optional[int] = None,
+    max_seq_len: Optional[int] = None,
+    padding: bool = True,
+    truncate: bool = False,
+):
+    register_forward_hook(model)
+
+    # Apply inputs
+    if dataset:
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).iter(batch_size=batch_size))):
+            if num_batches is not None and idx >= num_batches:
+                break
+            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(device)
+            model(**inputs)
+    else:
+        inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
+        model(inputs)
+
+    # Calculate mean activation per layer
+    layer_to_mean_activations = {layer : sum/layer_to_num_activations[layer] for layer,sum in layer_to_sum_activations.items()}
+
+    return layer_to_mean_activations
+
+def main(
+    model_name: str,
+    device: str,
+    log_dir: Path,
+    prompt: str = default_prompt,
+    dataset: Optional[str] = None,
+    config: Optional[str] = None,
+    split: str = "train",
+    field: Optional[str] = None,
+    batch_size: int = 1,
     num_batches: Optional[int] = None,
     max_seq_len: Optional[int] = None,
     padding: bool = True,
@@ -74,29 +108,29 @@ def main(
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
+    # Setup Model
     model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.eval()
 
-    register_forward_hook(model)
-
-    # Apply inputs
-    if dataset:
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).iter(batch_size=batch_size))):
-            if num_batches is not None and idx >= num_batches:
-                break
-            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(device)
-            model(**inputs)
-    else:
-        inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
-        model(inputs)
-
-    # Calculate mean activation per layer
-    layer_to_mean_activations = {layer : sum/layer_to_num_activations[layer] for layer,sum in layer_to_sum_activations.items()}
+    # Calibrate
+    layer_to_mean_activations = calibrate(
+        model=model,
+        tokenizer=tokenizer,
+        prompt=prompt,
+        dataset=dataset,
+        config=config,
+        split=split,
+        field=field,
+        batch_size=batch_size,
+        num_batches=num_batches,
+        max_seq_len=max_seq_len,
+        padding=padding,
+        truncate=truncate,
+    )
     print(layer_to_num_activations)
 
+    # Log Activations
     log_name = dataset.split("/")[-1] if dataset else "prompt"
     if save_type == "pt":
         torch.save(layer_to_mean_activations, Path(f"./{log_dir}/{log_name}.pt"))
@@ -119,6 +153,7 @@ if __name__ == '__main__':
     parser.add_argument("--num-batches", type=int, default=None, help="Limit on number of batches.")
     parser.add_argument("--log-dir", type=Path, default="./profiles", help="Directory to log to.")
     parser.add_argument("--save-type", type=str, default="pt", choices=["pt", "pickle"], help="Type of file to save calibrated activations.")
+    parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--dataset", type=str, help="Dataset to load samples from.")
     parser.add_argument("--config", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
@@ -131,13 +166,14 @@ if __name__ == '__main__':
     main(
         model_name=args.model_name,
         device=args.device,
-        batch_size=args.batch_size,
-        max_seq_len=args.max_seq_len,
-        num_batches=args.num_batches,
         dataset=args.dataset,
         config=args.config,
         split=args.split,
         field=args.field,
+        prompt=args.prompt,
+        batch_size=args.batch_size,
+        num_batches=args.num_batches,
+        max_seq_len=args.max_seq_len,
         log_dir=args.log_dir,
         save_type=args.save_type
     )
