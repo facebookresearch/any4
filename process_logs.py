@@ -1,9 +1,15 @@
+import argparse
 import json
 import pandas as pd
 import os
 
+parser = argparse.ArgumentParser(description="Process json results file from one or more directories.")
+parser.add_argument("root_directories", type=str, default="./any4/logs/", help="HuggingFace model name or path.")
+
+args = parser.parse_args()
+
 # Provide a list of root directories
-root_directories = ["/data/home/melhoushi/any4/logs/"]  # Update with your actual root directories
+root_directories = args.root_directories
 
 # Initialize an empty list to collect directories containing 'results.json'
 directories = []
