@@ -53,7 +53,8 @@ def calibrate(
     dataset: Optional[str] = None,
     config: Optional[str] = None,
     split: str = "train",
-    field: Optional[str] = None,
+    field: str = "text",
+    seed: int = 42,
     batch_size: int = 1,
     num_batches: Optional[int] = None,
     max_seq_len: Optional[int] = None,
@@ -66,10 +67,10 @@ def calibrate(
     if dataset:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).iter(batch_size=batch_size))):
+        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size))):
             if num_batches is not None and idx >= num_batches:
                 break
-            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(device)
+            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
             model(**inputs)
     else:
         inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
@@ -88,7 +89,8 @@ def main(
     dataset: Optional[str] = None,
     config: Optional[str] = None,
     split: str = "train",
-    field: Optional[str] = None,
+    field: str = "text",
+    seed: int = 42,
     batch_size: int = 1,
     num_batches: Optional[int] = None,
     max_seq_len: Optional[int] = None,
@@ -122,6 +124,7 @@ def main(
         config=config,
         split=split,
         field=field,
+        seed=seed,
         batch_size=batch_size,
         num_batches=num_batches,
         max_seq_len=max_seq_len,
@@ -158,6 +161,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
+    parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
     # TODO: add --task option to load data using lm_eval
 
     args = parser.parse_args()
@@ -170,6 +174,7 @@ if __name__ == '__main__':
         config=args.config,
         split=args.split,
         field=args.field,
+        seed=args.seed,
         prompt=args.prompt,
         batch_size=args.batch_size,
         num_batches=args.num_batches,
