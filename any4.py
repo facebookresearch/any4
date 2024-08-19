@@ -217,11 +217,10 @@ def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
 def cluster_row_agglomerative(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
     assert r_surrogate==None, "scikit clustering does not support surrogate_to_cluster"
     assert init==None, "agglomerative clustering does not support init"
-    assert sample_weight==None, "agglomerative clustering does not support sample weight"
 
     clusters = sklearn.cluster.AgglomerativeClustering(n_clusters=2**n_bit, **kwargs).fit(r)
     assign = np.array(clusters.labels_)
-    any4 = np.array([np.mean(r[assign == label]) for label in np.unique(assign)])
+    any4 = np.array([np.average(r[assign == label].flatten(), weights=sample_weight[assign == label] if sample_weight is not None else None) for label in np.unique(assign)])
     assign_val = any4[assign]
 
     return torch.from_numpy(assign), torch.from_numpy(any4), torch.from_numpy(assign_val)
