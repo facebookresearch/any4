@@ -22,6 +22,7 @@ def main(
     device: str,
     batch_size: int,
     log_dir: Path,
+    load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
     num_fewshot: Optional[int] = None,
@@ -74,6 +75,11 @@ def main(
         **model_args
     )
 
+    # Load weights
+    if load_weights:
+        weights = torch.load(Path(load_weights))
+        lm_obj._model.load_state_dict(weights)
+
     # Apply our quantization algorithms
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
@@ -125,6 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
+    parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
 
     args = parser.parse_args()
 
@@ -148,5 +155,6 @@ if __name__ == '__main__':
         parallelize=args.parallelize,
         log_dir=args.log_dir,
         save_weights=args.save_weights,
+        load_weights=args.load_weights,
         bnb_args=bnb_args,
     )
