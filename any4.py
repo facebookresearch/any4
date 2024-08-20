@@ -20,8 +20,14 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     return count 
 
 
-def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, **kwargs):
+def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
+
+    calibrate_fn = None
+    if "sample_weight" in kwargs:
+        if isinstance(kwargs["sample_weight"], Callable):
+            calibrate_fn = kwargs["sample_weight"]
+
     for name, module in model.named_modules():
         if isinstance(module, (layer_from)):
             print(f"\t{name}", end="", flush=True)
@@ -30,10 +36,9 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
                 continue
 
             # Calibrate if necessary
-            if "sample_weight" in kwargs:
-                if isinstance(kwargs["sample_weight"], Callable):
-                    calibrate_fn = kwargs["sample_weight"]
-                    kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer)
+            if calibrate_fn is not None:
+                calibrate_args["seed"] = index
+                kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, **calibrate_args)
 
             layer_to(module, name=name, **kwargs)
             print("... Done", flush=True)

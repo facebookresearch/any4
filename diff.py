@@ -40,6 +40,7 @@ def main(
     quant_args: Dict,
     quant_method: Callable,
     prompt: str = default_prompt,
+    calibrate_args: Dict = {},
     log_dir: Path = "./diffs",
 ):
     global layer_to_output
@@ -80,7 +81,7 @@ def main(
                 quant_args["sample_weight"] = calibrate
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        model = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, **quant_args)
+        model = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, calibrate_args=calibrate_args, **quant_args)
 
     # Calibrate Quantized Model
     layer_to_output = {}
@@ -117,6 +118,7 @@ if __name__ == '__main__':
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
+    parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
     parser.add_argument("--log-dir", type=Path, default="./diffs", help="Directory to log to.")
 
     args = parser.parse_args()
@@ -124,6 +126,7 @@ if __name__ == '__main__':
     # Pre-process some args
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
 
     # Run Evaluation
     main(
@@ -132,5 +135,6 @@ if __name__ == '__main__':
         prompt=args.prompt,
         quant_method=quant_method,
         quant_args=quant_args,
+        calibrate_args=calibrate_args,
         log_dir=args.log_dir
     )
