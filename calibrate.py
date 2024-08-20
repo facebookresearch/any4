@@ -179,6 +179,7 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         num_batches=args.num_batches,
         max_seq_len=args.max_seq_len,
+        truncate=args.max_seq_len is not None,
         log_dir=args.log_dir,
         save_type=args.save_type
     )
