@@ -3,6 +3,7 @@ import time
 from utils import log, get_max_n_numbers, get_min_n_numbers
 import numpy as np
 from scipy.sparse import csr_matrix
+from sklearn.utils.sparsefuncs import mean_variance_axis
 import re
 
 from typing import Union, Optional, Callable, Tuple
@@ -165,6 +166,8 @@ def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[st
     best_centroids = None
     best_labels = None
 
+    tol = _tolerance(X, tol)
+
     for _ in range(n_init):  # Multiple initializations to find best clustering
         centroids = initialize_centroids(X, n_clusters, init)
         inertia, centroids, labels = run_kmeans(X, centroids, max_iter, tol, verbose, sample_weight, X_surrogate)
@@ -175,6 +178,16 @@ def kmeans(X: Union[np.ndarray, csr_matrix], n_clusters: int = 8, init: Union[st
             best_labels = labels
 
     return best_centroids[best_labels], best_centroids, best_labels
+
+def _tolerance(X, tol):
+    """Return a tolerance which is dependent on the dataset."""
+    if tol == 0:
+        return 0
+    if isinstance(X, csr_matrix):
+        variances = mean_variance_axis(X, axis=0)[1]
+    else:
+        variances = np.var(X, axis=0)
+    return np.mean(variances) * tol
 
 def initialize_centroids(X: np.ndarray, n_clusters: int, init: Union[str, Callable, np.ndarray]) -> np.ndarray:
     """
