@@ -1,0 +1,136 @@
+from typing import Dict, Callable, Type
+import json
+import os
+import sys
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import pandas as pd
+from pathlib import Path
+
+from utils import CustomJSONEncoder
+from lm_eval.utils import simple_parse_args_string
+from any4 import convert, quant_methods
+from calibrate import calibrate
+
+default_prompt = """This is a diverse prompt that contains:
+                - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
+                - News: "The United Nations held its General Assembly meeting this year amid multiple world crises and wars. In his speech, the General Secretary called for ..."
+                - Code: `public static void main(String[] args) {\n System.out.println("Hello world!);\n}`
+                - Math: (5.2 + 2.7) / 0.6 - 1.9 * 2.2 =
+                - Facts: "The capital of Egypt is Cairo. It is the largest city in the region and is home to..."
+                """
+
+layer_to_output = {}
+
+def get_output(name):
+    def hook(model, input, output):
+        layer_to_output[name] = output
+    return hook
+
+def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Linear, **kwargs):
+    for name, module in model.named_modules():
+        if isinstance(module, (layer_type)):
+            module.register_forward_hook(get_output(name))
+
+    return model
+
+def main(
+    model_name: str,
+    device: str,
+    quant_args: Dict,
+    quant_method: Callable,
+    prompt: str = default_prompt,
+    log_dir: Path = "./diffs",
+):
+    global layer_to_output
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    # Log args
+    args = locals()
+    print(args)
+    with Path(log_dir/"args.json").open("w") as f:
+        json.dump(args, f, indent=4, cls=CustomJSONEncoder)
+
+    # Log command to a file
+    arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
+    with open(log_dir / "command_line.txt", "w") as f:
+        f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
+
+    # Setup Model
+    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model.eval()
+
+    # Calibrate Original Model
+    layer_to_output = {}
+    register_forward_hook(model)
+    inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
+    model(inputs)
+    layer_to_output_orig = layer_to_output.copy()
+
+    # Apply our quantization algorithms
+    if quant_args:
+        if "sample_weight" in quant_args:
+            if quant_args["sample_weight"].endswith(".pickle"):
+                with open(quant_args["sample_weight"], 'rb') as handle:
+                   quant_args["sample_weight"] = pickle.load(handle)
+            elif quant_args["sample_weight"].endswith(".pt"):
+                quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(device))
+            elif quant_args["sample_weight"] == "calibrate":
+                quant_args["sample_weight"] = calibrate
+    if quant_method:
+        os.environ["TOKENIZERS_PARALLELISM"] = "True"
+        model = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, **quant_args)
+
+    # Calibrate Quantized Model
+    layer_to_output = {}
+    inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
+    model(inputs)
+    layer_to_output_quantized = layer_to_output.copy()
+
+    # Log Differences
+    layers_diffs = []
+    for layer_name in layer_to_output_orig.keys():
+        layer_diffs = {}
+        layer_diffs["layer"] = layer_name
+
+        y_orig = layer_to_output_orig[layer_name]
+        y_quant = layer_to_output_quantized[layer_name]
+        layer_diffs["mean_square_error"] = torch.mean((y_orig - y_quant) ** 2).item()
+        layer_diffs["cosine_similarity"] = torch.nn.functional.cosine_similarity(y_orig.flatten(), y_quant.flatten(), dim=0).item()
+
+        layers_diffs.append(layer_diffs)
+
+    # Log stats
+    df = pd.DataFrame(layers_diffs)
+    df.to_csv(log_dir / "diffs.csv", index=False)
+
+
+if __name__ == '__main__':
+    default_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    import argparse
+    parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
+
+    parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
+    parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
+    parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
+    parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
+    parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
+    parser.add_argument("--log-dir", type=Path, default="./diffs", help="Directory to log to.")
+
+    args = parser.parse_args()
+
+    # Pre-process some args
+    quant_method = None if not args.quantize else quant_methods[args.quantize]
+    quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+
+    # Run Evaluation
+    main(
+        model_name=args.model_name,
+        device=args.device,
+        prompt=args.prompt,
+        quant_method=quant_method,
+        quant_args=quant_args,
+        log_dir=args.log_dir
+    )
