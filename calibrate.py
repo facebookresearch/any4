@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Type
+from typing import Callable, Dict, List, OrderedDict, Optional, Tuple, Type
 from tqdm import tqdm
 import json
 import numpy as np
@@ -10,7 +10,7 @@ from datasets import load_dataset
 import pickle
 from pathlib import Path
 
-from utils import CustomJSONEncoder
+from utils import CustomJSONEncoder, remove_all_hooks
 
 default_prompt = """This is a diverse prompt that contains:
                 - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
@@ -81,6 +81,8 @@ def calibrate(
 
     # Calculate mean activation per layer
     layer_to_mean_activations = {layer : sum/layer_to_num_activations[layer] for layer,sum in layer_to_sum_activations.items()}
+
+    remove_all_hooks(model)
 
     return layer_to_mean_activations
 

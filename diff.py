@@ -11,6 +11,7 @@ from utils import CustomJSONEncoder
 from lm_eval.utils import simple_parse_args_string
 from any4 import convert, quant_methods
 from calibrate import calibrate
+from utils import remove_all_hooks
 
 default_prompt = """This is a diverse prompt that contains:
                 - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
@@ -68,6 +69,7 @@ def main(
     inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
     model(inputs)
     layer_to_output_orig = layer_to_output.copy()
+    remove_all_hooks(model)
 
     # Apply our quantization algorithms
     if quant_args:
@@ -85,9 +87,11 @@ def main(
 
     # Calibrate Quantized Model
     layer_to_output = {}
+    register_forward_hook(model)
     inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
     model(inputs)
     layer_to_output_quantized = layer_to_output.copy()
+    remove_all_hooks(model)
 
     # Log Differences
     layers_diffs = []

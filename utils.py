@@ -1,5 +1,6 @@
 import json
 from pathlib import Path, PurePosixPath
+from typing import Callable, Dict, OrderedDict
 import torch
 import numpy as np
 
@@ -24,3 +25,14 @@ def get_max_n_numbers(arr, n):
 
 def get_min_n_numbers(arr, n):
     return np.sort(arr)[:n]
+
+def remove_all_hooks(model: torch.nn.Module) -> None:
+    for name, child in model._modules.items():
+        if child is not None:
+            if hasattr(child, "_forward_hooks"):
+                child._forward_hooks: Dict[int, Callable] = OrderedDict()
+            elif hasattr(child, "_forward_pre_hooks"):
+                child._forward_pre_hooks: Dict[int, Callable] = OrderedDict()
+            elif hasattr(child, "_backward_hooks"):
+                child._backward_hooks: Dict[int, Callable] = OrderedDict()
+            remove_all_hooks(child)
