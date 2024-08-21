@@ -28,7 +28,8 @@ def get_mean_activations(name):
         if isinstance(input, (List, Tuple)):
             input = input[0]
         # take the mean along all dimensions except the embedding dimension (which is the last dimension)
-        sum_activation = input.detach().cpu().sum(dim=torch.arange(input.ndim - 1).tolist())
+        # converting input to double() to minimize chances of overflow when summing activations
+        sum_activation = input.detach().cpu().double().sum(dim=torch.arange(input.ndim - 1).tolist())
         num_activations = np.prod(input.shape[:input.ndim - 1])
 
         if name not in layer_to_sum_activations:
