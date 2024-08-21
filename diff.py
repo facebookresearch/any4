@@ -1,6 +1,7 @@
 from typing import Dict, Callable, Type
 import json
 import os
+import pickle
 import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
