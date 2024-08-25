@@ -1,13 +1,22 @@
+from dataclasses import dataclass, asdict
 from typing import Callable, Dict, List, Optional
 from pathlib import Path
+import argparse
 import json
 import os
 import pickle
 import sys
 import torch
 import transformers
+
 import lm_eval
 from lm_eval.utils import simple_parse_args_string
+
+import bigcode_eval
+import bigcode_eval.tasks
+import bigcode_eval.evaluator
+import bigcode_eval.arguments
+from accelerate import Accelerator
 
 from any4 import convert, quant_methods
 from calibrate import calibrate
@@ -22,6 +31,7 @@ def main(
     device: str,
     batch_size: int,
     log_dir: Path,
+    generation_args: Dict,
     load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
@@ -98,24 +108,67 @@ def main(
 
     results = {}
     # LM Eval Harness Evaluation
-    tasks_harness = []
+    harness_tasks = []
     for task in tasks:
         if task in task_manager.all_tasks:
             tasks.remove(task)
-            tasks_harness.append(task)
+            harness_tasks.append(task)
 
-    if tasks_harness:
+    if harness_tasks:
         # Setting `task_manager` to the one above is optional and should generally be done
         # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
         # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-        results_harness = lm_eval.simple_evaluate( # call simple_evaluate
+        harness_results = lm_eval.simple_evaluate( # call simple_evaluate
             model=lm_obj,
-            tasks=tasks_harness,
+            tasks=harness_tasks,
             num_fewshot=num_fewshot,
             task_manager=task_manager,
             model_args={"parallelize": parallelize},
         )
-        results.update(results_harness["results"])
+        results.update(harness_results["results"])
+
+    # BigCode Evaluation
+    bigcode_tasks = []
+    for task in tasks:
+        if task in bigcode_eval.tasks.ALL_TASKS:
+            tasks.remove(task)
+            bigcode_tasks.append(task)
+
+    if bigcode_tasks:
+        accelerator = Accelerator()
+        bigcode_args = {
+            "modeltype": "causal",
+            "batch_size": batch_size,
+            "max_length_generation": 512,
+            "limit": None,
+            "limit_start": 0,
+            "instruction_tokens": None,
+            "save_every_k_tasks": 1,
+            "postprocess": False,
+            "allow_code_execution": True,
+            "generation_only": False,
+            "load_generations_path": None,
+            "load_data_path": None,
+            "metric_output_path": str(Path(log_dir/"bigcode_evaluation_results.json")),
+            "load_generations_intermediate_paths": None,
+            "save_generations": False,
+            "save_generations_path": str(Path(log_dir/"bigcode_generations.json")),
+            "save_references": False,
+            "save_generations_path": str(Path(log_dir/"bigcode_references.json")),
+            "check_references": False,
+            "max_memory_per_gpu": None,
+            **generation_args,
+        }
+        bigcode_evaluator = bigcode_eval.evaluator.Evaluator(
+            accelerator=accelerator,
+            model=lm_obj.model,
+            tokenizer=lm_obj.tokenizer,
+            args=argparse.Namespace(**bigcode_args),
+        )
+        bigcode_results = {}
+        for task in bigcode_tasks:
+            results[task] = bigcode_evaluator.evaluate(task)
+        results.update(bigcode_results)
 
     # Log results
     print(results)
@@ -126,7 +179,6 @@ def main(
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    import argparse
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
@@ -141,6 +193,7 @@ if __name__ == '__main__':
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
+    parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
@@ -153,6 +206,10 @@ if __name__ == '__main__':
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
+    # TODO: create our own generation args and then adapt them to Eval Harness and BigCode Eval
+    generation_args = asdict(bigcode_eval.arguments.EvalArguments())
+    if args.generation_args:
+        generation_args.update(simple_parse_args_string(args.generation_args))
 
     # Run Evaluation
     main(
@@ -167,6 +224,7 @@ if __name__ == '__main__':
         device=args.device,
         batch_size=args.batch_size,
         parallelize=args.parallelize,
+        generation_args=generation_args,
         log_dir=args.log_dir,
         save_weights=args.save_weights,
         load_weights=args.load_weights,
