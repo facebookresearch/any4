@@ -96,21 +96,31 @@ def main(
     # to include a set of tasks in a separate directory.
     task_manager = lm_eval.tasks.TaskManager()
 
-    # Setting `task_manager` to the one above is optional and should generally be done
-    # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
-    # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-    results = lm_eval.simple_evaluate( # call simple_evaluate
-        model=lm_obj,
-        tasks=tasks,
-        num_fewshot=num_fewshot,
-        task_manager=task_manager,
-        model_args={"parallelize": parallelize},
-    )
+    results = {}
+    # LM Eval Harness Evaluation
+    tasks_harness = []
+    for task in tasks:
+        if task in task_manager.all_tasks:
+            tasks.remove(task)
+            tasks_harness.append(task)
+
+    if tasks_harness:
+        # Setting `task_manager` to the one above is optional and should generally be done
+        # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
+        # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
+        results_harness = lm_eval.simple_evaluate( # call simple_evaluate
+            model=lm_obj,
+            tasks=tasks_harness,
+            num_fewshot=num_fewshot,
+            task_manager=task_manager,
+            model_args={"parallelize": parallelize},
+        )
+        results.update(results_harness["results"])
 
     # Log results
-    print(results["results"])
+    print(results)
     with Path(log_dir/"results.json").open("w") as f:
-        json.dump(results["results"], f, indent=4)
+        json.dump(results, f, indent=4)
 
 
 if __name__ == '__main__':
