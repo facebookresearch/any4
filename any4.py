@@ -186,7 +186,7 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, s
 
 
 def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
-    w = module.weight.clone()
+    w = module.weight
 
     if transpose:
         w = w.t()
@@ -366,6 +366,8 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         if sample_weight is not None:
             # TODO: add options here to apply absolute() as well as scaling to sample weights
             sample_weight = sample_weight.to(scales.device) * scales
+
+        del scales_and_zeros
     else:
         to_cluster = x.float()
 
@@ -385,9 +387,11 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
             any4.sub_(2**(n_bit - 1))
             assign_val.sub_(2**(n_bit - 1))
         reconstructed = assign_val * scales + zeros
+        del scales, zeros
     else:
         reconstructed = assign_val
 
+    del assign, any4
     return reconstructed
 
 cluster_row_fn_dict = {
@@ -397,7 +401,7 @@ cluster_row_fn_dict = {
 }
 
 def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
-    w = module.weight.clone()
+    w = module.weight
     if transpose:
         w = w.t()
 
