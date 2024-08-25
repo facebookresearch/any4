@@ -38,6 +38,7 @@ def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Li
 
 def main(
     model_name: str,
+    model_args: Dict,
     device: str,
     quant_args: Dict,
     quant_method: Callable,
@@ -60,7 +61,7 @@ def main(
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
     # Setup Model
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+    model = AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.eval()
 
@@ -119,6 +120,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
+    parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
@@ -132,10 +134,12 @@ if __name__ == '__main__':
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
+    model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
 
     # Run Evaluation
     main(
         model_name=args.model_name,
+        model_args=model_args,
         device=args.device,
         prompt=args.prompt,
         quant_method=quant_method,
