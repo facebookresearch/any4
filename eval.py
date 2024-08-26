@@ -167,8 +167,14 @@ def main(
         )
         bigcode_results = {}
         for task in bigcode_tasks:
-            results[task] = bigcode_evaluator.evaluate(task)
+            bigcode_results[task] = bigcode_evaluator.evaluate(task)
         results.update(bigcode_results)
+
+    # TODO: for remaining tasks, do PPL evaluation on HF datasets
+    # TODO: args.datasets could be nargs of comma-listed arguments
+
+    if tasks:
+        print(f"WARNING: The following tasks are unknown: {tasks}")
 
     # Log results
     print(results)
