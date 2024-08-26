@@ -8,6 +8,7 @@ import sklearn.cluster
 import bitsandbytes as bnb
 
 import kmeans
+import gc
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -252,7 +253,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
 
     start = time.time()
     to_cluster = x.cpu().detach().numpy()
-    surrogate_to_cluster = x_cluster.float().cpu().detach().numpy() if x_cluster is not None else None
+    surrogate_to_cluster = x_cluster.cpu().float().detach().numpy() if x_cluster is not None else None
     sample_weight = sample_weight.float().cpu().detach().numpy() if sample_weight is not None else None
     if parallelize:
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, n_bit=n_bit, init=init, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
@@ -283,6 +284,13 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
         # map values back to [0, 15]
         any4 = any4 + ((2 ** n_bit) - 1) / 2.
         assign_val = assign_val + ((2 ** n_bit) - 1) / 2.
+
+    # Clean up memory
+    del to_cluster
+    if surrogate_to_cluster is not None:
+        del surrogate_to_cluster
+    if sample_weight is not None:
+        del sample_weight
 
     return assign, any4, assign_val
 
@@ -392,6 +400,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         reconstructed = assign_val
 
     del assign, any4
+    gc.collect()
     return reconstructed
 
 cluster_row_fn_dict = {
