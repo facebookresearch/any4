@@ -4,6 +4,8 @@ from typing import Callable, Dict, OrderedDict
 import torch
 import numpy as np
 
+dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (Path, PurePosixPath)):

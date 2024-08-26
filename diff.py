@@ -12,7 +12,7 @@ from utils import CustomJSONEncoder
 from lm_eval.utils import simple_parse_args_string
 from any4 import convert, quant_methods
 from calibrate import calibrate
-from utils import remove_all_hooks
+from utils import remove_all_hooks, dtype_str_to_torch
 
 default_prompt = """This is a diverse prompt that contains:
                 - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
@@ -59,6 +59,11 @@ def main(
     arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
+
+    # Pre-process Args
+    if model_args:
+        if "torch_dtype" in model_args:
+            model_args["torch_dtype"] = dtype_str_to_torch[model_args["torch_dtype"]]
 
     # Setup Model
     model = AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
