@@ -21,6 +21,7 @@ from accelerate import Accelerator
 from any4 import convert, quant_methods
 from calibrate import calibrate
 from utils import CustomJSONEncoder
+from data import task_dataset_configs, eval_perplexity
 
 def main(
     model_name: str,
@@ -113,7 +114,6 @@ def main(
         if task in task_manager.all_tasks:
             tasks.remove(task)
             harness_tasks.append(task)
-
     if harness_tasks:
         # Setting `task_manager` to the one above is optional and should generally be done
         # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
@@ -133,7 +133,6 @@ def main(
         if task in bigcode_eval.tasks.ALL_TASKS:
             tasks.remove(task)
             bigcode_tasks.append(task)
-
     if bigcode_tasks:
         accelerator = Accelerator()
         bigcode_args = {
@@ -170,8 +169,16 @@ def main(
             bigcode_results[task] = bigcode_evaluator.evaluate(task)
         results.update(bigcode_results)
 
-    # TODO: for remaining tasks, do PPL evaluation on HF datasets
     # TODO: args.datasets could be nargs of comma-listed arguments
+    data_tasks = []
+    for task in tasks:
+        if task in task_dataset_configs:
+            tasks.remove(task)
+            data_tasks.append(task)
+    if data_tasks:
+        data_results = {}
+        for task in data_tasks:
+            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=batch_size, **task_dataset_configs[task])
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
