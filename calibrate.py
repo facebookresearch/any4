@@ -1,5 +1,6 @@
 from typing import Callable, Dict, List, OrderedDict, Optional, Tuple, Type
 from tqdm import tqdm
+import gc
 import json
 import numpy as np
 import os
@@ -65,6 +66,10 @@ def calibrate(
     if max_seq_len is not None:
         truncate = True
 
+    global layer_to_sum_activations
+    global layer_to_num_activations
+    layer_to_sum_activations = {}
+    layer_to_num_activations = {}
     register_forward_hook(model)
 
     # Apply inputs
@@ -76,14 +81,21 @@ def calibrate(
                 break
             inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
             model(**inputs)
+            del inputs
     else:
         inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
         model(inputs)
+        del inputs
 
     # Calculate mean activation per layer
     layer_to_mean_activations = {layer : sum/layer_to_num_activations[layer] for layer,sum in layer_to_sum_activations.items()}
 
     remove_all_hooks(model)
+
+    for tensor in layer_to_sum_activations.values():
+        del tensor
+        tensor = None
+    gc.collect()
 
     return layer_to_mean_activations
 

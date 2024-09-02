@@ -289,8 +289,6 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
     del to_cluster
     if surrogate_to_cluster is not None:
         del surrogate_to_cluster
-    if sample_weight is not None:
-        del sample_weight
 
     return assign, any4, assign_val
 
