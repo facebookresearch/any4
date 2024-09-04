@@ -101,7 +101,26 @@ def group_q(w_orig, n_bit, q_group_size=128, scale_only=False):
 
     return w_new, w_new_zeros, scales_and_zeros
 
+def extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size):
+    scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
+    zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
+    scales = expand_q_groups(scales, w_c.size(), q_group_size)
+    zeros = expand_q_groups(zeros, w_c.size(), q_group_size)
+
+    return scales, zeros
+
+def degroup_q(w_c, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, scale_only=False):
+    if scales is None:
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size)
+
+    if q_group_size:
+        if not scale_only:
+            w_c = w_c - (2**(n_bit - 1))
+        reconstructed = w_c * scales + zeros
+    else:
+        reconstructed = w_c
+    return reconstructed
 
 # takes the scale or offset per each quantization group and reshapes/duplicates it to map
 # to the original matrix size
@@ -119,22 +138,7 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, s
 
     assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
 
-    if parallelize:
-        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
-        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
-
-        scales = expand_q_groups(scales, x.size(), q_group_size)
-        zeros = expand_q_groups(zeros, x.size(), q_group_size)
-
-        reconstructed = int4 * scales + zeros
-        reconstructed = reconstructed.to(dtype=x.dtype)
-    else:
-        reconstructed = torch.zeros_like(x)
-
-        for r in range(x.size(0)):
-            for c in range(x.size(1)):
-                q_group = c // q_group_size
-                reconstructed[r][c] = int4[r][c] * scales_and_zeros[q_group][r][0] + scales_and_zeros[q_group][r][1]
+    reconstructed = degroup_q(int4, scales_and_zeros, n_bit, q_group_size, scale_only)
 
     return reconstructed
 
@@ -317,11 +321,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         to_cluster, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
 
-        scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
-        zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
-
-        scales = expand_q_groups(scales, x.size(), q_group_size)
-        zeros = expand_q_groups(zeros, x.size(), q_group_size)
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, to_cluster, q_group_size)
 
         if sample_weight is not None:
             # TODO: add options here to apply absolute()
@@ -347,8 +347,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
     if q_group_size:
         if not scale_only:
             any4.sub_(2**(n_bit - 1))
-            assign_val.sub_(2**(n_bit - 1))
-        reconstructed = assign_val * scales + zeros
+        reconstructed = degroup_q(assign_val, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, scale_only=scale_only)
         del scales, zeros
     else:
         reconstructed = assign_val
