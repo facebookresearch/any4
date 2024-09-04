@@ -324,8 +324,9 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
         zeros = expand_q_groups(zeros, x.size(), q_group_size)
 
         if sample_weight is not None:
-            # TODO: add options here to apply absolute() as well as scaling to sample weights
-            sample_weight = sample_weight.to(scales.device) * scales
+            # TODO: add options here to apply absolute()
+            if scale_sample_weight:
+                sample_weight = sample_weight.to(scales.device) * scales
 
         del scales_and_zeros
     else:
