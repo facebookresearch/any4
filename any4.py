@@ -20,7 +20,6 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count 
 
-
 def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
 
@@ -48,7 +47,6 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
                 break
 
     return model
-
 
 def group_q(w_orig, n_bit, q_group_size=128, scale_only=False):
     w = w_orig.float()
@@ -129,7 +127,6 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, **kwargs):
@@ -141,7 +138,6 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, s
     reconstructed = degroup_q(int4, scales_and_zeros, n_bit, q_group_size, scale_only)
 
     return reconstructed
-
 
 def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
     w = module.weight
@@ -271,7 +267,6 @@ def cluster_rows(x, cluster_row: Callable = cluster_row_scikit, n_bit=4, x_surro
             assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), **kwargs)
 
     return assign, any4, assign_val
-
 
 def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surrogate=None, sample_weight=None, **kwargs):
     if x_surrogate is None:
