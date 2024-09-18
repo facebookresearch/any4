@@ -33,6 +33,7 @@ def main(
     batch_size: int,
     log_dir: Path,
     generation_args: Dict,
+    append_results: Optional[bool] = False,
     load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
@@ -179,12 +180,17 @@ def main(
         data_results = {}
         for task in data_tasks:
             data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=batch_size, **task_dataset_configs[task])
+        results.update(data_results)
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
 
     # Log results
     print(results)
+    if append_results and Path(log_dir/"results.json").exists():
+        with Path(log_dir/"results.json").open("r") as f:
+            prev_results = json.load(f)
+            results.update(prev_results)
     with Path(log_dir/"results.json").open("w") as f:
         json.dump(results, f, indent=4)
 
@@ -208,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
+    parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
 
@@ -239,6 +246,7 @@ if __name__ == '__main__':
         parallelize=args.parallelize,
         generation_args=generation_args,
         log_dir=args.log_dir,
+        append_results=args.append_results,
         save_weights=args.save_weights,
         load_weights=args.load_weights,
         bnb_args=bnb_args,
