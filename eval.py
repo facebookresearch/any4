@@ -111,7 +111,7 @@ def main(
     results = {}
     # LM Eval Harness Evaluation
     harness_tasks = []
-    for task in tasks:
+    for task in tasks.copy():
         if task in task_manager.all_tasks:
             tasks.remove(task)
             harness_tasks.append(task)
@@ -130,7 +130,7 @@ def main(
 
     # BigCode Evaluation
     bigcode_tasks = []
-    for task in tasks:
+    for task in tasks.copy():
         if task in bigcode_eval.tasks.ALL_TASKS:
             tasks.remove(task)
             bigcode_tasks.append(task)
@@ -172,7 +172,7 @@ def main(
 
     # TODO: args.datasets could be nargs of comma-listed arguments
     data_tasks = []
-    for task in tasks:
+    for task in tasks.copy():
         if task in task_dataset_configs:
             tasks.remove(task)
             data_tasks.append(task)
