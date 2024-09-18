@@ -108,12 +108,12 @@ def extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size):
 
     return scales, zeros
 
-def degroup_q(w_c, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, scale_only=False):
+def degroup_q(w_c, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, centering=True):
     if scales is None:
         scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size)
 
     if q_group_size:
-        if not scale_only:
+        if centering:
             w_c = w_c - (2**(n_bit - 1))
         reconstructed = w_c * scales + zeros
     else:
@@ -129,13 +129,14 @@ def expand_q_groups(x, orig_size, q_group_size):
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, **kwargs):
+def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, *args, **kwargs):
     int4, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
     int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
 
     assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
 
-    reconstructed = degroup_q(int4, scales_and_zeros, n_bit, q_group_size, scale_only)
+    reconstructed = degroup_q(int4, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
+    reconstructed = reconstructed.to(dtype=x.dtype)
 
     return reconstructed
 
@@ -342,7 +343,7 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
     if q_group_size:
         if not scale_only:
             any4.sub_(2**(n_bit - 1))
-        reconstructed = degroup_q(assign_val, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, scale_only=scale_only)
+        reconstructed = degroup_q(assign_val, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
         del scales, zeros
     else:
         reconstructed = assign_val
