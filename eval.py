@@ -127,6 +127,7 @@ def main(
             model_args={"parallelize": parallelize},
         )
         results.update(harness_results["results"])
+        print(harness_results)
 
     # BigCode Evaluation
     bigcode_tasks = []
@@ -169,6 +170,7 @@ def main(
         for task in bigcode_tasks:
             bigcode_results[task] = bigcode_evaluator.evaluate(task)
         results.update(bigcode_results)
+        print(bigcode_results)
 
     # TODO: args.datasets could be nargs of comma-listed arguments
     data_tasks = []
@@ -179,8 +181,9 @@ def main(
     if data_tasks:
         data_results = {}
         for task in data_tasks:
-            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=batch_size, **task_dataset_configs[task])
+            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
         results.update(data_results)
+        print(data_results)
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
