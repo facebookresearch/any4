@@ -145,7 +145,7 @@ def main(
             "limit_start": 0,
             "instruction_tokens": None,
             "save_every_k_tasks": 1,
-            "postprocess": False,
+            "postprocess": True,
             "allow_code_execution": True,
             "generation_only": False,
             "load_generations_path": None,
