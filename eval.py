@@ -193,7 +193,8 @@ def main(
     if append_results and Path(log_dir/"results.json").exists():
         with Path(log_dir/"results.json").open("r") as f:
             prev_results = json.load(f)
-            results.update(prev_results)
+            prev_results.update(results)
+            results = prev_results
     with Path(log_dir/"results.json").open("w") as f:
         json.dump(results, f, indent=4)
 
