@@ -127,7 +127,7 @@ def main(
             model_args={"parallelize": parallelize},
         )
         results.update(harness_results["results"])
-        print(harness_results)
+        print(f"NLP Eval Results: {harness_results}")
 
     # BigCode Evaluation
     bigcode_tasks = []
@@ -170,7 +170,7 @@ def main(
         for task in bigcode_tasks:
             bigcode_results[task] = bigcode_evaluator.evaluate(task)
         results.update(bigcode_results)
-        print(bigcode_results)
+        print(f"Code Eval Results: {bigcode_results}")
 
     # TODO: args.datasets could be nargs of comma-listed arguments
     data_tasks = []
@@ -183,13 +183,13 @@ def main(
         for task in data_tasks:
             data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
         results.update(data_results)
-        print(data_results)
+        print(f"Perplexity Eval Results: {data_results}")
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
 
     # Log results
-    print(results)
+    print(f"All Eval Results: {results}")
     if append_results and Path(log_dir/"results.json").exists():
         with Path(log_dir/"results.json").open("r") as f:
             prev_results = json.load(f)
