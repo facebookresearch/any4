@@ -309,15 +309,162 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=
 
     return assign, any4.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
 
+class STEMin(torch.autograd.Function):
+  @staticmethod
+  def forward(ctx, input):
+    return input.min(dim=-1)
+
+  @staticmethod
+  def backward(ctx, grad_output):
+    return torch.nn.functional.hardtanh(grad_output)
+
+class AnyQNN(torch.nn.Module):
+    def __init__(self, n_values=16, n_rows=1):
+        super(AnyQNN, self).__init__()
+        # Initialize trainable values
+        self.values = torch.nn.Parameter(torch.randn(n_rows, n_values))
+        # Initialize trainable mappings
+        self.n_values = n_values
+        self.n_rows = n_rows
+
+    def forward(self, x):
+        # Expand input tensor and trainable values for vectorized distance computation
+        x_expanded = x.unsqueeze(dim=-1)
+        values_expanded = self.values.unsqueeze(dim=1).expand(-1, x.shape[-1], -1)
+
+        # Calculate distances between input values and trainable values
+        distances = (x_expanded - values_expanded)**2
+
+        # Find the index of the minimum distance for each element
+        # _, min_indices = distances.min(dim=-1)
+        _, min_indices = STEMin.apply(distances)
+        min_indices.reshape(x.shape)
+
+        # Select the values with minimum distance
+        # Create a tensor for the row indices
+        row_indices = torch.arange(min_indices.size(0)).unsqueeze(1).expand_as(min_indices)
+        # Use advanced indexing to select the elements
+        selected_values = self.values[row_indices, min_indices]
+
+        return selected_values
+
+def nlc_loss(output, label):
+    # Calculate the cosine similarity between output and label
+    cosine_sim = torch.nn.functional.cosine_similarity(output, label).mean().abs()
+    # Calculate the negative log-likelihood loss
+    nlc = -torch.log(cosine_sim)
+    return nlc
+
+def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True):
+    n_rows, dim = Wc.shape
+    n_values = 2**n_bit
+
+    # Create network
+    net = AnyQNN(n_values=n_values, n_rows=n_rows)
+    if init_values is not None:
+        net.values.data = init_values
+    net.train()
+
+    # Create learning objective
+    if objective.endswith("mse"):
+        criterion = torch.nn.MSELoss()
+    elif objective.endswith("cossim"):
+        criterion = nlc_loss
+    else:
+        raise ValueError(f"Unsupoorted objective {objective}")
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+
+    Wcqn = net(Wc)
+    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+    # TODO: we will probably need to refactor the codeo to handle transpose and decide when we should transpose and de-transpose
+    if transpose:
+        Wqn = Wqn.T
+
+    # Check final outputs
+    if X_val is None:
+        # TODO: add bs and slen as arguments to this function?
+        bs, slen = 32, 1024
+        X_val =  torch.randn(bs, slen, dim, device=W.device, requires_grad=False)
+    Y_val = torch.matmul(X_val, W.to(X_val.dtype).T)
+    Yqn_val = torch.matmul(X_val, Wqn.T)
+
+    W_mse = torch.nn.functional.mse_loss(W.squeeze(), Wqn.squeeze())
+    Y_val_mse = torch.nn.functional.mse_loss(Y_val, Yqn_val)
+    W_cossim = torch.nn.functional.cosine_similarity(W.flatten(), Wqn.flatten(), dim=0)
+
+    # print("Y_val:", Y_val, "Yqk_val:", Yqk_val)
+
+    print("W_mse:", W_mse, "W_cossim:", W_cossim)
+    print("Y_val_mse:", Y_val_mse)
+
+    # Verify that Wqn is quantized
+    print("Number of unique values in Wqn:", torch.unique(Wcqn).shape)
+
+    # Training loop
+    for epoch in range(500):
+        optimizer.zero_grad()
+        Wcqn = net(Wc)
+        Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+
+        if transpose:
+            Wqn = Wqn.T
+
+        if objective == "W_mse":
+            output = Wqn
+            label = W
+        elif objective == "Y_mse":
+            if overfit:
+                Xi = X_val
+                Yi = Y_val.squeeze()
+            else:
+                Xi = torch.randn_like(X_val)
+                Yi = torch.matmul(Xi, W.T)
+            output = torch.matmul(Xi, Wqn.T).squeeze()
+            label = Yi.squeeze()
+
+        loss = criterion(output, label)
+        loss.backward(retain_graph=True)
+        optimizer.step()
+
+        if epoch % 10 == 0:
+            print(f'Epoch {epoch}, Loss: {loss.item()}')
+
+    net.hard_max = True
+    Wcqn = net(Wc)
+    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+    if transpose:
+        Wqn = Wqn.T
+
+    # Check final outputs
+    Y_val = torch.matmul(X_val, W.to(X_val.dtype).T)
+    Yqn_val = torch.matmul(X_val, Wqn.T)
+
+    W_mse = torch.nn.functional.mse_loss(W.squeeze(), Wqn.squeeze())
+    Y_val_mse = torch.nn.functional.mse_loss(Y_val.squeeze(), Yqn_val.squeeze())
+    W_cossim = torch.nn.functional.cosine_similarity(W.view(-1), Wqn.view(-1), dim=0)
+
+    # print("Y_val:", Y_val, "Yqn_val:", Yqn_val)
+
+    print("W_mse:", W_mse, "W_cossim:", W_cossim)
+    print("Y_val_mse:", Y_val_mse)
+
+    # Verify that Wqn is quantized
+    print("Number of unique values in Wqn:", torch.unique(Wqn).shape)
+
+    assign_vals = Wqn
+    any4 = net.values.data
+    # FIXME: fill assign rather than setting it to None
+    assign = None
+    return assign, any4, assign_vals
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, **kwargs):
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
-        to_cluster, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, scale_only=scale_only)
+        Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, scale_only=scale_only)
 
-        scales, zeros = extract_scales_and_zeros(scales_and_zeros, to_cluster, q_group_size)
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
 
         if sample_weight is not None:
             # TODO: add options here to apply absolute()
@@ -326,31 +473,49 @@ def reconstruct_any4_grouped(x, n_bit=4, q_group_size=128, scale_only=False, bia
 
         del scales_and_zeros
     else:
-        to_cluster = x.float()
+        Wg = W.float()
+        scales, zeros = 1, 0
 
-    to_cluster = to_cluster.contiguous()
+    Wg = Wg.contiguous()
     if sample_weight is not None and isinstance(sample_weight, torch.Tensor):
         sample_weight = sample_weight.contiguous()
 
     if surrogate_cluster:
-        surrogate_to_cluster = x
+        surrogate_to_cluster = W
     else:
         surrogate_to_cluster = None
 
-    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster, **kwargs)
+    if cluster_row is not None:
+        assign, any4, Wc = cluster_matrix(Wg, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster, **kwargs)
+    else:
+        assert nnq, "We should either enabling clustering (cluster_row should be not None) or enable neural network learning (nnq should be True) but we have cluster_row: {cluster_row}, nnq: {nnq}"
+        assign, any4, Wc = None, None, Wg
+
+    if nnq:
+        assign, any4, Wc = learn_anyq(
+            Wc=Wc,
+            scales=scales,
+            zeros=zeros,
+            W=W,
+            n_bit=n_bit,
+            q_group_size=q_group_size,
+            scale_only=scale_only,
+            init_values=any4,
+            X_val=sample_weight,
+        )
 
     # TODO: create separate de_group function
     if q_group_size:
         if not scale_only:
             any4.sub_(2**(n_bit - 1))
-        reconstructed = degroup_q(assign_val, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+        Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
         del scales, zeros
     else:
-        reconstructed = assign_val
+        Wdeq = Wc
 
     del assign, any4
     gc.collect()
-    return reconstructed
+    return Wdeq
 
 cluster_row_fn_dict = {
     "scikit": cluster_row_scikit,
