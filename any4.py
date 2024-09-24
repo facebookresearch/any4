@@ -451,7 +451,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     # Verify that Wqn is quantized
     print("Number of unique values in Wqn:", torch.unique(Wqn).shape)
 
-    assign_vals = Wqn
+    assign_vals = Wcqn
     any4 = net.values.data
     # FIXME: fill assign rather than setting it to None
     assign = None
