@@ -127,7 +127,7 @@ def main(
             model_args={"parallelize": parallelize},
         )
         results.update(harness_results["results"])
-        print(f"NLP Eval Results: {harness_results}")
+        print(f"NLP Eval Results: {harness_results['results']}")
 
     # BigCode Evaluation
     bigcode_tasks = []
