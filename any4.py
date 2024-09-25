@@ -358,9 +358,12 @@ def nlc_loss(output, label):
 def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True):
     n_rows, dim = Wc.shape
     n_values = 2**n_bit
+    dtype = W.dtype
+
+    Wc = Wc.to(dtype)
 
     # Create network
-    net = AnyQNN(n_values=n_values, n_rows=n_rows)
+    net = AnyQNN(n_values=n_values, n_rows=n_rows).to(dtype)
     if init_values is not None:
         net.values.data = init_values
     net.train()
@@ -375,7 +378,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
 
     Wcqn = net(Wc)
-    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only).to(dtype)
     # TODO: we will probably need to refactor the codeo to handle transpose and decide when we should transpose and de-transpose
     if transpose:
         Wqn = Wqn.T
@@ -384,8 +387,10 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     if X_val is None:
         # TODO: add bs and slen as arguments to this function?
         bs, slen = 32, 1024
-        X_val =  torch.randn(bs, slen, dim, device=W.device, requires_grad=False)
-    Y_val = torch.matmul(X_val, W.to(X_val.dtype).T)
+        X_val =  torch.randn(bs, slen, dim, device=W.device, requires_grad=False, dtype=dtype)
+    else:
+        X_val = X_val.to(device=W.device, dtype=dtype)
+    Y_val = torch.matmul(X_val, W.T)
     Yqn_val = torch.matmul(X_val, Wqn.T)
 
     W_mse = torch.nn.functional.mse_loss(W.squeeze(), Wqn.squeeze())
@@ -397,14 +402,11 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     print("W_mse:", W_mse, "W_cossim:", W_cossim)
     print("Y_val_mse:", Y_val_mse)
 
-    # Verify that Wqn is quantized
-    print("Number of unique values in Wqn:", torch.unique(Wcqn).shape)
-
     # Training loop
     for epoch in range(500):
         optimizer.zero_grad()
         Wcqn = net(Wc)
-        Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+        Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only).to(dtype)
 
         if transpose:
             Wqn = Wqn.T
@@ -431,12 +433,12 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
     net.hard_max = True
     Wcqn = net(Wc)
-    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+    Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only).to(dtype)
     if transpose:
         Wqn = Wqn.T
 
     # Check final outputs
-    Y_val = torch.matmul(X_val, W.to(X_val.dtype).T)
+    Y_val = torch.matmul(X_val, W.T)
     Yqn_val = torch.matmul(X_val, Wqn.T)
 
     W_mse = torch.nn.functional.mse_loss(W.squeeze(), Wqn.squeeze())
@@ -449,7 +451,6 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     print("Y_val_mse:", Y_val_mse)
 
     # Verify that Wqn is quantized
-    print("Number of unique values in Wqn:", torch.unique(Wqn).shape)
 
     assign_vals = Wcqn
     any4 = net.values.data
