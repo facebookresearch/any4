@@ -20,7 +20,7 @@ from accelerate import Accelerator
 
 from any4 import convert, quant_methods
 from calibrate import calibrate
-from utils import CustomJSONEncoder
+from utils import CustomJSONEncoder, dtype_str_to_torch
 from data import task_dataset_configs, eval_perplexity
 
 def main(
@@ -41,6 +41,7 @@ def main(
     parallelize: bool = True,
     bnb_args: Optional[Dict] = None,
     calibrate_args: Dict = {},
+    nnq_args: Dict = {},
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -74,6 +75,10 @@ def main(
             elif quant_args["sample_weight"] == "calibrate":
                 quant_args["sample_weight"] = calibrate
 
+    if nnq_args:
+        if "dtype" in nnq_args:
+            nnq_args["dtype"] = dtype_str_to_torch[nnq_args["dtype"]]
+
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
@@ -96,7 +101,7 @@ def main(
     # Apply our quantization algorithms
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, calibrate_args=calibrate_args, **quant_args)
+        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, calibrate_args=calibrate_args, nnq_args=nnq_args, **quant_args)
 
     # Save weights
     if save_weights:
@@ -210,6 +215,7 @@ if __name__ == '__main__':
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
+    parser.add_argument("--nnq-args", type=str, help="Comma separated string args to pass to neural network training for any4.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "pile-clean", "ptb"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
@@ -229,6 +235,7 @@ if __name__ == '__main__':
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
+    nnq_args = {} if not args.nnq_args else simple_parse_args_string(args.nnq_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
     # TODO: create our own generation args and then adapt them to Eval Harness and BigCode Eval
     generation_args = asdict(bigcode_eval.arguments.EvalArguments())
@@ -243,6 +250,7 @@ if __name__ == '__main__':
         quant_method=quant_method,
         quant_args=quant_args,
         calibrate_args=calibrate_args,
+        nnq_args=nnq_args,
         tasks=args.tasks,
         num_fewshot=args.num_fewshot,
         device=args.device,

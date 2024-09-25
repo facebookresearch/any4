@@ -355,10 +355,16 @@ def nlc_loss(output, label):
     nlc = -torch.log(cosine_sim)
     return nlc
 
-def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True):
+# TODO: change weights to fp32 and after training change to bf16/fp16
+# TODO: try lr schedule.
+# TODO: in each iteration feed different activations
+def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True, dtype=None):
     n_rows, dim = Wc.shape
     n_values = 2**n_bit
-    dtype = W.dtype
+    if dtype is None:
+        dtype = W.dtype
+    else:
+        W = W.to(dtype)
 
     Wc = Wc.to(dtype)
 
@@ -460,7 +466,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, scale_only=scale_only)
@@ -503,6 +509,7 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
             scale_only=scale_only,
             init_values=any4,
             X_val=sample_weight,
+            **nnq_args,
         )
 
     # TODO: create separate de_group function
