@@ -26,7 +26,7 @@ for root_directory in root_directories:
 all_data = []
 
 # Define the specific subfields to extract
-desired_subfields = ["acc,none", "word_perplexity,none", "exact_match,remove_whitespace", "exact_match,strict-match"]
+desired_subfields = ["acc,none", "word_perplexity,none", "exact_match,remove_whitespace", "exact_match,strict-match", "pass@1"]
 
 # Iterate over each directory
 for json_path in directories:
@@ -47,13 +47,19 @@ for json_path in directories:
     
     # Iterate over each key in the JSON data
     for dataset, metrics in data.items():
-        # Iterate over each metric in the dataset
-        for metric, value in metrics.items():
-            # Check if the metric is one of the desired subfields
-            if metric in desired_subfields:
-                # Format the header as "<alias>,<metric_name_without_none>"
-                header = f"{metrics['alias']},{metric.split(',')[0]}"
-                extracted_data[header] = value
+        if isinstance(metrics, dict):
+            # Iterate over each metric in the dataset
+            for metric, value in metrics.items():
+                # Check if the metric is one of the desired subfields
+                if metric in desired_subfields:
+                    if 'alias' in metrics:
+                        # Format the header as "<alias>,<metric_name_without_none>"
+                        header = f"{metrics['alias']},{metric.split(',')[0]}"
+                    else:
+                        header = f"{dataset},{metric}"
+                    extracted_data[header] = value
+        else:
+            extracted_data[dataset] = metrics
     
     # Append the extracted data to the list
     all_data.append(extracted_data)
