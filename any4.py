@@ -355,7 +355,6 @@ def nlc_loss(output, label):
     nlc = -torch.log(cosine_sim)
     return nlc
 
-# TODO: change weights to fp32 and after training change to bf16/fp16
 # TODO: try lr schedule.
 # TODO: in each iteration feed different activations
 def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True, dtype=None):
@@ -402,8 +401,6 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     W_mse = torch.nn.functional.mse_loss(W.squeeze(), Wqn.squeeze())
     Y_val_mse = torch.nn.functional.mse_loss(Y_val, Yqn_val)
     W_cossim = torch.nn.functional.cosine_similarity(W.flatten(), Wqn.flatten(), dim=0)
-
-    # print("Y_val:", Y_val, "Yqk_val:", Yqk_val)
 
     print("W_mse:", W_mse, "W_cossim:", W_cossim)
     print("Y_val_mse:", Y_val_mse)
