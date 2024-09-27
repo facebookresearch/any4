@@ -220,7 +220,7 @@ if __name__ == '__main__':
     parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
     parser.add_argument("--nnq-args", type=str, help="Comma separated string args to pass to neural network training for any4.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
-    parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "pile-clean", "ptb"], help="lm-evaluation-harness tasks to evaluate.")
+    parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge","gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "pile-clean", "ptb", "codeparrot"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")

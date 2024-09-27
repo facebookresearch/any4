@@ -10,6 +10,7 @@ task_dataset_configs = {
     "c4":           {"dataset": "allenai/c4", "config": "en", "split": "validation", "field": "text"},
     "pile-clean":   {"dataset": "monology/pile-uncopyrighted", "split": "train", "field": "text"},
     "ptb":          {"dataset": "ptb-text-only/ptb_text_only", "config": "penn_treebank", "split": "test", "field": "sentence"},
+    "codeparrot":   {"dataset": "huggingface-course/codeparrot-ds-valid", "split": "validation", "field": "content"},
 }
 
 def eval_perplexity(
