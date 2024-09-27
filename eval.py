@@ -115,25 +115,20 @@ def main(
     task_manager = lm_eval.tasks.TaskManager()
 
     results = {}
-    # LM Eval Harness Evaluation
-    harness_tasks = []
+
+    # Dataset Perplexity
+    # TODO: args.datasets could be nargs of comma-listed arguments
+    data_tasks = []
     for task in tasks.copy():
-        if task in task_manager.all_tasks:
+        if task in task_dataset_configs:
             tasks.remove(task)
-            harness_tasks.append(task)
-    if harness_tasks:
-        # Setting `task_manager` to the one above is optional and should generally be done
-        # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
-        # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-        harness_results = lm_eval.simple_evaluate( # call simple_evaluate
-            model=lm_obj,
-            tasks=harness_tasks,
-            num_fewshot=num_fewshot,
-            task_manager=task_manager,
-            model_args={"parallelize": parallelize},
-        )
-        results.update(harness_results["results"])
-        print(f"NLP Eval Results: {harness_results['results']}")
+            data_tasks.append(task)
+    if data_tasks:
+        data_results = {}
+        for task in data_tasks:
+            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
+        results.update(data_results)
+        print(f"Perplexity Eval Results: {data_results}")
 
     # BigCode Evaluation
     bigcode_tasks = []
@@ -178,18 +173,25 @@ def main(
         results.update(bigcode_results)
         print(f"Code Eval Results: {bigcode_results}")
 
-    # TODO: args.datasets could be nargs of comma-listed arguments
-    data_tasks = []
+    # LM Eval Harness Evaluation
+    harness_tasks = []
     for task in tasks.copy():
-        if task in task_dataset_configs:
+        if task in task_manager.all_tasks:
             tasks.remove(task)
-            data_tasks.append(task)
-    if data_tasks:
-        data_results = {}
-        for task in data_tasks:
-            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
-        results.update(data_results)
-        print(f"Perplexity Eval Results: {data_results}")
+            harness_tasks.append(task)
+    if harness_tasks:
+        # Setting `task_manager` to the one above is optional and should generally be done
+        # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
+        # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
+        harness_results = lm_eval.simple_evaluate( # call simple_evaluate
+            model=lm_obj,
+            tasks=harness_tasks,
+            num_fewshot=num_fewshot,
+            task_manager=task_manager,
+            model_args={"parallelize": parallelize},
+        )
+        results.update(harness_results["results"])
+        print(f"NLP Eval Results: {harness_results['results']}")
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
