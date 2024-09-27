@@ -550,7 +550,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-def fp4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False):
+def fp4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
     assert n_bit==4, "fp4 only supports 4-bit"
 
     w = module.weight.clone()
@@ -566,7 +566,7 @@ def fp4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128,
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-def nf4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False):
+def nf4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
     assert n_bit==4, "nf4 only supports 4-bit"
 
     w = module.weight.clone()

@@ -99,6 +99,7 @@ def main(
         lm_obj._model.load_state_dict(weights)
 
     # Apply our quantization algorithms
+    # TODO: move nnq_args into quant_args only if quant_type is anyq
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
         lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, calibrate_args=calibrate_args, nnq_args=nnq_args, **quant_args)
