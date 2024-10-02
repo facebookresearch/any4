@@ -38,7 +38,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
             # Calibrate if necessary
             if calibrate_fn is not None:
                 calibrate_args["seed"] = index
-                kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, **calibrate_args)
+                kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
 
             layer_to(module, name=name, **kwargs)
             print("... Done", flush=True)

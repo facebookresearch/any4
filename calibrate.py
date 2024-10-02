@@ -23,9 +23,13 @@ default_prompt = """This is a diverse prompt that contains:
 
 layer_to_sum_activations = {}
 layer_to_num_activations = {}
+layer_filter = None
 
 def get_mean_activations(name):
     def hook(model, input, output):
+        if layer_filter is not None and name not in layer_filter:
+            return
+
         if isinstance(input, (List, Tuple)):
             input = input[0]
         # take the mean along all dimensions except the embedding dimension (which is the last dimension)
@@ -62,14 +66,17 @@ def calibrate(
     max_seq_len: Optional[int] = None,
     padding: bool = True,
     truncate: bool = False,
+    layers: List[str] = None,
 ):
     if max_seq_len is not None:
         truncate = True
 
     global layer_to_sum_activations
     global layer_to_num_activations
+    global layer_filter
     layer_to_sum_activations = {}
     layer_to_num_activations = {}
+    layer_filter = layers
     register_forward_hook(model)
 
     # Apply inputs
@@ -114,6 +121,7 @@ def main(
     max_seq_len: Optional[int] = None,
     padding: bool = True,
     truncate: bool = False,
+    layers: List[str] = None,
     save_type: str = "pt",
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -148,6 +156,7 @@ def main(
         max_seq_len=max_seq_len,
         padding=padding,
         truncate=truncate,
+        layers=layers,
     )
     print(layer_to_num_activations)
 
