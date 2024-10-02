@@ -357,7 +357,7 @@ def nlc_loss(output, label):
 
 # TODO: try lr schedule.
 # TODO: in each iteration feed different activations
-def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True, dtype=None):
+def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True, dtype=None, epochs=500):
     n_rows, dim = Wc.shape
     n_values = 2**n_bit
     if dtype is None:
@@ -406,7 +406,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     print("Y_val_mse:", Y_val_mse)
 
     # Training loop
-    for epoch in range(500):
+    for epoch in range(epochs):
         optimizer.zero_grad()
         Wcqn = net(Wc)
         Wqn = degroup_q(Wcqn, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only).to(dtype)
