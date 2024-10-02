@@ -402,8 +402,8 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     Y_val_mse = torch.nn.functional.mse_loss(Y_val, Yqn_val)
     W_cossim = torch.nn.functional.cosine_similarity(W.flatten(), Wqn.flatten(), dim=0)
 
-    print("W_mse:", W_mse, "W_cossim:", W_cossim)
-    print("Y_val_mse:", Y_val_mse)
+    print("W_mse:", W_mse.item(), "W_cossim:", W_cossim.item())
+    print("Y_val_mse:", Y_val_mse.item())
 
     # Training loop
     for epoch in range(epochs):
@@ -450,8 +450,8 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
     # print("Y_val:", Y_val, "Yqn_val:", Yqn_val)
 
-    print("W_mse:", W_mse, "W_cossim:", W_cossim)
-    print("Y_val_mse:", Y_val_mse)
+    print("W_mse:", W_mse.item(), "W_cossim:", W_cossim.item())
+    print("Y_val_mse:", Y_val_mse.item())
 
     assign_vals = Wcqn
     any4 = net.values.data
