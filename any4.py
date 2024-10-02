@@ -453,12 +453,15 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     print("W_mse:", W_mse, "W_cossim:", W_cossim)
     print("Y_val_mse:", Y_val_mse)
 
-    # Verify that Wqn is quantized
-
     assign_vals = Wcqn
     any4 = net.values.data
     # FIXME: fill assign rather than setting it to None
     assign = None
+
+    del net
+    torch.cuda.empty_cache()
+    gc.collect()
+
     return assign, any4, assign_vals
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
@@ -496,18 +499,23 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
         assign, any4, Wc = None, None, Wg
 
     if nnq:
-        assign, any4, Wc = learn_anyq(
-            Wc=Wc,
-            scales=scales,
-            zeros=zeros,
-            W=W,
-            n_bit=n_bit,
-            q_group_size=q_group_size,
-            scale_only=scale_only,
-            init_values=any4,
-            X_val=sample_weight,
-            **nnq_args,
-        )
+        try:
+            assign, any4, Wc = learn_anyq(
+                Wc=Wc,
+                scales=scales,
+                zeros=zeros,
+                W=W,
+                n_bit=n_bit,
+                q_group_size=q_group_size,
+                scale_only=scale_only,
+                init_values=any4,
+                X_val=sample_weight,
+                **nnq_args,
+            )
+        except RuntimeError as e:
+            if 'out of memory' in str(e):
+                torch.cuda.empty_cache()
+                print(f"Hit OOM so will not update this layer")
 
     # TODO: create separate de_group function
     if q_group_size:
@@ -519,6 +527,7 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
         Wdeq = Wc
 
     del assign, any4
+    torch.cuda.empty_cache()
     gc.collect()
     return Wdeq
 
