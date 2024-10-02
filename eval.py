@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
-    parser.add_argument("--log-dir", type=Path, default="./logs", help="Directory to log to.")
+    parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
     parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
