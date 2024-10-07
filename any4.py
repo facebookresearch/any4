@@ -1,4 +1,5 @@
 from typing import Callable, Dict, List, Tuple, Type
+import random
 import time
 import torch
 from joblib import Parallel, delayed
@@ -38,7 +39,12 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
             # Calibrate if necessary
             if calibrate_fn is not None:
                 calibrate_args["seed"] = index
-                kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
+                if calibrate_args.get("return_activations", False):
+                    # TODO: rename "sample_weight" to "sample_mean_activations" ?
+                    kwargs["sample_weight"], kwargs["sample_activations"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
+                    kwargs["sample_activations"] = kwargs["sample_activations"][name]
+                else:
+                    kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
 
             layer_to(module, name=name, **kwargs)
             print("... Done", flush=True)
@@ -357,7 +363,7 @@ def nlc_loss(output, label):
 
 # TODO: try lr schedule.
 # TODO: in each iteration feed different activations
-def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, lr=0.001, transpose=False, overfit=True, dtype=None, epochs=500):
+def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, X_train=None, lr=0.001, transpose=False, overfit=True, dtype=None, epochs=500):
     n_rows, dim = Wc.shape
     n_values = 2**n_bit
     if dtype is None:
@@ -388,13 +394,17 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     if transpose:
         Wqn = Wqn.T
 
-    # Check final outputs
+    if X_train is not None:
+        X_train = [X_i.to(device=W.device, dtype=dtype) for X_i in X_train]
+
     if X_val is None:
         # TODO: add bs and slen as arguments to this function?
         bs, slen = 32, 1024
         X_val =  torch.randn(bs, slen, dim, device=W.device, requires_grad=False, dtype=dtype)
     else:
         X_val = X_val.to(device=W.device, dtype=dtype)
+
+    # Check final outputs
     Y_val = torch.matmul(X_val, W.T)
     Yqn_val = torch.matmul(X_val, Wqn.T)
 
@@ -418,7 +428,10 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
             output = Wqn
             label = W
         elif objective == "Y_mse":
-            if overfit:
+            if X_train is not None:
+                Xi = X_train[random.randint(0, len(X_train)-1)]
+                Yi = torch.matmul(Xi, W.T)
+            elif overfit:
                 Xi = X_val
                 Yi = Y_val.squeeze()
             else:
@@ -466,7 +479,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_activations=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, scale_only=scale_only)
@@ -509,6 +522,7 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
                 q_group_size=q_group_size,
                 scale_only=scale_only,
                 init_values=any4,
+                X_train=sample_activations,
                 X_val=sample_weight,
                 **nnq_args,
             )

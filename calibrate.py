@@ -23,7 +23,9 @@ default_prompt = """This is a diverse prompt that contains:
 
 layer_to_sum_activations = {}
 layer_to_num_activations = {}
+layer_to_list_activations = {}
 layer_filter = None
+do_return_activations = False
 
 def get_mean_activations(name):
     def hook(model, input, output):
@@ -34,15 +36,20 @@ def get_mean_activations(name):
             input = input[0]
         # take the mean along all dimensions except the embedding dimension (which is the last dimension)
         # converting input to double() to minimize chances of overflow when summing activations
-        sum_activation = input.detach().cpu().double().sum(dim=torch.arange(input.ndim - 1).tolist())
+        input = input.detach().cpu().double()
+        sum_activation = input.sum(dim=torch.arange(input.ndim - 1).tolist())
         num_activations = np.prod(input.shape[:input.ndim - 1])
 
         if name not in layer_to_sum_activations:
             layer_to_sum_activations[name] = sum_activation
             layer_to_num_activations[name] = num_activations
+            if do_return_activations:
+                layer_to_list_activations[name] = [input]
         else:
             layer_to_sum_activations[name] += sum_activation
             layer_to_num_activations[name] += num_activations
+            if do_return_activations:
+                layer_to_list_activations[name].append(input)
     return hook
 
 def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Linear, **kwargs):
@@ -67,16 +74,20 @@ def calibrate(
     padding: bool = True,
     truncate: bool = False,
     layers: List[str] = None,
+    return_activations: bool = False,
 ):
     if max_seq_len is not None:
         truncate = True
 
     global layer_to_sum_activations
     global layer_to_num_activations
+    global layer_to_list_activations
     global layer_filter
+    global do_return_activations
     layer_to_sum_activations = {}
     layer_to_num_activations = {}
     layer_filter = layers
+    do_return_activations = return_activations
     register_forward_hook(model)
 
     # Apply inputs
@@ -104,7 +115,10 @@ def calibrate(
         tensor = None
     gc.collect()
 
-    return layer_to_mean_activations
+    if do_return_activations:
+        return layer_to_mean_activations, layer_to_list_activations
+    else:
+        return layer_to_mean_activations
 
 def main(
     model_name: str,
