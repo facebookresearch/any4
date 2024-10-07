@@ -154,7 +154,7 @@ def main(
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
     # Setup Model
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.eval()
 
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
-    parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
+    parser.add_argument("--device", type=str, default="auto", help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size.")
     parser.add_argument("--max-seq-len", type=int, default=None, help="Maximum sequence length.")
     parser.add_argument("--num-batches", type=int, default=None, help="Limit on number of batches.")
