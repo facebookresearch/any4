@@ -38,6 +38,7 @@ def main(
     load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
+    save_model: Optional[bool] = False,
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
     bnb_args: Optional[Dict] = None,
@@ -107,8 +108,21 @@ def main(
 
     # Save weights
     if save_weights:
-        weights = lm_obj._model.state_dict()
-        torch.save(weights, Path(log_dir/"weights.pth"))
+        try:
+            weights = lm_obj._model.state_dict()
+            print(f"Saving weights...")
+            torch.save(weights, Path(log_dir/"weights.pth"))
+        except:
+            print(f"Failed to save weights")
+            pass
+    if save_model:
+        try:
+            print(f"Saving model...")
+            lm_obj._model.save_pretrained(Path(log_dir/"model"), from_pt=True)
+        except:
+            print(f"Failed to save model")
+            pass
+
 
     # indexes all tasks from the `lm_eval/tasks` subdirectory.
     # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -232,8 +246,9 @@ if __name__ == '__main__':
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
     parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
-    parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log-dir.")
+    parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log_dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
+    parser.add_argument("--save-model", default=False, action=argparse.BooleanOptionalAction, help="Save model in HF format after quantizing to args.log_dir.")
 
     args = parser.parse_args()
 
@@ -268,5 +283,6 @@ if __name__ == '__main__':
         append_results=args.append_results,
         save_weights=args.save_weights,
         load_weights=args.load_weights,
+        save_model=args.save_model,
         bnb_args=bnb_args,
     )
