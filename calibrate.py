@@ -101,6 +101,9 @@ def calibrate(
             model(**inputs)
             del inputs
     else:
+        if os.path.exists(prompt):
+            with open(prompt, 'r') as file:
+                prompt = file.read()
         inputs = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
         model(inputs)
         del inputs
