@@ -1,4 +1,5 @@
 from dataclasses import dataclass, asdict
+from datetime import timedelta
 from typing import Callable, Dict, List, Optional
 from pathlib import Path
 import argparse
@@ -16,7 +17,7 @@ import bigcode_eval
 import bigcode_eval.tasks
 import bigcode_eval.evaluator
 import bigcode_eval.arguments
-from accelerate import Accelerator
+from accelerate import Accelerator, InitProcessGroupKwargs
 
 from any4 import convert, quant_methods
 from calibrate import calibrate
@@ -137,7 +138,10 @@ def main(
             tasks.remove(task)
             bigcode_tasks.append(task)
     if bigcode_tasks:
-        accelerator = Accelerator()
+        if hasattr(lm_obj, "accelerator") and lm_obj.accelerator is not None:
+            accelerator = lm_obj.accelerator
+        else:
+            accelerator = Accelerator(InitProcessGroupKwargs(timeout=timedelta(weeks=52)))
         bigcode_args = {
             "modeltype": "causal",
             "batch_size": batch_size,
@@ -158,7 +162,7 @@ def main(
             "save_references": False,
             "save_generations_path": str(Path(log_dir/"bigcode_references.json")),
             "check_references": False,
-            "max_memory_per_gpu": None,
+            "max_memory_per_gpu": "dummy", # setting this to "dummy" instead of None to avoid error of loading model to specific device
             **generation_args,
         }
         bigcode_evaluator = bigcode_eval.evaluator.Evaluator(
