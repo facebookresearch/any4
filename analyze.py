@@ -117,45 +117,47 @@ def main(
         # Apply our quantization algorithms
         if quant_method:
             module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
+            wdeq = module.weight.data
 
-        # Get mean square error
-        wdeq = module.weight.data
-        y_uni_deq = module(x_uni)
-        y_norm_deq = module(x_norm)
-        w_mse = torch.mean((w - wdeq)**2)
-        y_uni_mse = torch.mean((y_uni - y_uni_deq)**2)
-        y_norm_mse = torch.mean((y_norm - y_norm_deq)**2)
-        layer_stats["w_mse"] = w_mse.item()
-        layer_stats["y_uni_mse"] = y_uni_mse.item()
-        layer_stats["y_norm_mse"] = y_norm_mse.item()
-        print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ", flush=True)
-        if calib_activations:
-            y_calib_deq = module(x_calib)
-            y_calib_mse = torch.mean((y_calib - y_calib_deq)**2)
-            layer_stats["y_calib_mse"] = y_calib_mse.item()
-            print(f"Calib: {y_calib_mse}")
+            # Get mean square error
+            y_uni_deq = module(x_uni)
+            y_norm_deq = module(x_norm)
+            w_mse = torch.mean((w - wdeq)**2)
+            y_uni_mse = torch.mean((y_uni - y_uni_deq)**2)
+            y_norm_mse = torch.mean((y_norm - y_norm_deq)**2)
+            layer_stats["w_mse"] = w_mse.item()
+            layer_stats["y_uni_mse"] = y_uni_mse.item()
+            layer_stats["y_norm_mse"] = y_norm_mse.item()
+            print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ", flush=True)
+            if calib_activations:
+                y_calib_deq = module(x_calib)
+                y_calib_mse = torch.mean((y_calib - y_calib_deq)**2)
+                layer_stats["y_calib_mse"] = y_calib_mse.item()
+                print(f"Calib: {y_calib_mse}")
+            else:
+                print()
+
+            # Overlay quantized values
+            for wdeq_val in wdeq[row].float().unique().cpu():
+                plt.axvline(x=wdeq_val, color="b", linestyle="--")
+
+            ## Reconstructed Weight
+            # Plot Surface
+            fig = plot_surface(wdeq)
+            fig.suptitle(f"{name}\nw")
+            fig.savefig(pdf, format="pdf")
+
+            # Plot Distribution
+            fig = plot_histogram(wdeq.flatten().float().cpu(), bins=40)
+            fig.suptitle(f"{name}\nw_deq")
+            fig.savefig(pdf, format="pdf")
+
+            # Plot Distribution of Row
+            fig = plot_histogram(wdeq[row].float().cpu(), bins=40)
+            fig.suptitle(f"{name}\nw_deq, row={row}")
+            fig.savefig(pdf, format="pdf")
         else:
-            print()
-
-        # Overlay quantized values
-        for wdeq_val in module.weight.data[row].float().unique().cpu():
-            plt.axvline(x=wdeq_val, color="b", linestyle="--")
-
-        ## Reconstructed Weight
-        # Plot Surface
-        fig = plot_surface(module.weight.data)
-        fig.suptitle(f"{name}\nw")
-        fig.savefig(pdf, format="pdf")
-
-        # Plot Distribution
-        fig = plot_histogram(module.weight.data.flatten().float().cpu(), bins=40)
-        fig.suptitle(f"{name}\nw_deq")
-        fig.savefig(pdf, format="pdf")
-
-        # Plot Distribution of Row
-        fig = plot_histogram(module.weight.data[row].float().cpu(), bins=40)
-        fig.suptitle(f"{name}\nw_deq, row={row}")
-        fig.savefig(pdf, format="pdf")
+            print(flush=True)
 
     pdf.close()
 
