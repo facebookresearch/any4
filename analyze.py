@@ -83,7 +83,7 @@ def main(
 
     # Analyze each module
     for name, module, layer_stats in zip(names, modules, layers_stats):
-        print(f"{name}", end="", flush=True)
+        print(f"{name}")
         layer_stats["layer"] = name
 
         # Store the weight
@@ -99,6 +99,12 @@ def main(
             y_calib = module(x_calib)
 
         ## Original Weight
+        # Log Stats
+        (w_mean, w_std) = torch.std_mean(w)
+        layer_stats["w_mean"] = w_mean.item()
+        layer_stats["w_std"] = w_std.item()
+        print(f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}")
+
         # Plot Surface
         fig = plot_surface(w)
         fig.suptitle(f"{name}\nw")
@@ -114,8 +120,19 @@ def main(
         fig.suptitle(f"{name}\nw, row={row}")
         fig.savefig(pdf, format="pdf")
 
-        ## Calibrated Input
+        ## Calibrated Activations
         if calib_activations:
+            # Log Stats
+            (x_calib_mean, x_calib_std) = torch.std_mean(x_calib)
+            layer_stats["x_calib_mean"] = x_calib_mean.item()
+            layer_stats["x_calib_std"] = x_calib_std.item()
+            print(f"\tInput: Mean:{x_calib_mean.item()}, Std:{x_calib_std.item()}")
+
+            (y_calib_mean, y_calib_std) = torch.std_mean(y_calib)
+            layer_stats["y_calib_mean"] = y_calib_mean.item()
+            layer_stats["y_calib_std"] = y_calib_std.item()
+            print(f"\tOutput: Mean:{y_calib_mean.item()}, Std:{y_calib_std.item()}")
+
             # Plot Line
             fig = plot_line(x_calib)
             fig.suptitle(f"{name}\nx_calib")
@@ -140,7 +157,7 @@ def main(
             layer_stats["w_mse"] = w_mse.item()
             layer_stats["y_uni_mse"] = y_uni_mse.item()
             layer_stats["y_norm_mse"] = y_norm_mse.item()
-            print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ", flush=True)
+            print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ")
             if calib_activations:
                 y_calib_deq = module(x_calib)
                 y_calib_mse = torch.mean((y_calib - y_calib_deq)**2)
@@ -168,8 +185,8 @@ def main(
             fig = plot_histogram(wdeq[row].float().cpu(), bins=40)
             fig.suptitle(f"{name}\nw_deq, row={row}")
             fig.savefig(pdf, format="pdf")
-        else:
-            print(flush=True)
+
+        print(flush=True)
 
     pdf.close()
 
