@@ -114,6 +114,18 @@ def main(
         fig.suptitle(f"{name}\nw, row={row}")
         fig.savefig(pdf, format="pdf")
 
+        ## Calibrated Input
+        if calib_activations:
+            # Plot Line
+            fig = plot_line(x_calib)
+            fig.suptitle(f"{name}\nx_calib")
+            fig.savefig(pdf, format="pdf")
+
+            # Plot Distribution
+            fig = plot_histogram(x_calib.flatten().float().cpu(), bins=40)
+            fig.suptitle(f"{name}\nx_calib")
+            fig.savefig(pdf, format="pdf")
+
         # Apply our quantization algorithms
         if quant_method:
             module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
@@ -165,6 +177,15 @@ def main(
     df = pd.DataFrame(layers_stats)
     df.to_csv(log_dir / "stats.csv", index=False)
 
+def plot_line(x: torch.Tensor):
+    assert x.dim() == 1
+    fig = plt.figure()
+    plt.plot(np.arange(x.shape[0]), x.float().cpu().numpy())
+    plt.xlabel("Channel")
+    plt.ylabel("Value")
+    plt.grid(True)
+    return fig
+
 def plot_histogram(x: torch.Tensor, bins: int):
     counts, bins = torch.histogram(x.float().cpu(), bins=bins)
     fig = plt.figure()
@@ -191,9 +212,9 @@ def plot_surface(x: torch.Tensor):
     fig.colorbar(surf, shrink=0.5, aspect=5)
 
     # Labeling
-    ax.set_xlabel("n_rows")
-    ax.set_ylabel("n_cols")
-    ax.set_zlabel("val")
+    ax.set_xlabel("Row")
+    ax.set_ylabel("Channel")
+    ax.set_zlabel("Value")
 
     # Adjust z-axis limits
     ax.set_zlim(x.min().item(), x.max().item())
