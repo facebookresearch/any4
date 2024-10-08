@@ -103,13 +103,9 @@ def main(
         fig.savefig(pdf, format="pdf")
 
         # Plot original weight distribution
-        counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
-        plt.figure()
-        plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
-        plt.show()
-        plt.title(f"{name}\nw, row={row}")
-        plt.savefig(pdf, format="pdf")
-        plt.close()
+        fig = plot_histogram(w[row].float().cpu(), bins=40)
+        fig.suptitle(f"{name}\nw, row={row}")
+        fig.savefig(pdf, format="pdf")
 
         # Apply our quantization algorithms
         if quant_method:
@@ -153,7 +149,15 @@ def main(
     df = pd.DataFrame(layers_stats)
     df.to_csv(log_dir / "stats.csv", index=False)
 
-def plot_surface(x: torch.Tensor, title: str):
+def plot_histogram(x: torch.Tensor, bins: int):
+    counts, bins = torch.histogram(x.float().cpu(), bins=bins)
+    fig = plt.figure()
+    plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
+    plt.show()
+    plt.close()
+    return fig
+
+def plot_surface(x: torch.Tensor):
     # Create a figure with a 3D axis
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
