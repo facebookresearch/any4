@@ -99,7 +99,8 @@ def main(
             y_calib = module(x_calib)
 
         # Plot original weight surface
-        fig = plot_surface(w, f"{name}\nw")
+        fig = plot_surface(w)
+        fig.suptitle(f"{name}\nw")
         fig.savefig(pdf, format="pdf")
 
         # Plot original weight distribution
@@ -135,13 +136,9 @@ def main(
             plt.axvline(x=wdeq_val, color="b", linestyle="--")
 
         # Plot reconstructed weight distribution
-        counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
-        plt.figure()
-        plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
-        plt.show()
-        plt.title(f"{name}\nw_deq, row={row}")
-        plt.savefig(pdf, format="pdf")
-        plt.close()
+        fig = plot_histogram(module.weight.data[row].float().cpu(), bins=40)
+        fig.suptitle(f"{name}\nw_deq, row={row}")
+        fig.savefig(pdf, format="pdf")
 
     pdf.close()
 
@@ -178,7 +175,6 @@ def plot_surface(x: torch.Tensor):
     ax.set_xlabel("n_rows")
     ax.set_ylabel("n_cols")
     ax.set_zlabel("val")
-    ax.set_title(title)
 
     # Adjust z-axis limits
     ax.set_zlim(x.min().item(), x.max().item())
