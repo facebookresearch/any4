@@ -99,7 +99,7 @@ def main(
             y_calib = module(x_calib)
 
         # Plot original weight surface
-        fig = plot_surface(w, name)
+        fig = plot_surface(w, f"{name}\nw")
         fig.savefig(pdf, format="pdf")
 
         # Plot original weight distribution
@@ -107,7 +107,7 @@ def main(
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.title(f"w_{name}_{row}")
+        plt.title(f"{name}\nw, row={row}")
         plt.savefig(pdf, format="pdf")
         plt.close()
 
@@ -143,7 +143,7 @@ def main(
         plt.figure()
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
-        plt.title(f"wdeq_{name}_{row}")
+        plt.title(f"{name}\nw_deq, row={row}")
         plt.savefig(pdf, format="pdf")
         plt.close()
 
