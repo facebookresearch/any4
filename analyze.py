@@ -98,6 +98,9 @@ def main(
             x_calib = calib_activations[name].to(w.device).to(w.dtype)
             y_calib = module(x_calib)
 
+        # Plot original weight surface
+        fig = plot_surface(w, name)
+        fig.savefig(pdf, format="pdf")
 
         # Plot original weight distribution
         counts, bins = torch.histogram(module.weight.data[row].float().cpu(), bins=40)
@@ -141,14 +144,34 @@ def main(
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
         plt.title(f"wdeq_{name}_{row}")
-        plt.savefig(p, format="pdf")
+        plt.savefig(pdf, format="pdf")
         plt.close()
 
-    p.close()
+    pdf.close()
 
     # Log stats
     df = pd.DataFrame(layers_stats)
     df.to_csv(log_dir / "stats.csv", index=False)
+
+def plot_surface(x: torch.Tensor, title: str):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    assert x.dim() == 2
+
+    rows = torch.arange(x.shape[0])
+    cols = torch.arange(x.shape[1])
+    rows, cols = torch.meshgrid(rows, cols)
+
+    surf = ax.plot_surface(rows.numpy(), cols.numpy(), x.float().cpu().numpy(), cmap="viridis")
+    fig.colorbar(surf, shrink=0.5, aspect=5)
+
+    ax.set_xlabel("n_rows")
+    ax.set_ylabel("n_cols")
+    ax.set_zlabel("val")
+    ax.set_title(title)
+
+    plt.close()
+    return fig
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
