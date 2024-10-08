@@ -66,7 +66,7 @@ def main(
             model_args["torch_dtype"] = dtype_str_to_torch[model_args["torch_dtype"]]
 
     # Setup Model
-    model = AutoModelForCausalLM.from_pretrained(model_name, **model_args).to(device)
+    model = AutoModelForCausalLM.from_pretrained(model_name, **model_args, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.eval()
 
@@ -85,7 +85,7 @@ def main(
                 with open(quant_args["sample_weight"], 'rb') as handle:
                    quant_args["sample_weight"] = pickle.load(handle)
             elif quant_args["sample_weight"].endswith(".pt"):
-                quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(device))
+                quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(model.device))
             elif quant_args["sample_weight"] == "calibrate":
                 quant_args["sample_weight"] = calibrate
     if quant_method:
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
     parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
-    parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
+    parser.add_argument("--device", type=str, default="auto", help="Device to use.")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
