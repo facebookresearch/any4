@@ -44,7 +44,7 @@ def main(
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
     # Create PDF for logs
-    p = PdfPages(log_dir / "plots.pdf")
+    pdf = PdfPages(log_dir / "plots.pdf")
 
     if bnb_args:
         bnb_config = transformers.BitsAndBytesConfig(
@@ -88,6 +88,7 @@ def main(
 
         # Store the weight
         w = module.weight.data.clone()
+
         # Apply on random inputs
         x_uni = torch.rand(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
         y_uni = module(x_uni)
@@ -104,7 +105,7 @@ def main(
         plt.hist(bins[:-1], bins=bins, weights=counts.float().numpy())
         plt.show()
         plt.title(f"w_{name}_{row}")
-        plt.savefig(p, format="pdf")
+        plt.savefig(pdf, format="pdf")
         plt.close()
 
         # Apply our quantization algorithms
@@ -162,7 +163,7 @@ if __name__ == '__main__':
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--log-dir", type=Path, default="./analysis", help="Directory to log to.")
+    parser.add_argument("--log-dir", type=Path, default="./analysis/tmp", help="Directory to log to.")
     parser.add_argument("--layers", type=int, nargs="+", default=None, help="Transformer layers to analyze")
     parser.add_argument("--sub-layers", type=str, nargs="+", choices=sub_layer_choices, default=sub_layer_choices, help="Linear module within a transformer layer to analyze.")
     parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
