@@ -98,12 +98,18 @@ def main(
             x_calib = calib_activations[name].to(w.device).to(w.dtype)
             y_calib = module(x_calib)
 
-        # Plot original weight surface
+        ## Original Weight
+        # Plot Surface
         fig = plot_surface(w)
         fig.suptitle(f"{name}\nw")
         fig.savefig(pdf, format="pdf")
 
-        # Plot original weight distribution
+        # Plot Distribution
+        fig = plot_histogram(w.flatten().float().cpu(), bins=40)
+        fig.suptitle(f"{name}\nw")
+        fig.savefig(pdf, format="pdf")
+
+        # Plot Distribution of Row
         fig = plot_histogram(w[row].float().cpu(), bins=40)
         fig.suptitle(f"{name}\nw, row={row}")
         fig.savefig(pdf, format="pdf")
@@ -135,7 +141,18 @@ def main(
         for wdeq_val in module.weight.data[row].float().unique().cpu():
             plt.axvline(x=wdeq_val, color="b", linestyle="--")
 
-        # Plot reconstructed weight distribution
+        ## Reconstructed Weight
+        # Plot Surface
+        fig = plot_surface(module.weight.data)
+        fig.suptitle(f"{name}\nw")
+        fig.savefig(pdf, format="pdf")
+
+        # Plot Distribution
+        fig = plot_histogram(module.weight.data.flatten().float().cpu(), bins=40)
+        fig.suptitle(f"{name}\nw_deq")
+        fig.savefig(pdf, format="pdf")
+
+        # Plot Distribution of Row
         fig = plot_histogram(module.weight.data[row].float().cpu(), bins=40)
         fig.suptitle(f"{name}\nw_deq, row={row}")
         fig.savefig(pdf, format="pdf")
