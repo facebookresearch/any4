@@ -154,21 +154,30 @@ def main(
     df.to_csv(log_dir / "stats.csv", index=False)
 
 def plot_surface(x: torch.Tensor, title: str):
+    # Create a figure with a 3D axis
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     assert x.dim() == 2
 
+    # Create meshgrid coordinates for each element in the tensor
     rows = torch.arange(x.shape[0])
     cols = torch.arange(x.shape[1])
     rows, cols = torch.meshgrid(rows, cols)
 
+    # Plot the surface
     surf = ax.plot_surface(rows.numpy(), cols.numpy(), x.float().cpu().numpy(), cmap="viridis")
+
+    # Add a color bar which maps values to colors
     fig.colorbar(surf, shrink=0.5, aspect=5)
 
+    # Labeling
     ax.set_xlabel("n_rows")
     ax.set_ylabel("n_cols")
     ax.set_zlabel("val")
     ax.set_title(title)
+
+    # Adjust z-axis limits
+    ax.set_zlim(x.min().item(), x.max().item())
 
     plt.close()
     return fig
