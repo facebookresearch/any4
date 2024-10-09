@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from lm_eval.utils import simple_parse_args_string
 
-from any4 import convert, quant_methods
+from any4 import convert, quant_methods, group_q
 from utils import CustomJSONEncoder
 
 def main(
@@ -101,9 +101,12 @@ def main(
         ## Original Weight
         # Log Stats
         (w_mean, w_std) = torch.std_mean(w)
+        w_min, w_max = w.min(), w.max()
         layer_stats["w_mean"] = w_mean.item()
         layer_stats["w_std"] = w_std.item()
-        print(f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}")
+        layer_stats["w_min"] = w_min.item()
+        layer_stats["w_max"] = w_max.item()
+        print(f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}")
 
         # Plot Surface
         fig = plot_surface(w)
@@ -124,14 +127,20 @@ def main(
         if calib_activations:
             # Log Stats
             (x_calib_mean, x_calib_std) = torch.std_mean(x_calib)
+            x_calib_min, x_calib_max = x_calib.min(), x_calib.max()
             layer_stats["x_calib_mean"] = x_calib_mean.item()
             layer_stats["x_calib_std"] = x_calib_std.item()
-            print(f"\tInput: Mean:{x_calib_mean.item()}, Std:{x_calib_std.item()}")
+            layer_stats["x_calib_min"] = x_calib_min.item()
+            layer_stats["x_calib_max"] = x_calib_max.item()
+            print(f"\tInput: Mean:{x_calib_mean.item()}, Std:{x_calib_std.item()}, Min:{x_calib_min.item()}, Max:{x_calib_max.item()}")
 
             (y_calib_mean, y_calib_std) = torch.std_mean(y_calib)
+            y_calib_min, y_calib_max = y_calib.min(), y_calib.max()
             layer_stats["y_calib_mean"] = y_calib_mean.item()
             layer_stats["y_calib_std"] = y_calib_std.item()
-            print(f"\tOutput: Mean:{y_calib_mean.item()}, Std:{y_calib_std.item()}")
+            layer_stats["y_calib_min"] = y_calib_min.item()
+            layer_stats["y_calib_max"] = y_calib_max.item()
+            print(f"\tOutput: Mean:{y_calib_mean.item()}, Std:{y_calib_std.item()}, Min:{y_calib_min.item()}, Max:{y_calib_max.item()}")
 
             # Plot Line
             fig = plot_line(x_calib)
@@ -145,6 +154,34 @@ def main(
 
         # Apply our quantization algorithms
         if quant_method:
+            ## Centred Weights
+            wc, _, scales_and_zeros = group_q(w, n_bit=quant_args.get("n_bit", 4), q_group_size=quant_args.get("group_size", 64), scale_only=quant_args.get("scale_only", False))
+
+            # Log Stats
+            (wc_mean, wc_std) = torch.std_mean(wc)
+            wc_min, wc_max = wc.min(), wc.max()
+            layer_stats["wc_mean"] = wc_mean.item()
+            layer_stats["wc_std"] = wc_std.item()
+            layer_stats["wc_min"] = wc_min.item()
+            layer_stats["wc_max"] = wc_max.item()
+            print(f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}")
+
+            # Plot Surface
+            fig = plot_surface(wc)
+            fig.suptitle(f"{name}\nwc")
+            fig.savefig(pdf, format="pdf")
+
+            # Plot Distribution
+            fig = plot_histogram(wc.flatten().float().cpu(), bins=40)
+            fig.suptitle(f"{name}\nwc")
+            fig.savefig(pdf, format="pdf")
+
+            # Plot Distribution of Row
+            fig = plot_histogram(wc[row].float().cpu(), bins=40)
+            fig.suptitle(f"{name}\nwc, row={row}")
+            fig.savefig(pdf, format="pdf")
+
+            ## Analyze Quantization
             module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
             wdeq = module.weight.data
 
@@ -171,6 +208,15 @@ def main(
                 plt.axvline(x=wdeq_val, color="b", linestyle="--")
 
             ## Reconstructed Weight
+            # Log Stats
+            (wdeq_mean, wdeq_std) = torch.std_mean(wdeq)
+            wdeq_min, wdeq_max = wdeq.min(), wdeq.max()
+            layer_stats["wdeq_mean"] = wdeq_mean.item()
+            layer_stats["wdeq_std"] = wdeq_std.item()
+            layer_stats["wdeq_min"] = wdeq_min.item()
+            layer_stats["wdeq_max"] = wdeq_max.item()
+            print(f"\tWeight Dequantized: Mean:{wdeq_mean.item()}, Std:{wdeq_std.item()}, Min:{wdeq_min.item()}, Max:{wdeq_max.item()}")
+
             # Plot Surface
             fig = plot_surface(wdeq)
             fig.suptitle(f"{name}\nw")
