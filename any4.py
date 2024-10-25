@@ -159,11 +159,11 @@ def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpo
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
-def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
+def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, abs_sample_weight=True, **kwargs):
     init = kmeans.build_init(x=r, n_clusters=2 ** n_bit, init_type=init)
     if init is None:
         init = "k-means++"
-    sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight)
+    sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight, abs=abs_sample_weight)
     assign_val, any4, assign = kmeans.kmeans(r, n_clusters=2**n_bit, init=init, sample_weight=sample_weight, X_surrogate=r_surrogate, **kwargs)
 
     any4 = torch.from_numpy(any4).reshape(2**n_bit)
@@ -172,12 +172,12 @@ def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
 
     return assign, any4, assign_val
 
-def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
+def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, abs_sample_weight=True, **kwargs):
     assert r_surrogate==None, "scikit clustering does not support surrogate_to_cluster"
     init = kmeans.build_init(x=r, n_clusters=2 ** n_bit, init_type=init)
     if init is None:
         init = "k-means++"
-    sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight)
+    sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight, abs=abs_sample_weight)
 
     clusters = sklearn.cluster.KMeans(n_clusters=2**n_bit, init=init, random_state=0, n_init="auto", **kwargs).fit(r, sample_weight=sample_weight)
     any4 = torch.from_numpy(clusters.cluster_centers_).reshape(2**n_bit)
@@ -487,7 +487,6 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
         scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
 
         if sample_weight is not None:
-            # TODO: add options here to apply absolute()
             if scale_sample_weight:
                 sample_weight = sample_weight.to(scales.device) * scales
 
@@ -551,6 +550,7 @@ cluster_row_fn_dict = {
     "agglomerative": cluster_row_agglomerative,
 }
 
+# TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
 def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
     w = module.weight
     if transpose:
