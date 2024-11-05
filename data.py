@@ -5,12 +5,27 @@ import torch
 from tqdm import tqdm
 
 task_dataset_configs = {
-    "wikitext-2":   {"dataset": "Salesforce/wikitext", "config": "wikitext-2-raw-v1", "split": "test", "field": "text"},
-    "wikipedia":    {"dataset": "wikimedia/wikipedia", "config": "20231101.en", "split": "train", "field": "text"},
-    "c4":           {"dataset": "allenai/c4", "config": "en", "split": "validation", "field": "text"},
-    "pile-clean":   {"dataset": "monology/pile-uncopyrighted", "split": "train", "field": "text"},
-    "ptb":          {"dataset": "ptb-text-only/ptb_text_only", "config": "penn_treebank", "split": "test", "field": "sentence"},
-    "codeparrot":   {"dataset": "huggingface-course/codeparrot-ds-valid", "split": "validation", "field": "content"},
+    "wikitext-2":           {"dataset": "Salesforce/wikitext", "config": "wikitext-2-raw-v1", "split": "test", "field": "text"},
+    "wikipedia":            {"dataset": "wikimedia/wikipedia", "config": "20231101.en", "split": "train", "field": "text"},
+    "c4":                   {"dataset": "allenai/c4", "config": "en", "split": "validation", "field": "text"},
+    "pile-clean":           {"dataset": "monology/pile-uncopyrighted", "split": "train", "field": "text"},
+    "ptb":                  {"dataset": "ptb-text-only/ptb_text_only", "config": "penn_treebank", "split": "test", "field": "sentence"},
+    "codeparrot":           {"dataset": "huggingface-course/codeparrot-ds-valid", "split": "validation", "field": "content"},
+    "pile-arxiv":           {"dataset": "ArmelR/the-pile-splitted", "config": "ArXiv", "split": "test", "field": "text"},
+    "pile-books":           {"dataset": "ArmelR/the-pile-splitted", "config": "BookCorpus2", "split": "test", "field": "text"},
+    "pile-books3":          {"dataset": "ArmelR/the-pile-splitted", "config": "Books3", "split": "test", "field": "text"},
+    "pile-math":            {"dataset": "ArmelR/the-pile-splitted", "config": "DM Mathematics", "split": "test", "field": "text"},
+    "pile-enron":           {"dataset": "ArmelR/the-pile-splitted", "config": "Enron Emails", "split": "test", "field": "text"},
+    "pile-europarl":        {"dataset": "ArmelR/the-pile-splitted", "config": "EuroParl", "split": "test", "field": "text"},
+    "pile-freelaw":         {"dataset": "ArmelR/the-pile-splitted", "config": "FreeLaw", "split": "test", "field": "text"},
+    "pile-github":          {"dataset": "ArmelR/the-pile-splitted", "config": "GitHub", "split": "test", "field": "text"},
+    "pile-subtitles":       {"dataset": "ArmelR/the-pile-splitted", "config": "OpenSubtitles", "split": "test", "field": "text"},
+    "pile-openwebtext2":    {"dataset": "ArmelR/the-pile-splitted", "config": "OpenWebText2", "split": "test", "field": "text"},
+    "pile-pubmed-central":  {"dataset": "ArmelR/the-pile-splitted", "config": "PubMed Central", "split": "test", "field": "text"},
+    "pile-stackexchange":   {"dataset": "ArmelR/the-pile-splitted", "config": "StackExchange", "split": "test", "field": "text"},
+    "pile-uspto":           {"dataset": "ArmelR/the-pile-splitted", "config": "USPTO Backgrounds", "split": "test", "field": "text"},
+    "pile-ubuntu-irc":      {"dataset": "ArmelR/the-pile-splitted", "config": "Ubuntu IRC", "split": "test", "field": "text"},
+    "pile-youtube":         {"dataset": "ArmelR/the-pile-splitted", "config": "YoutubeSubtitles", "split": "test", "field": "text"},
 }
 
 def eval_perplexity(
