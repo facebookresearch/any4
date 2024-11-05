@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, OrderedDict, Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type, Union
 from tqdm import tqdm
 import gc
 import json
@@ -64,7 +64,7 @@ def calibrate(
     tokenizer: AutoTokenizer,
     prompt: str = default_prompt,
     dataset: Optional[str] = None,
-    config: Optional[str] = None,
+    config: Optional[Union[str, List[str]]] = None,
     split: str = "train",
     field: str = "text",
     seed: int = 42,
@@ -90,16 +90,20 @@ def calibrate(
     do_return_activations = return_activations
     register_forward_hook(model)
 
+    if not isinstance(config, List):
+        config = [config]
+
     # Apply inputs
     if dataset:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        for idx, batch in enumerate(tqdm(load_dataset(dataset, name=config, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size))):
-            if num_batches is not None and idx >= num_batches:
-                break
-            inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
-            model(**inputs)
-            del inputs
+        for name in config:
+            for idx, batch in enumerate(tqdm(load_dataset(dataset, name=name, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size))):
+                if num_batches is not None and idx >= num_batches:
+                    break
+                inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
+                model(**inputs)
+                del inputs
     else:
         if os.path.exists(prompt):
             with open(prompt, 'r') as file:
@@ -129,7 +133,7 @@ def main(
     log_dir: Path,
     prompt: str = default_prompt,
     dataset: Optional[str] = None,
-    config: Optional[str] = None,
+    config: Optional[List[str]] = None,
     split: str = "train",
     field: str = "text",
     seed: int = 42,
@@ -202,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument("--save-type", type=str, default="pt", choices=["pt", "pickle"], help="Type of file to save calibrated activations.")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--dataset", type=str, help="Dataset to load samples from.")
-    parser.add_argument("--config", type=str, help="Config to load from within the dataset.")
+    parser.add_argument("--config", nargs="+", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
