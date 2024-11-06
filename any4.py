@@ -486,9 +486,10 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
 
         scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
 
-        if sample_weight is not None:
-            if scale_sample_weight:
-                sample_weight = sample_weight.to(scales.device) * scales
+        if scale_sample_weight:
+            if sample_weight is None:
+               sample_weight = torch.ones_like(W[0])
+            sample_weight = sample_weight.to(scales.device) * scales
 
         del scales_and_zeros
     else:
