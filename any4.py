@@ -213,7 +213,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
     start = time.time()
     to_cluster = x.cpu().detach().numpy()
     surrogate_to_cluster = x_cluster.cpu().float().detach().numpy() if x_cluster is not None else None
-    sample_weight = sample_weight.float().cpu().detach().numpy() if isinstance(sample_weight, torch.Tensor) else sample_weight
+    sample_weight = sample_weight.cpu().float().detach().numpy() if isinstance(sample_weight, torch.Tensor) else sample_weight
     print(f"Clustering...", end=" ", flush=True)
     if parallelize:
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, n_bit=n_bit, init=init, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
