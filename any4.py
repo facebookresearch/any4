@@ -485,7 +485,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_activations=None, scale_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, scale_only=scale_only)
@@ -501,6 +501,11 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
     else:
         Wg = W.float()
         scales, zeros = 1, 0
+
+    if abs_weight_sample_weight:
+        if sample_weight is None:
+            sample_weight = torch.ones_like(W[0])
+        sample_weight = sample_weight.to(W.device) * W.abs()
 
     Wg = Wg.contiguous()
     if sample_weight is not None and isinstance(sample_weight, torch.Tensor):
