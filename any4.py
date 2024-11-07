@@ -363,20 +363,26 @@ def nlc_loss(output, label):
 
 # TODO: try lr schedule.
 # TODO: in each iteration feed different activations
-def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, X_train=None, lr=0.001, transpose=False, overfit=True, dtype=None, epochs=500):
+def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False, init_values=None, objective="Y_mse", X_val=None, X_train=None, lr=0.001, transpose=False, overfit=True, dtype=None, device=None, epochs=500):
     n_rows, dim = Wc.shape
     n_values = 2**n_bit
+    if device == "cpu":
+        if dtype is None:
+            # CPU does not support torch.half
+            dtype = torch.float32
     if dtype is None:
         dtype = W.dtype
-    else:
-        W = W.to(dtype)
-
-    Wc = Wc.to(dtype)
+    W = W.to(dtype=dtype, device=device)
+    Wc = Wc.to(dtype=dtype, device=device)
+    if scales is not None:
+        scales = scales.to(device=device)
+    if zeros is not None:
+        zeros = zeros.to(device=device)
 
     # Create network
-    net = AnyQNN(n_values=n_values, n_rows=n_rows).to(dtype)
+    net = AnyQNN(n_values=n_values, n_rows=n_rows).to(dtype=dtype, device=device)
     if init_values is not None:
-        net.values.data = init_values
+        net.values.data = init_values.to(device=device)
     net.train()
 
     # Create learning objective
@@ -471,7 +477,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
     # FIXME: fill assign rather than setting it to None
     assign = None
 
-    del net
+    del net, X_train, X_val, Wc, Yqn_val
     torch.cuda.empty_cache()
     gc.collect()
 
@@ -530,6 +536,14 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
             if 'out of memory' in str(e):
                 torch.cuda.empty_cache()
                 print(f"Hit OOM so will not update this layer")
+            else:
+                raise
+        except Exception as e:
+            raise
+        # Ensure tensors are back on same device as weight
+        Wc = Wc.to(W.device)
+        assign = assign.to(W.device) if assign is not None else assign
+        any4 = any4.to(W.device) if any4 is not None else any4
 
     # TODO: create separate de_group function
     if q_group_size:
