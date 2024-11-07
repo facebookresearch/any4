@@ -73,4 +73,4 @@ print(df)
 # Write csv
 out_file = "all_results.csv"
 print(f"Writing output to {out_file}")
-df.to_csv(out_file)
+df.to_csv(out_file, index=False)
