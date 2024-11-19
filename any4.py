@@ -587,7 +587,21 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     if any_group_size:
         w = w.view(-1, any_group_size)
 
-    w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+    try:
+        w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+    except RuntimeError as e:
+        if 'out of memory' in str(e):
+            torch.cuda.empty_cache()
+            gc.collect()
+            print(f"Hit OOM so will move weights to CPU and re-run")
+            orig_device = w.device
+            w.to("cpu")
+            w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+            w_deq.to(orig_device)
+        else:
+            raise
+    except Exception as e:
+        raise
 
     if any_group_size:
         w_deq = w_deq.view(module.weight.shape)
