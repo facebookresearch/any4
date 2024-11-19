@@ -61,6 +61,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
 
     return model
 
+# TODO: add option to group_q to decide max and min of scaling: 0 to 15? -1 to 1? -7 to 8? -7.5 to 8.5?
 def group_q(w_orig, n_bit, q_group_size=128, scale_only=False):
     w = w_orig.float()
     assert q_group_size > 1

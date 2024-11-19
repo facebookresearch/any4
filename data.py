@@ -58,6 +58,7 @@ def eval_perplexity(
             tokenized_example = tokenizer(example[field], return_special_tokens_mask=True)
 
             # Append tokenized input IDs to the long sequence
+            # TODO: check if <BOS> and <EOS> are inserted accordingly between concatenated samples.
             long_sequence.extend(tokenized_example["input_ids"])
 
             # Check if the long sequence exceeds the maximum sequence length times the number of batches
