@@ -48,8 +48,16 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
 
             layer_to(module, name=name, **kwargs)
             index += 1
-            if index == 6e6:
-                break
+
+            # Save memory
+            if calibrate_fn is not None:
+                if "sample_weight" in kwargs:
+                    del kwargs["sample_weight"]
+                if "sample_activations" in kwargs:
+                    del kwargs["sample_activations"]
+            torch.cuda.empty_cache()
+            gc.collect()
+
 
     return model
 
@@ -219,8 +227,6 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, n_bit=n_bit, init=init, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
     else:
         assign, any4, assign_val = cluster_rows(to_cluster, cluster_row=cluster_row, init=init, n_bit=n_bit, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
-    assign = assign.to(x.device)
-    any4 = any4.to(x.device)
     assign_val = assign_val.to(x.device)
     print(f"{time.time() - start:.2f} s", flush=True)
 
@@ -313,7 +319,7 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=
         any4 = any4.to(dtype=x.dtype)
     print(any4)
 
-    return assign, any4.to(dtype=x.dtype), scales_and_zeros.to(dtype=x.dtype)
+    return assign.to(device=x.device), any4.to(dtype=x.dtype, device=x.device), scales_and_zeros.to(dtype=x.dtype, device=x.device)
 
 class STEMin(torch.autograd.Function):
   @staticmethod
@@ -380,9 +386,10 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
         zeros = zeros.to(device=device)
 
     # Create network
-    net = AnyQNN(n_values=n_values, n_rows=n_rows).to(dtype=dtype, device=device)
+    net = AnyQNN(n_values=n_values, n_rows=n_rows)
     if init_values is not None:
-        net.values.data = init_values.to(device=device)
+        net.values.data = init_values.to(dtype=dtype, device=W.device)
+    net.to(dtype=dtype, device=W.device)
     net.train()
 
     # Create learning objective
@@ -547,8 +554,6 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
             raise
         # Ensure tensors are back on same device as weight
         Wc = Wc.to(W.device)
-        assign = assign.to(W.device) if assign is not None else assign
-        any4 = any4.to(W.device) if any4 is not None else any4
 
     # TODO: create separate de_group function
     if q_group_size:
@@ -591,6 +596,14 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
         w_deq = w_deq.t()
 
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+
+    # Save memory
+    if isinstance(sample_weight, Dict):
+        del sample_weight[name]
+        sample_weight[name]= None
+        torch.cuda.empty_cache()
+        gc.collect()
+
     return module
 
 def fp4(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
