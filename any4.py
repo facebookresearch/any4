@@ -195,9 +195,10 @@ def cluster_row_scikit(r, n_bit=4, init=None, sample_weight=None, r_surrogate=No
 
     return assign, any4, assign_val
 
-def cluster_row_agglomerative(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, **kwargs):
+def cluster_row_agglomerative(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, abs_sample_weight=True, **kwargs):
     assert r_surrogate==None, "scikit clustering does not support surrogate_to_cluster"
     assert init==None, "agglomerative clustering does not support init"
+    sample_weight = kmeans.build_sample_weight(x=r, sample_weight_type=sample_weight, abs=abs_sample_weight)
 
     clusters = sklearn.cluster.AgglomerativeClustering(n_clusters=2**n_bit, **kwargs).fit(r)
     assign = np.array(clusters.labels_)
@@ -276,7 +277,7 @@ def cluster_rows(x, cluster_row: Callable = cluster_row_scikit, n_bit=4, x_surro
         r = x[row].reshape(x.shape[1], 1)
         if x_surrogate is not None:
             r_surrogate = x_surrogate[row].reshape(x_surrogate.shape[1], 1)
-            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), r_surrogate=r_surrogate,**kwargs)
+            assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), r_surrogate=r_surrogate, **kwargs)
         else:
             assign[row], any4[row], assign_val[row] = cluster_row(r, n_bit, sample_weight=get_sample_weight(sample_weight, row), **kwargs)
 
