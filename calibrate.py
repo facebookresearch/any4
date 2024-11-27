@@ -184,9 +184,13 @@ def main(
     # Log Activations
     log_name = dataset.split("/")[-1] if dataset else "prompt"
     if save_type == "pt":
-        torch.save(layer_to_mean_activations, Path(f"./{log_dir}/{log_name}.pt"))
+        pt_file = f"./{log_dir}/{log_name}.pt"
+        print(f"Saving calibration activations to {pt_file}")
+        torch.save(layer_to_mean_activations, Path(pt_file))
     elif save_type == "pickle":
-        with open(Path(f"./{log_dir}/{log_name}.pickle"), 'wb') as handle:
+        pickle_file = f"./{log_dir}/{log_name}.pickle"
+        print(f"Saving calibration activations to {pickle_file}")
+        with open(Path(pickle_file), 'wb') as handle:
             pickle.dump(layer_to_mean_activations, handle, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         raise ValueError(f"Unsupported save type {save_type}")

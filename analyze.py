@@ -233,7 +233,9 @@ def main(
 
     # Log stats
     df = pd.DataFrame(layers_stats)
-    df.to_csv(log_dir / "stats.csv", index=False)
+    csv_path = log_dir / "stats.csv"
+    print(f"Logging analysis to {csv_path}")
+    df.to_csv(csv_path, index=False)
 
 def plot_line(x: torch.Tensor):
     assert x.dim() == 1

@@ -216,7 +216,9 @@ def main(
             prev_results = json.load(f)
             prev_results.update(results)
             results = prev_results
-    with Path(log_dir/"results.json").open("w") as f:
+    json_path = log_dir/"results.json"
+    print(f"Logging results to {json_path}")
+    with Path(json_path).open("w") as f:
         json.dump(results, f, indent=4)
 
 
