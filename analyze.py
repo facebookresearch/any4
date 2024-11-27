@@ -47,12 +47,7 @@ def main(
     pdf = PdfPages(log_dir / "plots.pdf")
 
     if bnb_args:
-        bnb_config = transformers.BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
-        )
+        bnb_config = transformers.BitsAndBytesConfig(**bnb_args)
         model_args["quantization_config"] = bnb_config
 
     lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=bs, parallelize=parallelize, **model_args)
