@@ -38,10 +38,57 @@ huggingface-cli login
 ```
 
 ## Run
-- **Example**: a simple text generation with quantization example script that you can try and edit:
+Most of the scripts below will run baseline fp16 model by default. To quantize add the following arguments:
+- `--model-args`: pass in any args that are passed to Hugging Face's [`from_pretrained()`](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained) function, including `load_in_4bit` and `load_in_8bit`.
+- `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `anyq` (proposed lookup table quantization).
+    - `--quantize-args`: comma-separated arguments to pass to a quantization algorithm, e.g., `--quantize-args n_bit=4,group_size=32` will perform 4-bit quantization with group size 32.
+- `--bnb-args`: comma-separated arguments to pass to [`BitsAndBytesConfig`](https://huggingface.co/docs/transformers/v4.46.3/en/main_classes/quantization#transformers.BitsAndBytesConfig), e.g., `load_in_4bit=True,bnb_4bit_compute_dtype=fp32`
+- `--torchao-args`: TBD
+
+### Quick Example
+To run a simple text generation (with and without) quantization example script that you can try and edit:
 ```
 python example.py
 ```
 
+### Generation
+TBD
+
+### Evaluation
+Evaluate a model (with or without quantization) on downstream tasks.
+- Baseline fp16 model:
+```
+python eval.py --model-name facebook/opt-125m --tasks piqa
+```
+- Quantized int4 model:
+```
+python eval.py --model-name facebook/opt-125m --quantize intq --tasks piqa
+```
+
+Arguments:
+- `--tasks`: by default it runs a large number of natural language, coding, and perplexity evaluation tasks: 
+    - You can specify a space separate list of tasks, e.g., `--tasks piqa mbpp`.
+    - You can pass in any task supported by [Eleuther LM Eval Harness](https://github.com/EleutherAI/lm-evaluation-harness), [BigCode Eval Harness](https://github.com/bigcode-project/bigcode-evaluation-harness), and any Hugging Face dataset to measure its perplexity.
+
+### Analyze
+To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
+```
+python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize nf4
+```
+
+### Calibrate
+To pass a dataset or pompt over a model and store output activations of each layer:
+```
+python calibrate.py --model-name meta-llama/Llama-3.2-1B --dataset cerebras/SlimPajama-627B --num-batches 10
+```
+
+### Diff
+To pass a prompt to both a baseline model and quantized model and measure the mean square error along each layer:
+```
+python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
+```
+
+
 # TODOs:
-[] Integrate with torchao
+- Add Notebook
+- Integrate with torchao
