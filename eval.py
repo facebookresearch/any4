@@ -126,15 +126,18 @@ def main(
     if save_weights:
         try:
             weights = lm_obj._model.state_dict()
-            print(f"Saving weights...")
-            torch.save(weights, Path(log_dir/"weights.pth"))
+            weights_path = weights, Path(log_dir/"weights.pth")
+            print(f"Saving modified weights to {weights_path}...")
+            torch.save(weights, weights_path)
         except:
             print(f"Failed to save weights")
             pass
     if save_model:
         try:
-            print(f"Saving model...")
-            lm_obj._model.save_pretrained(Path(log_dir/"model"), from_pt=True)
+            model_path = Path(log_dir/"model")
+            print(f"Saving modified model, and tokenizer, to {model_path}...")
+            lm_obj._model.save_pretrained(model_path, from_pt=True)
+            lm_obj.tokenizer.save_pretrained(model_path, from_pt=True)
         except:
             print(f"Failed to save model")
             pass
