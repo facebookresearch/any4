@@ -24,6 +24,27 @@ from calibrate import calibrate
 from utils import CustomJSONEncoder, dtype_str_to_torch
 from data import task_dataset_configs, eval_perplexity
 
+def log_results(
+        log_dir: Path,
+        results: Dict,
+        append: bool = True,
+        prompt: str = "Eval Results",
+        json_filename: str = "results.json",
+    ):
+    # Log to Screen
+    print(f"{prompt}: {results}")
+
+    # Log to JSON
+    json_path = log_dir / json_filename
+    if append and Path(json_path).exists():
+        with Path(json_path).open("r") as f:
+            prev_results = json.load(f)
+            prev_results.update(results)
+            results = prev_results
+    print(f"Logging results to {json_path}")
+    with Path(json_path).open("w") as f:
+        json.dump(results, f, indent=4)
+
 def main(
     model_name: str,
     quant_args: Dict,
@@ -137,8 +158,8 @@ def main(
         data_results = {}
         for task in data_tasks:
             data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
+        log_results(log_dir, data_results, append=append_results, prompt="Perplexity Eval Results", json_filename="results.json")
         results.update(data_results)
-        print(f"Perplexity Eval Results: {data_results}")
 
     # BigCode Evaluation
     bigcode_tasks = []
@@ -183,8 +204,8 @@ def main(
         bigcode_results = {}
         for task in bigcode_tasks:
             bigcode_results[task] = bigcode_evaluator.evaluate(task)
+        log_results(log_dir, bigcode_results, append=True, prompt="Code Eval Results", json_filename="results.json")
         results.update(bigcode_results)
-        print(f"Code Eval Results: {bigcode_results}")
 
     # LM Eval Harness Evaluation
     harness_tasks = []
@@ -203,23 +224,14 @@ def main(
             task_manager=task_manager,
             model_args={"parallelize": parallelize},
         )
+        log_results(log_dir, harness_results['results'], append=True, prompt="NLP Eval Results", json_filename="results.json")
         results.update(harness_results["results"])
-        print(f"NLP Eval Results: {harness_results['results']}")
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
 
     # Log results
     print(f"All Eval Results: {results}")
-    if append_results and Path(log_dir/"results.json").exists():
-        with Path(log_dir/"results.json").open("r") as f:
-            prev_results = json.load(f)
-            prev_results.update(results)
-            results = prev_results
-    json_path = log_dir/"results.json"
-    print(f"Logging results to {json_path}")
-    with Path(json_path).open("w") as f:
-        json.dump(results, f, indent=4)
 
 
 if __name__ == '__main__':
