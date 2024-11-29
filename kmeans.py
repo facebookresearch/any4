@@ -92,8 +92,8 @@ def build_sample_weight(x, sample_weight_type: str, abs: bool = True):
         else:
             raise ValueError(f"Failed to parse {sample_weight_type}.")
     elif sample_weight_type.startswith("gradual"):
-        # This pattern accepts "gradual_{factor_max}_{factor_min}" or "gradual_{factor_max}".
-        pattern = r'^gradual_([0-9]*\.?[0-9]+)(?:_([0-9]*\.?[0-9]+))?(?:_pow([0-9]*\.?[0-9]+))?$'
+        # This pattern accepts "gradual_{factor_max}_{factor_min}", "gradual_{factor_max}", "gradual_pow{power}", or a combination of the previous.
+        pattern = r'^gradual_(-?[0-9]*\.?[0-9]+)(?:_(-?[0-9]*\.?[0-9]+))?(?:_pow(-?[0-9]*\.?[0-9]+))?$'
 
         # Match the input string against the pattern
         match = re.match(pattern, sample_weight_type)
