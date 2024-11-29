@@ -72,9 +72,9 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
     to_quant = w.reshape(-1, q_group_size)
     assert torch.isnan(to_quant).sum() == 0
 
-    max_val = to_quant.amax(dim=1, keepdim=True)
-    min_val = to_quant.amin(dim=1, keepdim=True)
     if zero_point:
+        max_val = to_quant.amax(dim=1, keepdim=True)
+        min_val = to_quant.amin(dim=1, keepdim=True)
         max_int = 2**n_bit - 1
         min_int = 0
         scales = (max_val - min_val).clamp(min=1e-6) / (max_int - min_int)
