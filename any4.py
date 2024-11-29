@@ -29,11 +29,12 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
         if isinstance(kwargs["sample_weight"], Callable):
             calibrate_fn = kwargs["sample_weight"]
 
+    # TODO: use tqdm instead of printing each layer name
     for name, module in model.named_modules():
         if isinstance(module, (layer_from)):
             print(f"{name}")
             if name in skip_modules:
-                print("Skip")
+                print("\tSkip")
                 continue
 
             # Calibrate if necessary
