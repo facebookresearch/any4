@@ -494,7 +494,13 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
+    if sample_weight_preprocess:
+        assert sample_weight is not None and isinstance(sample_weight, torch.Tensor)
+        # We won't apply absolute here and it can be applied in another call to build_sample_weight before clustering
+        sample_weight = kmeans.build_sample_weight(sample_weight.unsqueeze(dim=1).detach().cpu().numpy(), sample_weight_preprocess, abs=False)
+        sample_weight = torch.Tensor(sample_weight)
+
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, scale_only=scale_only)
