@@ -155,13 +155,57 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, s
 
     return reconstructed
 
+def pseudo_quantize_tensor(
+    w, n_bit=8, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False
+):
+    org_w_shape = w.shape
+    if q_group_size > 0:
+        assert org_w_shape[-1] % q_group_size == 0
+        w = w.reshape(-1, q_group_size)
+    assert w.dim() == 2
+    if zero_point:
+        max_val = w.amax(dim=1, keepdim=True)
+        min_val = w.amin(dim=1, keepdim=True)
+        max_int = 2**n_bit - 1
+        min_int = 0
+        scales = (max_val - min_val).clamp(min=1e-5) / max_int
+        zeros = (-torch.round(min_val / scales)).clamp_(min_int, max_int)
+    else:  # we actually never used this
+        max_val = w.abs().amax(dim=1, keepdim=True)
+        max_val = max_val.clamp(min=1e-5)
+        max_int = 2 ** (n_bit - 1) - 1
+        min_int = -(2 ** (n_bit - 1))
+        scales = max_val / max_int
+        zeros = 0
+
+    assert torch.isnan(scales).sum() == 0
+    assert torch.isnan(w).sum() == 0
+
+    if inplace:
+        (
+            (w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)
+        ).mul_(scales)
+    else:
+        w = (
+            torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros
+        ) * scales
+    assert torch.isnan(w).sum() == 0
+
+    w = w.reshape(org_w_shape)
+
+    if get_scale_zp:
+        return w, scales.view(w.shape[0], -1), zeros.view(w.shape[0], -1)
+    else:
+        return w
+
 def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
     w = module.weight
 
     if transpose:
         w = w.t()
 
-    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+    # w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+    w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
 
     if transpose:
         w_deq = w_deq.t()
