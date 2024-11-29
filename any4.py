@@ -145,12 +145,23 @@ def expand_q_groups(x, orig_size, q_group_size):
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, *args, **kwargs):
-    int4, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
-    int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
+    ## Before
+    # int4, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+    # int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
+    ## After
+    int4, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
+    int4 = int4.round()
 
-    assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
+    ## Before
+    # assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
+    ## After
+    # TBD: add similar condition
+    # TBD: create scales_and_zeros struct?
 
-    reconstructed = degroup_q(int4, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
+    ## Before
+    # reconstructed = degroup_q(int4, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
+    ## After
+    reconstructed = degroup_q1(int4, scales, zeros, q_group_size=q_group_size, inplace=False)
     reconstructed = reconstructed.to(dtype=x.dtype)
 
     return reconstructed
@@ -198,14 +209,76 @@ def pseudo_quantize_tensor(
     else:
         return w
 
+def group_q1(
+    w, n_bit=8, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False
+):
+    org_w_shape = w.shape
+    if q_group_size > 0:
+        assert org_w_shape[-1] % q_group_size == 0
+        w = w.reshape(-1, q_group_size)
+    assert w.dim() == 2
+    if zero_point:
+        max_val = w.amax(dim=1, keepdim=True)
+        min_val = w.amin(dim=1, keepdim=True)
+        max_int = 2**n_bit - 1
+        min_int = 0
+        scales = (max_val - min_val).clamp(min=1e-5) / max_int
+        zeros = (-torch.round(min_val / scales)).clamp_(min_int, max_int)
+    else:  # we actually never used this
+        max_val = w.abs().amax(dim=1, keepdim=True)
+        max_val = max_val.clamp(min=1e-5)
+        max_int = 2 ** (n_bit - 1) - 1
+        min_int = -(2 ** (n_bit - 1))
+        scales = max_val / max_int
+        zeros = 0
+
+    assert torch.isnan(scales).sum() == 0
+    assert torch.isnan(w).sum() == 0
+
+    if inplace:
+        w.div_(scales).add_(zeros).clamp_(min_int, max_int)
+    else:
+        w = torch.clamp((w / scales) + zeros, min_int, max_int)
+    assert torch.isnan(w).sum() == 0
+
+    w = w.reshape(org_w_shape)
+
+    if get_scale_zp:
+        return w, scales, zeros
+    else:
+        return w
+
+
+def degroup_q1(
+    w, scales, zeros, q_group_size=-1, inplace=False
+):
+    org_w_shape = w.shape
+    if q_group_size > 0:
+        assert org_w_shape[-1] % q_group_size == 0
+        w = w.reshape(-1, q_group_size)
+    assert w.dim() == 2
+
+    assert torch.isnan(scales).sum() == 0
+    assert torch.isnan(w).sum() == 0
+
+    if inplace:
+        w.sub_(zeros).mul_(scales)
+    else:
+        w = (w - zeros) * scales
+    assert torch.isnan(w).sum() == 0
+
+    w = w.reshape(org_w_shape)
+
+    return w
+
 def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
     w = module.weight
 
     if transpose:
         w = w.t()
 
-    # w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
-    w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
+    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+    # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
 
     if transpose:
         w_deq = w_deq.t()
@@ -548,16 +621,17 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
 
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
-        Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
-
-        scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
+        ## Before
+        # Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+        # scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
+        # del scales_and_zeros
+        ## After
+        Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only, get_scale_zp=True)
 
         if scale_sample_weight:
             if sample_weight is None:
                sample_weight = torch.ones_like(W[0])
             sample_weight = sample_weight.to(scales.device) * scales
-
-        del scales_and_zeros
     else:
         Wg = W.float()
         scales, zeros = 1, 0
@@ -610,9 +684,12 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, scale_only=False, bia
 
     # TODO: create separate de_group function
     if q_group_size:
-        if not scale_only:
-            any4.sub_(2**(n_bit - 1))
-        Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+        ## Before
+        # if not scale_only:
+        #     any4.sub_(2**(n_bit - 1))
+        # Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+        ## After
+        Wdeq = degroup_q1(Wc, scales=scales, zeros=zeros, q_group_size=q_group_size)
         del scales, zeros
     else:
         Wdeq = Wc
