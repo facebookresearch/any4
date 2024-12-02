@@ -23,6 +23,7 @@ from any4 import convert, quant_methods
 from calibrate import calibrate
 from utils import CustomJSONEncoder, dtype_str_to_torch
 from data import task_dataset_configs, eval_perplexity
+from data_gptq import task_dataset_gptq_configs, get_loaders, llama_eval
 
 def log_results(
         log_dir: Path,
@@ -65,6 +66,8 @@ def main(
     bnb_args: Optional[Dict] = None,
     calibrate_args: Dict = {},
     nnq_args: Dict = {},
+    seed: int = 0,
+    max_seq_len: Optional[int] = 2048,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -149,6 +152,24 @@ def main(
     task_manager = lm_eval.tasks.TaskManager()
 
     results = {}
+
+    # Dataset Perplexity (GPTQ Implementation)
+    # Many quantization papers use this implementation to measure perplexity so we are using it here
+    # TODO: update data.py with extra arguments to match results of data_gptq.py
+    data_gptq_tasks = []
+    for task in tasks.copy():
+        if task in task_dataset_gptq_configs:
+            tasks.remove(task)
+            data_gptq_tasks.append(task)
+    if data_gptq_tasks:
+        data_gptq_results = {}
+        for task in data_gptq_tasks:
+            _, testloader = get_loaders(
+                task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=lm_obj.model.config.max_position_embeddings
+            )
+            data_gptq_results[task] = llama_eval(lm_obj.model, testloader, device)
+        log_results(log_dir, data_gptq_results, append=append_results or len(results) > 0, prompt="Perplexity (GPTQ Implementation) Eval Results", json_filename="results.json")
+        results.update(data_gptq_results)
 
     # Dataset Perplexity
     # TODO: args.datasets could be nargs of comma-listed arguments
