@@ -206,8 +206,9 @@ def pseudo_quantize_tensor(
     else:
         return w
 
+# TODO: add min_int and max_int as optional args
 def group_q1(
-    w, n_bit=8, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False
+    w, n_bit=4, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True,
 ):
     org_w_shape = w.shape
     if q_group_size > 0:
@@ -233,9 +234,13 @@ def group_q1(
     assert torch.isnan(w).sum() == 0
 
     if inplace:
-        w.div_(scales).add_(zeros).clamp_(min_int, max_int)
+        w.div_(scales).add_(zeros)
+        if clamp:
+            w.clamp_(min_int, max_int)
     else:
-        w = torch.clamp((w / scales) + zeros, min_int, max_int)
+        w = (w / scales) + zeros
+        if clamp:
+            w = torch.clamp(w, min_int, max_int)
     assert torch.isnan(w).sum() == 0
 
     w = w.reshape(org_w_shape)
