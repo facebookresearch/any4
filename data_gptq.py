@@ -22,7 +22,7 @@ def get_wikitext2(nsamples, seed, seqlen, tokenizer):
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1) if trainenc.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         tar = inp.clone()
@@ -42,7 +42,7 @@ def get_ptb(nsamples, seed, seqlen, tokenizer):
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1) if trainenc.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         tar = inp.clone()
@@ -68,7 +68,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
             trainenc = tokenizer(traindata[i]['text'], return_tensors='pt')
             if trainenc.input_ids.shape[1] >= seqlen:
                 break
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1) if trainenc.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         tar = inp.clone()
@@ -84,7 +84,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
             tmp = tokenizer(valdata[i]['text'], return_tensors='pt')
             if tmp.input_ids.shape[1] >= seqlen:
                 break
-        i = random.randint(0, tmp.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, tmp.input_ids.shape[1] - seqlen - 1) if tmp.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         valenc.append(tmp.input_ids[:, i:j])
     valenc = torch.hstack(valenc)
@@ -107,7 +107,7 @@ def get_ptb_new(nsamples, seed, seqlen, tokenizer):
     random.seed(seed)
     trainloader = []
     for _ in range(nsamples):
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1) if trainenc.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         tar = inp.clone()
@@ -133,7 +133,7 @@ def get_c4_new(nsamples, seed, seqlen, tokenizer):
             trainenc = tokenizer(traindata[i]['text'], return_tensors='pt')
             if trainenc.input_ids.shape[1] >= seqlen:
                 break
-        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1) if trainenc.input_ids.shape[1] > seqlen else 0
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         tar = inp.clone()

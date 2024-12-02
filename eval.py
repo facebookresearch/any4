@@ -165,9 +165,9 @@ def main(
         data_gptq_results = {}
         for task in data_gptq_tasks:
             _, testloader = get_loaders(
-                task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=lm_obj.model.config.max_position_embeddings
+                task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=max_seq_len
             )
-            data_gptq_results[task] = llama_eval(lm_obj.model, testloader, device)
+            data_gptq_results[task] = llama_eval(lm_obj.model, testloader, device, seqlen=max_seq_len)
         log_results(log_dir, data_gptq_results, append=append_results or len(results) > 0, prompt="Perplexity (GPTQ Implementation) Eval Results", json_filename="results.json")
         results.update(data_gptq_results)
 
@@ -181,7 +181,7 @@ def main(
     if data_tasks:
         data_results = {}
         for task in data_tasks:
-            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
+            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, max_seq_len=max_seq_len, **task_dataset_configs[task])
         log_results(log_dir, data_results, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
         results.update(data_results)
 
