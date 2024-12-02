@@ -182,7 +182,7 @@ def main(
         data_results = {}
         for task in data_tasks:
             data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, **task_dataset_configs[task])
-        log_results(log_dir, data_results, append=append_results, prompt="Perplexity Eval Results", json_filename="results.json")
+        log_results(log_dir, data_results, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
         results.update(data_results)
 
     # BigCode Evaluation
@@ -228,7 +228,7 @@ def main(
         bigcode_results = {}
         for task in bigcode_tasks:
             bigcode_results[task] = bigcode_evaluator.evaluate(task)
-        log_results(log_dir, bigcode_results, append=True, prompt="Code Eval Results", json_filename="results.json")
+        log_results(log_dir, bigcode_results, append=append_results or len(results) > 0, prompt="Code Eval Results", json_filename="results.json")
         results.update(bigcode_results)
 
     # LM Eval Harness Evaluation
@@ -248,7 +248,7 @@ def main(
             task_manager=task_manager,
             model_args={"parallelize": parallelize},
         )
-        log_results(log_dir, harness_results['results'], append=True, prompt="NLP Eval Results", json_filename="results.json")
+        log_results(log_dir, harness_results['results'], append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
         results.update(harness_results["results"])
 
     if tasks:
