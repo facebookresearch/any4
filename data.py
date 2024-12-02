@@ -95,6 +95,10 @@ def eval_perplexity(
             # Remove the processed sequences
             long_sequence = long_sequence[idx:]
 
+            # Check if it exceeds num_batches
+            if num_batches is not None and batch_count >= num_batches:
+                break
+
     # Handle any remaining sequence if batch count hasn't reached num_batches
     if handle_tail_samples:
         if long_sequence and num_batches is not None and batch_count < num_batches:
