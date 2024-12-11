@@ -173,7 +173,7 @@ def llama_eval(model, testenc, dev, seqlen = 2048):
     testenc = testenc.input_ids
     nsamples = testenc.numel() // seqlen
 
-    testenc = testenc.to(dev)
+    testenc = testenc.to(model.device)
     nlls = []
     with tqdm(range(nsamples)) as pbar:
         for i in pbar:

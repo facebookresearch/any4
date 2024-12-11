@@ -357,11 +357,11 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
         max_outliers = torch.amax(x, dim=1, keepdim=True)
         min_outliers = torch.amin(x, dim=1, keepdim=True)
 
-        any4.scatter_(dim=1, index=torch.argmax(any4, dim=1, keepdim=True), src=max_outliers)
-        any4.scatter_(dim=1, index=torch.argmin(any4, dim=1, keepdim=True), src=min_outliers)
+        any4.scatter_(dim=1, index=torch.argmax(any4, dim=1, keepdim=True), src=max_outliers.to(any4.device))
+        any4.scatter_(dim=1, index=torch.argmin(any4, dim=1, keepdim=True), src=min_outliers.to(any4.device))
 
-        assign_val.scatter_(dim=1, index=torch.argmax(assign_val, dim=1, keepdim=True), src=max_outliers)
-        assign_val.scatter_(dim=1, index=torch.argmin(assign_val, dim=1, keepdim=True), src=min_outliers)
+        assign_val.scatter_(dim=1, index=torch.argmax(assign_val, dim=1, keepdim=True), src=max_outliers.to(assign_val.device))
+        assign_val.scatter_(dim=1, index=torch.argmin(assign_val, dim=1, keepdim=True), src=min_outliers.to(assign_val.device))
 
     if bias_pow != 1.0:
         # undo the pow
