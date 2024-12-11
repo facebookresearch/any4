@@ -341,7 +341,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
         x = (x.abs() ** bias_pow) * torch.sign(x)
 
     start = time.time()
-    to_cluster = x.cpu().detach().numpy()
+    to_cluster = x.cpu().detach().float().numpy()
     surrogate_to_cluster = x_cluster.cpu().float().detach().numpy() if x_cluster is not None else None
     sample_weight = sample_weight.cpu().float().detach().numpy() if isinstance(sample_weight, torch.Tensor) else sample_weight
     print(f"\tClustering...", end=" ", flush=True)
