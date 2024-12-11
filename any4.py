@@ -624,7 +624,8 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, s
     if q_group_size:
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         if new_grouping:
-            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only, get_scale_zp=True)
+            W = W.detach()
+            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only, get_scale_zp=True, inplace=True)
         else:
             Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
             scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
