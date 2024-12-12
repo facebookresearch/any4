@@ -60,6 +60,7 @@ def main(
     log_dir: Path,
     generation_args: Dict,
     append_results: Optional[bool] = False,
+    overwrite_results: Optional[bool] = False,
     load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
@@ -102,6 +103,19 @@ def main(
     if nnq_args:
         if "dtype" in nnq_args:
             nnq_args["dtype"] = dtype_str_to_torch[nnq_args["dtype"]]
+
+    if not overwrite_results:
+        append_results = True
+        skip_tasks = []
+        json_path = log_dir / "results.json"
+        if Path(json_path).exists():
+            with Path(json_path).open("r") as f:
+                prev_results = json.load(f)
+            for prev_task in prev_results.keys():
+                if prev_task in tasks:
+                    tasks.remove(prev_task)
+                    skip_tasks.append(prev_task)
+            print(f"Skipping {skip_tasks} as its results exists from previous run.")
 
     # instantiate an LM subclass that takes initialized model and can run
     # - `Your_LM.loglikelihood()`
@@ -297,6 +311,7 @@ if __name__ == '__main__':
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
     parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
+    parser.add_argument("--overwrite-results", default=False, action=argparse.BooleanOptionalAction, help="If task already exist in results.json, re-run and overwrite it.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log_dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
     parser.add_argument("--save-model", default=False, action=argparse.BooleanOptionalAction, help="Save model in HF format after quantizing to args.log_dir.")
@@ -332,6 +347,7 @@ if __name__ == '__main__':
         generation_args=generation_args,
         log_dir=args.log_dir,
         append_results=args.append_results,
+        overwrite_results=args.overwrite_results,
         save_weights=args.save_weights,
         load_weights=args.load_weights,
         save_model=args.save_model,
