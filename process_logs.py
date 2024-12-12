@@ -4,12 +4,12 @@ import pandas as pd
 import os
 
 parser = argparse.ArgumentParser(description="Process json results file from one or more directories.")
-parser.add_argument("--root_directories", nargs='+', type=str, default=["./logs/"], help="HuggingFace model name or path.")
+parser.add_argument("--root-dir", nargs='+', type=str, default=["./logs/"], help="HuggingFace model name or path.")
 
 args = parser.parse_args()
 
 # Provide a list of root directories
-root_directories = args.root_directories
+root_directories = args.root_dir
 if isinstance(root_directories, str):
     root_directories = [root_directories]
 
