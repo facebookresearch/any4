@@ -29,11 +29,14 @@ def log_results(
         log_dir: Path,
         results: Dict,
         append: bool = True,
-        prompt: str = "Eval Results",
+        prompt: str = "",
         json_filename: str = "results.json",
     ):
     # Log to Screen
-    print(f"{prompt}: {results}")
+    if prompt:
+        print(f"{prompt}: {results}")
+    else:
+        print(f"{results}")
 
     # Log to JSON
     json_path = log_dir / json_filename
@@ -162,14 +165,17 @@ def main(
             tasks.remove(task)
             data_gptq_tasks.append(task)
     if data_gptq_tasks:
+        print("Running Perplexity (GPTQ Implementation) Tasks")
         data_gptq_results = {}
         for task in data_gptq_tasks:
             _, testloader = get_loaders(
                 task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=max_seq_len
             )
-            data_gptq_results[task] = llama_eval(lm_obj.model, testloader, device, seqlen=max_seq_len)
-        log_results(log_dir, data_gptq_results, append=append_results or len(results) > 0, prompt="Perplexity (GPTQ Implementation) Eval Results", json_filename="results.json")
-        results.update(data_gptq_results)
+            result = llama_eval(lm_obj.model, testloader, device, seqlen=max_seq_len)
+            data_gptq_results[task] = result
+            log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Perplexity (GPTQ Implementation) Eval Results", json_filename="results.json")
+            results.update({task: result})
+            print(f"Perplexity (GPTQ Implementation) Eval Results: {data_gptq_results}")
 
     # Dataset Perplexity
     # TODO: args.datasets could be nargs of comma-listed arguments
@@ -179,11 +185,14 @@ def main(
             tasks.remove(task)
             data_tasks.append(task)
     if data_tasks:
+        print("Running Perplexity Tasks")
         data_results = {}
         for task in data_tasks:
-            data_results[task] = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, max_seq_len=max_seq_len, **task_dataset_configs[task])
-        log_results(log_dir, data_results, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
-        results.update(data_results)
+            result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, max_seq_len=max_seq_len, **task_dataset_configs[task])
+            data_results[task] = result
+            log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
+            results.update({task: result})
+        print(f"Perplexity Eval Results: {data_results}")
 
     # BigCode Evaluation
     bigcode_tasks = []
@@ -192,6 +201,7 @@ def main(
             tasks.remove(task)
             bigcode_tasks.append(task)
     if bigcode_tasks:
+        print("Running Coding Tasks")
         if hasattr(lm_obj, "accelerator") and lm_obj.accelerator is not None:
             accelerator = lm_obj.accelerator
         else:
@@ -227,9 +237,11 @@ def main(
         )
         bigcode_results = {}
         for task in bigcode_tasks:
-            bigcode_results[task] = bigcode_evaluator.evaluate(task)
-        log_results(log_dir, bigcode_results, append=append_results or len(results) > 0, prompt="Code Eval Results", json_filename="results.json")
-        results.update(bigcode_results)
+            result = bigcode_evaluator.evaluate(task)
+            bigcode_results[task] = result
+            log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Code Eval Results", json_filename="results.json")
+            results.update({task: result})
+        print(f"Code Eval Results: {bigcode_results}")
 
     # LM Eval Harness Evaluation
     harness_tasks = []
@@ -238,18 +250,24 @@ def main(
             tasks.remove(task)
             harness_tasks.append(task)
     if harness_tasks:
+        print("Running Natural Language Tasks")
+        harness_results = {}
         # Setting `task_manager` to the one above is optional and should generally be done
         # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
         # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-        harness_results = lm_eval.simple_evaluate( # call simple_evaluate
-            model=lm_obj,
-            tasks=harness_tasks,
-            num_fewshot=num_fewshot,
-            task_manager=task_manager,
-            model_args={"parallelize": parallelize},
-        )
-        log_results(log_dir, harness_results['results'], append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
-        results.update(harness_results["results"])
+        for task in harness_tasks:
+            harness_output = lm_eval.simple_evaluate( # call simple_evaluate
+                model=lm_obj,
+                tasks=[task],
+                num_fewshot=num_fewshot,
+                task_manager=task_manager,
+                model_args={"parallelize": parallelize},
+            )
+            result = harness_output['results']
+            harness_results[task] = result
+            log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
+            results.update({task: result})
+        print(f"NLP Eval Results: {harness_results}")
 
     if tasks:
         print(f"WARNING: The following tasks are unknown: {tasks}")
