@@ -26,7 +26,7 @@ for root_directory in root_directories:
 all_data = []
 
 # Define the specific subfields to extract
-desired_subfields = ["acc,none", "word_perplexity,none", "exact,none", "exact_match,remove_whitespace", "exact_match,strict-match", "pass@1"]
+desired_subfields = ["acc,none", "word_perplexity,none", "exact,none", "exact_match,get-answer", "exact_match,remove_whitespace", "exact_match,strict-match", "pass@1"]
 
 # Iterate over each directory
 for json_path in directories:
