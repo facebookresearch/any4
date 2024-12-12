@@ -292,7 +292,7 @@ if __name__ == '__main__':
     parser.add_argument("--tasks", type=str, nargs="+", default=["arc_easy","arc_challenge", "bbh", "gsm8k","hellaswag","mathqa","mmlu","nq_open", "openbookqa", "piqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","winogrande","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "c4_new", "ptb", "ptb_new", "codeparrot"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--batch-size", type=int, default=16, help="Batch size.")
+    parser.add_argument("--batch-size", type=int, default=1, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
