@@ -614,7 +614,11 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, **kwargs):
+def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+    if device is not None:
+        orig_device = W.device
+        W = W.to(device)
+
     if sample_weight_preprocess:
         assert sample_weight is not None and isinstance(sample_weight, torch.Tensor)
         # We won't apply absolute here and it can be applied in another call to build_sample_weight before clustering
@@ -672,6 +676,7 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, s
                 init_values=any4,
                 X_train=sample_activations,
                 X_val=sample_weight,
+                device=device,
                 **nnq_args,
             )
         except RuntimeError as e:
@@ -700,6 +705,10 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, s
     del assign, any4
     torch.cuda.empty_cache()
     gc.collect()
+
+    if device is not None:
+        Wdeq = Wdeq.to(orig_device)
+
     return Wdeq
 
 cluster_row_fn_dict = {
