@@ -6,7 +6,7 @@
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
-#include "tinygemm/TinyGemmUtils.cuh"
+#include "TinyGemmUtils.cuh"
 
 namespace tinygemm {
 

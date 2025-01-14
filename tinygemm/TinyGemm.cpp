@@ -1,7 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates.
 // All rights reserved.
 
-#include "tinygemm/TinyGemm.h"
+#include "TinyGemm.h"
 
 #include <c10/cuda/CUDAGuard.h>
 #include <pybind11/pybind11.h>

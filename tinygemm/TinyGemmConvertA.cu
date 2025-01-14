@@ -1,9 +1,9 @@
 // (c) Meta Platforms, Inc. and affiliates.
 // All rights reserved.
 
-#include "tinygemm/StaticUtils.h"
-#include "tinygemm/TinyGemm.h"
-#include "tinygemm/TinyGemmUtils.cuh"
+#include "StaticUtils.h"
+#include "TinyGemm.h"
+#include "TinyGemmUtils.cuh"
 
 #include <ATen/ATen.h>
 #include <ATen/DeviceGuard.h>
@@ -86,12 +86,24 @@ __global__ void matrix_to_m16n8k16_A_layout(
     if (kIn < k) {
 #pragma unroll
       for (int i = 0; i < kMTileSize; i += 2) {
-        pTile[i * kSmemRowSize] = (mIn + i < m) ? pIn[i * k] : T(0.0f);
+        if constexpr (std::is_same<T, __half>::value) {
+          pTile[i * kSmemRowSize] = (mIn + i < m) ? pIn[i * k] : __float2half(0.0f);
+        } else if constexpr (std::is_same<T, __nv_bfloat16>::value) {
+          pTile[i * kSmemRowSize] = (mIn + i < m) ? pIn[i * k] : __float2bfloat16(0.0f);
+        } else {
+          pTile[i * kSmemRowSize] = (mIn + i < m) ? pIn[i * k] : T(0.0f);
+        }
       }
     } else {
 #pragma unroll
       for (int i = 0; i < kMTileSize; i += 2) {
-        pTile[i * kSmemRowSize] = T(0.0f);
+        if constexpr (std::is_same<T, __half>::value) {
+          pTile[i * kSmemRowSize] = __float2half(0.0f);
+        } else if constexpr (std::is_same<T, __nv_bfloat16>::value) {
+          pTile[i * kSmemRowSize] = __float2bfloat16(0.0f);
+        } else {
+          pTile[i * kSmemRowSize] = T(0.0f);
+        }
       }
     }
   }

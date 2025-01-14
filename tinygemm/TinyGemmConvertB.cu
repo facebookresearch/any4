@@ -1,9 +1,9 @@
 // (c) Meta Platforms, Inc. and affiliates.
 // All rights reserved.
 
-#include "tinygemm/StaticUtils.h"
-#include "tinygemm/TinyGemm.h"
-#include "tinygemm/TinyGemmUtils.cuh"
+#include "StaticUtils.h"
+#include "TinyGemm.h"
+#include "TinyGemmUtils.cuh"
 
 #include <ATen/ATen.h>
 #include <ATen/DeviceGuard.h>

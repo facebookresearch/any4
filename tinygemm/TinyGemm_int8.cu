@@ -1,12 +1,12 @@
 // (c) Meta Platforms, Inc. and affiliates.
 // All rights reserved.
 
-#include "tinygemm/MatrixLayoutA.cuh"
-#include "tinygemm/MatrixLayoutB.cuh"
-#include "tinygemm/StaticUtils.h"
-#include "tinygemm/TinyGemm.h"
-#include "tinygemm/TinyGemmImpl.cuh"
-#include "tinygemm/TinyGemmUtils.cuh"
+#include "MatrixLayoutA.cuh"
+#include "MatrixLayoutB.cuh"
+#include "StaticUtils.h"
+#include "TinyGemm.h"
+#include "TinyGemmImpl.cuh"
+#include "TinyGemmUtils.cuh"
 
 #include <ATen/ATen.h>
 #include <ATen/DeviceGuard.h>

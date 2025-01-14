@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "tinygemm/Dequantization.cuh"
-#include "tinygemm/FloatDefs.cuh"
-#include "tinygemm/StaticUtils.h"
+#include "Dequantization.cuh"
+#include "FloatDefs.cuh"
+#include "StaticUtils.h"
 
 namespace tinygemm {
 
