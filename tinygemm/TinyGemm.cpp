@@ -7,6 +7,10 @@
 #include <pybind11/pybind11.h>
 #include <torch/extension.h>
 
+PYBIND11_MODULE(tinygemm, m) {
+    m.doc() = "tinygemm: low-bit CUDA GEMM library";
+}
+
 TORCH_LIBRARY_FRAGMENT(tinygemm, m) {
   // convert to A
   m.def(

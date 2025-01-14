@@ -8,8 +8,16 @@ setup(
     name="tinygemm",
     ext_modules=[
         cpp_extension.CUDAExtension(
-            "tinygemm",
-            ["TinyGemm.cpp", "TinyGemm_bf16.cu", "TinyGemm_int4.cu", "TinyGemm_int8.cu", "TinyGemmConvertA.cu", "TinyGemmConvertB.cu", "TinyGemmDequantize.cu"],
+            name="tinygemm",
+            sources=[
+                "TinyGemm.cpp",
+                "TinyGemm_bf16.cu",
+                "TinyGemm_int4.cu",
+                "TinyGemm_int8.cu",
+                "TinyGemmConvertA.cu",
+                "TinyGemmConvertB.cu",
+                "TinyGemmDequantize.cu",
+            ],
         )
     ],
     cmdclass={"build_ext": cpp_extension.BuildExtension},
