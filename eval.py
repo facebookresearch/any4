@@ -56,9 +56,9 @@ def main(
     model_args: Dict,
     tasks: List[str],
     device: str,
-    batch_size: int,
     log_dir: Path,
     generation_args: Dict,
+    batch_size: Optional[int] = None,
     append_results: Optional[bool] = False,
     overwrite_results: Optional[bool] = False,
     load_weights: Optional[Path] = None,
@@ -125,7 +125,7 @@ def main(
         pretrained=model_name,
         tokenizer=tokenizer_name,
         device=device,
-        batch_size=batch_size,
+        batch_size=batch_size if batch_size is not None else "auto:16",
         parallelize=parallelize,
         trust_remote_code=True,
         **model_args
@@ -202,7 +202,7 @@ def main(
         print("Running Perplexity Tasks")
         data_results = {}
         for task in data_tasks:
-            result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=1, max_seq_len=max_seq_len, **task_dataset_configs[task])
+            result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=batch_size if batch_size is not None else 1, max_seq_len=max_seq_len, **task_dataset_configs[task])
             data_results[task] = result
             log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
             results.update({task: result})
@@ -222,7 +222,8 @@ def main(
             accelerator = Accelerator(InitProcessGroupKwargs(timeout=timedelta(weeks=52)))
         bigcode_args = {
             "modeltype": "causal",
-            "batch_size": batch_size,
+            "n_samples": 1, # number of generated candidate solutions
+            "batch_size": 1, # for BigCode, batch_size <= n_samples
             "max_length_generation": 512,
             "limit": None,
             "limit_start": 0,
@@ -306,7 +307,7 @@ if __name__ == '__main__':
     parser.add_argument("--tasks", type=str, nargs="+", default=["piqa","arc_easy","arc_challenge","hellaswag","winogrande", "bbh","gsm8k","lambada","mathqa","mmlu","nq_open", "openbookqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "c4_new", "ptb", "ptb_new", "codeparrot"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--batch-size", type=int, default=1, help="Batch size.")
+    parser.add_argument("--batch-size", type=int, default=None, help="Batch size.")
     parser.add_argument("--parallelize", default=True, action=argparse.BooleanOptionalAction, help="Enable parallel inference on multiple GPUs.")
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
