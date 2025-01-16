@@ -62,6 +62,24 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
 
     return model
 
+def pack_scales_and_zeros(scales, zeros, w_shape):
+    # Scales and zeros for the same q-group should be contiguous, so we can
+    # load as a 32-bit word
+    scales = scales.view(w_shape[0], -1)
+    zeros = zeros.view(w_shape[0], -1)
+    scales_and_zeros = (
+        torch.cat(
+            [
+                scales.reshape(scales.size(0), scales.size(1), 1),
+                zeros.reshape(zeros.size(0), zeros.size(1), 1),
+            ],
+            2,
+        )
+        .transpose(0, 1)
+        .contiguous()
+    )
+    return scales_and_zeros
+
 # TODO: add option to group_q to decide max and min of scaling: 0 to 15? -1 to 1? -7 to 8? -7.5 to 8.5?
 def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
     w = w_orig.float()
@@ -96,21 +114,7 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(zeros).sum() == 0
 
-    # Scales and zeros for the same q-group should be contiguous, so we can
-    # load as a 32-bit word
-    scales = scales.view(w.shape[0], -1)
-    zeros = zeros.view(w.shape[0], -1)
-    scales_and_zeros = (
-        torch.cat(
-            [
-                scales.reshape(scales.size(0), scales.size(1), 1),
-                zeros.reshape(zeros.size(0), zeros.size(1), 1),
-            ],
-            2,
-        )
-        .transpose(0, 1)
-        .contiguous()
-    )
+    scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
 
     return w_new, w_new_zeros, scales_and_zeros
 
@@ -147,6 +151,7 @@ def expand_q_groups(x, orig_size, q_group_size):
 def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
     if new_grouping:
         int4, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
+        scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
         int4 = int4.round()
         # TBD: add similar condition
         # TBD: create scales_and_zeros struct?
