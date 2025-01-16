@@ -7,6 +7,7 @@ import unittest
 import torch
 
 import tinygemm
+import tinygemm.functional
 from tinygemm.utils import group_quantize_tensor
 
 
@@ -24,13 +25,8 @@ def do_y_f16TC_x_f16TC_W_any4TC(x, w, q_group, w_inner_k, x_inner_k=1):
     int4_dequant *= -1.0
     w_scales_and_zeros[:, :, 0] *= -1.0
 
-    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(x, x_inner_k)
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
-    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_any4TC(
-        x2, w2, q_group, w_scales_and_zeros, int4_dequant, True
-    )
-    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-        y2, x.size(0), w.size(0)
+    y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(
+        x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k
     )
 
     return y, y_ref
@@ -50,13 +46,8 @@ def do_y_f16TC_W_any4TC_x_f16TC(x, w, q_group, w_inner_k, x_inner_k):
     int4_dequant *= -1.0
     w_scales_and_zeros[:, :, 0] *= -1.0
 
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
-    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(x, x_inner_k)
-    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_any4TC(
-        w2, x2, q_group, w_scales_and_zeros, int4_dequant, False
-    )
-    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-        y2, x.size(0), w.size(0)
+    y = tinygemm.functional.linear_y_f16TC_W_any4TC_x_f16TC(
+        x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k
     )
 
     return y, y_ref
@@ -76,9 +67,8 @@ def do_y_f16RM_x_f16RM_W_any4TC(x, w, q_group, w_inner_k):
     int4_dequant *= -1.0
     w_scales_and_zeros[:, :, 0] *= -1.0
 
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
-    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_any4TC(
-        x, w2, q_group, w_scales_and_zeros, int4_dequant, True
+    y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_any4TC(
+        x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k
     )
 
     return y, y_ref
@@ -98,9 +88,8 @@ def do_y_f16RM_W_any4TC_x_f16RM(x, w, q_group, w_inner_k):
     int4_dequant *= -1.0
     w_scales_and_zeros[:, :, 0] *= -1.0
 
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
-    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_any4TC(
-        w2, x, q_group, w_scales_and_zeros, int4_dequant, False
+    y = tinygemm.functional.linear_y_f16RM_W_any4TC_x_f16RM(
+        x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k
     )
 
     return y, y_ref
