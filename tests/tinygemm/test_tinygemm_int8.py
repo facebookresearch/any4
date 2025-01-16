@@ -7,7 +7,7 @@ import unittest
 import torch
 
 import tinygemm
-from .utils import group_quantize_tensor
+from tinygemm.utils import group_quantize_tensor
 
 
 class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):

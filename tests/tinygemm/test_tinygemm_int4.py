@@ -7,7 +7,7 @@ import unittest
 import torch
 
 import tinygemm
-from .utils import group_quantize_tensor
+from tinygemm.utils import group_quantize_tensor
 
 
 def do_y_f16TC_x_f16TC_W_int4TC(x, w, q_group, w_inner_k, x_inner_k=1):

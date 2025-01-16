@@ -7,7 +7,7 @@ import unittest
 import torch
 
 import tinygemm
-from .utils import quantize_mx4
+from tinygemm.utils import quantize_mx4
 
 
 def do_y_f16TC_x_f16TC_W_mx4TC(x, w, w_inner_k, x_inner_k, exp_scale=False):
