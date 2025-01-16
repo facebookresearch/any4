@@ -7,6 +7,7 @@ import unittest
 import torch
 
 import tinygemm
+import tinygemm.functional
 
 
 # W on right
@@ -22,17 +23,8 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w.t()
 
-                        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            x, 1
-                        )
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            w, w_inner_k
-                        )
-                        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                            x2, w2, True
-                        )
-                        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                            y2, m, k
+                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                            x, w, w_inner_k,
                         )
 
                         if not torch.equal(y_ref, y):
@@ -52,17 +44,8 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w.t()
 
-                        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            x, 1
-                        )
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            w, w_inner_k
-                        )
-                        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                            x2, w2, True
-                        )
-                        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                            y2, m, k
+                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                            x, w, w_inner_k,
                         )
 
                         assert torch.equal(y_ref, y)
@@ -80,17 +63,8 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                             w = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = x @ w.t()
 
-                            x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                                x, 1
-                            )
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                                w, w_inner_k
-                            )
-                            y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                                x2, w2, True
-                            )
-                            y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                                y2, m, n
+                            y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                                x, w, w_inner_k,
                             )
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
@@ -109,18 +83,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                         x = torch.randn((n, k), dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            w, 1
-                        )
-                        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            x, x_inner_k
-                        )
-                        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                            w2, x2, False
-                        )
-                        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-                            y2, n, k
-                        )
+                        y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -136,18 +99,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                         x = torch.randn((n, k), dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            w, 1
-                        )
-                        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            x, x_inner_k
-                        )
-                        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                            w2, x2, False
-                        )
-                        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-                            y2, n, k
-                        )
+                        y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -163,18 +115,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                             x = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = (w @ x.t()).t()
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                                w, 1
-                            )
-                            x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                                x, x_inner_k
-                            )
-                            y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-                                w2, x2, False
-                            )
-                            y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-                                y2, n, m
-                            )
+                            y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
 
@@ -192,12 +133,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            w, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                            x, w2, True
-                        )
+                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -213,12 +149,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                            w, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                            x, w2, True
-                        )
+                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -236,12 +167,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                             w = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = x @ w.t()
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                                w, w_inner_k
-                            )
-                            y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                                x, w2, True
-                            )
+                            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
 
@@ -259,12 +185,7 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            w, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                            w2, x, False
-                        )
+                        y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -280,12 +201,7 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            w, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                            w2, x, False
-                        )
+                        y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -302,11 +218,6 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                             x = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = (w @ x.t()).t()
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                                w, w_inner_k
-                            )
-                            y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-                                w2, x, False
-                            )
+                            y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)

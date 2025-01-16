@@ -181,3 +181,71 @@ def linear_y_f16RM_W_any4TC_x_f16RM(
     )
 
     return y
+
+def linear_y_f16TC_x_f16TC_W_f16TC(
+        x: torch.Tensor,
+        w: torch.Tensor,
+        w_inner_k: int = 4,
+    ) -> torch.Tensor:
+    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
+        x, 1
+    )
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
+        w, w_inner_k
+    )
+    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
+        x2, w2, True
+    )
+    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
+        y2, x.shape[0], w.shape[0]
+    )
+
+    return y
+
+def linear_y_f16TC_W_f16TC_x_f16TC(
+        x: torch.Tensor,
+        w: torch.Tensor,
+        x_inner_k: int = 4,
+    ) -> torch.Tensor:
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
+        w, 1
+    )
+    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
+        x, x_inner_k
+    )
+    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
+        w2, x2, False
+    )
+    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
+        y2, x.shape[0], w.shape[0]
+    )
+
+    return y
+
+def linear_y_f16RM_x_f16RM_W_f16TC(
+        x: torch.Tensor,
+        w: torch.Tensor,
+        w_inner_k: int = 4,
+    ) -> torch.Tensor:
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
+        w, w_inner_k
+    )
+    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
+        x, w2, True
+    )
+
+    return y
+
+def linear_y_f16RM_W_f16TC_x_f16RM(
+        x: torch.Tensor,
+        w: torch.Tensor,
+        w_inner_k: int = 4,
+    ) -> torch.Tensor:
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
+        w, w_inner_k
+    )
+    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
+        w2, x, False
+    )
+
+    return y
