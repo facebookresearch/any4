@@ -146,7 +146,7 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-def quantize_to_intq(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False):
+def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False):
     if new_grouping:
         int4, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
@@ -160,7 +160,7 @@ def quantize_to_intq(x, n_bit = 4, q_group_size=128, parallelize=True, scale_onl
 
     return int4, scales_and_zeros
 
-def dequantize_from_intq(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16):
+def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16):
     if new_grouping:
         reconstructed = degroup_q1(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, q_group_size=q_group_size, inplace=False)
         reconstructed = reconstructed.to(dtype=dtype)
@@ -171,9 +171,9 @@ def dequantize_from_intq(intq, scales_and_zeros=None, scales=None, zeros=None, n
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
-    intq, scales_and_zeros = quantize_to_intq(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping)
-    reconstructed = dequantize_from_intq(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
+def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
+    intq, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping)
+    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
 
     return reconstructed
 
@@ -290,13 +290,13 @@ def degroup_q1(
 
     return w
 
-def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, **kwargs):
+def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=True, **kwargs):
     w = module.weight
 
     if transpose:
         w = w.t()
 
-    w_deq = reconstruct_intN_grouped(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+    w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
     # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
 
     if transpose:
@@ -456,7 +456,6 @@ def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=
         # so adjust for usage
         any4 = any4 - 2.0 ** (n_bit - 1)
         any4 = any4.to(dtype=x.dtype)
-    print(any4)
 
     return assign.to(device=x.device), any4.to(dtype=x.dtype, device=x.device), scales_and_zeros.to(dtype=x.dtype, device=x.device)
 
