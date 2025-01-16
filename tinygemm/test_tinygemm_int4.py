@@ -4,12 +4,10 @@
 # pyre-unsafe
 
 import unittest
-
 import torch
 
-torch.ops.load_library("./build/lib.linux-x86_64-cpython-310/tinygemm.cpython-310-x86_64-linux-gnu.so")
-
-from utils import group_quantize_tensor
+import tinygemm
+from .utils import group_quantize_tensor
 
 
 def do_y_f16TC_x_f16TC_W_int4TC(x, w, q_group, w_inner_k, x_inner_k=1):

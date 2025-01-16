@@ -4,12 +4,10 @@
 # pyre-unsafe
 
 import unittest
-
 import torch
 
-torch.ops.load_library("./build/lib.linux-x86_64-cpython-310/tinygemm.cpython-310-x86_64-linux-gnu.so")
-
-from utils import quantize_mx4
+import tinygemm
+from .utils import quantize_mx4
 
 
 def do_y_f16TC_x_f16TC_W_mx4TC(x, w, w_inner_k, x_inner_k, exp_scale=False):
