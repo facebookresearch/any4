@@ -7,16 +7,14 @@ import math
 
 import torch
 
-"""
 if torch.version.cuda:
-    from ai_codesign.mx_github.mx.elemwise_ops import _quantize_elemwise_core
-    from ai_codesign.mx_github.mx.mx_ops import (
+    from mx.elemwise_ops import _quantize_elemwise_core
+    from mx.mx_ops import (
         _get_format_params,
         _reshape_to_blocks,
         _shared_exponents,
         FP32_EXPONENT_BIAS,
     )
-"""
 
 
 # Performs row-wise (k/reduction dimension-wise) int4 group

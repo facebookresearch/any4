@@ -7,7 +7,7 @@ import unittest
 
 import torch
 
-# torch.ops.load_library("//tinygemm:tinygemm")
+torch.ops.load_library("./build/lib.linux-x86_64-cpython-310/tinygemm.cpython-310-x86_64-linux-gnu.so")
 
 from utils import quantize_mx4
 
