@@ -8,6 +8,7 @@ import torch
 
 import tinygemm
 from tinygemm.utils import group_quantize_tensor
+import tinygemm.functional
 
 
 class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
@@ -27,17 +28,8 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                                x, 1
-                            )
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                                w_int32, w_inner_k
-                            )
-                            y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(
-                                x2, w2, q_group, w_scales_and_zeros, True
-                            )
-                            y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                                y2, m, k
+                            y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                                x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                             )
 
                             # FIXME: why are there minor differences with float16?
@@ -65,17 +57,8 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                            x, 1
-                        )
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                            w_int32, w_inner_k
-                        )
-                        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(
-                            x2, w2, q_group, w_scales_and_zeros, True
-                        )
-                        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                            y2, m, k
+                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                            x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                         )
 
                         # FIXME: why are there minor differences with float16?
@@ -112,17 +95,8 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-                                        x, 1
-                                    )
-                                    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                                        w_int32, w_inner_k
-                                    )
-                                    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(
-                                        x2, w2, q_group, w_scales_and_zeros, True
-                                    )
-                                    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-                                        y2, m, n
+                                    y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                                        x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                                     )
 
                                     diff = (y_ref.float() - y.float()).abs()
@@ -151,17 +125,8 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(
-                                w_int32, w_inner_k
-                            )
-                            x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                                x, x_inner_k
-                            )
-                            y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(
-                                w2, x2, q_group, w_scales_and_zeros, False
-                            )
-                            y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-                                y2, n, k
+                            y = tinygemm.functional.linear_y_f16TC_W_int8TC_x_f16TC(
+                                x, w_int32, w_scales_and_zeros, q_group, w_inner_k, x_inner_k,
                             )
 
                             # FIXME: why are there minor differences with float16?
@@ -190,17 +155,8 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(
-                                w_int32, w_inner_k
-                            )
-                            x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-                                x, x_inner_k
-                            )
-                            y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(
-                                w2, x2, q_group, w_scales_and_zeros, False
-                            )
-                            y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-                                y2, n, k
+                            y = tinygemm.functional.linear_y_f16TC_W_int8TC_x_f16TC(
+                                x, w_int32, w_scales_and_zeros, q_group, w_inner_k, x_inner_k,
                             )
 
                             # FIXME: why are there minor differences with float16?
@@ -230,11 +186,8 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                                w_int32, w_inner_k
-                            )
-                            y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                                x, w2, q_group, w_scales_and_zeros, True
+                            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                                x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                             )
 
                             # FIXME: why are there minor differences with float16?
@@ -262,11 +215,8 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                            w_int32, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                            x, w2, q_group, w_scales_and_zeros, True
+                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                            x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                         )
 
                         # FIXME: why are there minor differences with float16?
@@ -303,11 +253,8 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(
-                                        w_int32, w_inner_k
-                                    )
-                                    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                                        x, w2, q_group, w_scales_and_zeros, True
+                                    y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                                        x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                                     )
 
                                     diff = (y_ref.float() - y.float()).abs()
@@ -332,11 +279,8 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(
-                                w_int32, w_inner_k
-                            )
-                            y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                                w2, x, q_group, w_scales_and_zeros, False
+                            y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                                x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                             )
 
                             # FIXME: why are there minor differences with float16?
@@ -364,11 +308,8 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(
-                            w_int32, w_inner_k
-                        )
-                        y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                            w2, x, q_group, w_scales_and_zeros, False
+                        y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                            x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                         )
 
                         # FIXME: why are there minor differences with float16?
@@ -406,11 +347,8 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(
-                                        w_int32, w_inner_k
-                                    )
-                                    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(
-                                        w2, x, q_group, w_scales_and_zeros, False
+                                    y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                                        x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                                     )
 
                                     diff = (y_ref.float() - y.float()).abs()
