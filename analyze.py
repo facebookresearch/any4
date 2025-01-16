@@ -150,7 +150,7 @@ def main(
         # Apply our quantization algorithms
         if quant_method:
             ## Centred Weights
-            wc, _, scales_and_zeros = group_q(w, n_bit=quant_args.get("n_bit", 4), q_group_size=quant_args.get("group_size", 64), scale_only=quant_args.get("scale_only", False))
+            wc, _, scales_and_zeros = group_q(w, n_bit=quant_args.get("n_bit", 4), q_group_size=quant_args.get("group_size", 64), zero_point=not quant_args.get("scale_only", False))
 
             # Log Stats
             (wc_mean, wc_std) = torch.std_mean(wc)
