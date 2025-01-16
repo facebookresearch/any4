@@ -8,8 +8,8 @@ import math
 import torch
 
 if torch.version.cuda:
-    from mx.elemwise_ops import _quantize_elemwise_core
-    from mx.mx_ops import (
+    from .mx.elemwise_ops import _quantize_elemwise_core
+    from .mx.mx_ops import (
         _get_format_params,
         _reshape_to_blocks,
         _shared_exponents,

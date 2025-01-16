@@ -103,17 +103,8 @@ python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 ```
 
 ## Test
-
-### any4
 ```
-python -m pytest ./tests/
-```
-
-### tinygemm
-```
-cd tinygemm
 python -m pytest .
-cd ..
 ```
 
 # TODOs:
