@@ -146,9 +146,7 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-# performs quantization and dequantization under N-bit grouped integer quantization
-# (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
+def quantize_to_intq(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False):
     if new_grouping:
         int4, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
@@ -160,11 +158,22 @@ def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, s
         int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
         assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
 
+    return int4, scales_and_zeros
+
+def dequantize_from_intq(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16):
     if new_grouping:
-        reconstructed = degroup_q1(int4, scales, zeros, q_group_size=q_group_size, inplace=False)
-        reconstructed = reconstructed.to(dtype=x.dtype)
+        reconstructed = degroup_q1(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, q_group_size=q_group_size, inplace=False)
+        reconstructed = reconstructed.to(dtype=dtype)
     else:
-        reconstructed = degroup_q(int4, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
+        reconstructed = degroup_q(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
+
+    return reconstructed
+
+# performs quantization and dequantization under N-bit grouped integer quantization
+# (i.e., returns the effective result of the quantization algorithm)
+def reconstruct_intN_grouped(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
+    intq, scales_and_zeros = quantize_to_intq(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping)
+    reconstructed = dequantize_from_intq(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
 
     return reconstructed
 
@@ -257,8 +266,11 @@ def group_q1(
 
 
 def degroup_q1(
-    w, scales, zeros, q_group_size=-1, inplace=False
+    w, scales_and_zeros=None, scales=None, zeros=None, q_group_size=-1, inplace=False
 ):
+    if scales is None:
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size)
+
     org_w_shape = w.shape
     if q_group_size > 0:
         assert org_w_shape[-1] % q_group_size == 0
