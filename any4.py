@@ -11,6 +11,8 @@ import bitsandbytes as bnb
 import kmeans
 import gc
 
+from modules import INT4Linear
+
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
         if isinstance(module, layer_type):
@@ -146,19 +148,21 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False):
+def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, **kwargs):
     if new_grouping:
-        int4, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
+        intq, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
-        int4 = int4.round()
+        intq = intq.round()
         # TBD: add similar condition
         # TBD: create scales_and_zeros struct?
     else:
-        int4, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
-        int4.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
-        assert int4.size(1) == q_group_size * scales_and_zeros.size(0)
+        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+        intq.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
+        assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
-    return int4, scales_and_zeros
+    intq = intq.to(torch.int32)
+
+    return intq, scales_and_zeros
 
 def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16):
     if new_grouping:
@@ -290,19 +294,40 @@ def degroup_q1(
 
     return w
 
-def intq(module: torch.nn.Module, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=True, **kwargs):
+def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=True, **kwargs):
     w = module.weight
 
     if transpose:
         w = w.t()
 
-    w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
-    # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
+    if pseudo:
+        w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
+        if transpose:
+            w_deq = w_deq.t()
+        module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    else:
+        intq, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        if transpose:
+            intq = intq.t()
+            scales, zeros = extract_scales_and_zeros(scales_and_zeros, group_size)
+            scales = scales.t()
+            zeros = zeros.t()
+            scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
+        if n_bit == 4:
+            module = INT4Linear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                device=module.weight.device,
+                dtype=module.weight.dtype,
+                group_size=group_size,
+            )
+        else:
+            raise ValueError(f"No quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
+        module.weight.data = intq.to(device=module.weight.device)
+        module.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
 
-    if transpose:
-        w_deq = w_deq.t()
-
-    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
 def cluster_row_custom(r, n_bit=4, init=None, sample_weight=None, r_surrogate=None, abs_sample_weight=True, **kwargs):
