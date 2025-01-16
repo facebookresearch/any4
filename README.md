@@ -16,7 +16,14 @@ with-proxy
 ```
 - add `with-proxy` before any command that may access the web: `git`, `conda`, `pip`, or `python` script that attempts to download a model
 
-1. Setup Environment
+1. Clone Repo
+```
+git clone git@github.com:fairinternal/any4.git
+
+cd any4
+```
+
+2. Setup Environment
 ```
 conda create --name any4 python=3.10
 conda activate any4
@@ -24,7 +31,7 @@ conda activate any4
 pip install -r requirements.txt
 ```
 
-2. Access Models
+3. Access Models
 
 Some models (e.g., Llama) require permission. Follow these steps to access them:
 
@@ -35,6 +42,13 @@ b. Setup Hugging Face token access by following the steps described [here](https
 c. Then you will be able to login to Hugging Face by running the cell below and entering the token you obtain from Step b. above:
 ```
 huggingface-cli login
+```
+
+4. Install tinygemm kernels
+```
+cd tinygemm
+python setup.py install
+cd ..
 ```
 
 ## Run
@@ -88,6 +102,19 @@ To pass a prompt to both a baseline model and quantized model and measure the me
 python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 ```
 
+## Test
+
+### any4
+```
+python -m pytest ./tests/
+```
+
+### tinygemm
+```
+cd tinygemm
+python -m pytest .
+cd ..
+```
 
 # TODOs:
 - Add Notebook
