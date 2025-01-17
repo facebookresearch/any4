@@ -149,8 +149,16 @@ def main(
 
         # Apply our quantization algorithms
         if quant_method:
+            per_layer_quant_args = quant_args.copy()
+            # TODO: handle if transpose (default group_size will change)
+            # TODO: handle default arguments in a different way
+            # TODO: consider reading wc from quantize or convert method
+            per_layer_quant_args["n_bit"] = per_layer_quant_args.get("n_bit", 4)
+            per_layer_quant_args["group_size"] = per_layer_quant_args.get("group_size", w.shape[-1])
+            per_layer_quant_args["scale_only"] = per_layer_quant_args.get("scale_only", False)
+
             ## Centred Weights
-            wc, _, scales_and_zeros = group_q(w, n_bit=quant_args.get("n_bit", 4), q_group_size=quant_args.get("group_size", 64), zero_point=not quant_args.get("scale_only", False))
+            wc, _, scales_and_zeros = group_q(w, n_bit=per_layer_quant_args["n_bit"], q_group_size=per_layer_quant_args["group_size"], zero_point=not per_layer_quant_args["scale_only"])
 
             # Log Stats
             (wc_mean, wc_std) = torch.std_mean(wc)
@@ -177,7 +185,7 @@ def main(
             fig.savefig(pdf, format="pdf")
 
             ## Analyze Quantization
-            module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **quant_args)
+            module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **per_layer_quant_args)
             wdeq = module.weight.data
 
             # Get mean square error
