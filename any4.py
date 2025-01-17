@@ -154,13 +154,13 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
         intq = intq.round()
         # TBD: add similar condition
-        # TBD: create scales_and_zeros struct?
     else:
         intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
         intq.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
         assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
     intq = intq.to(torch.int32)
+    scales_and_zeros = scales_and_zeros.to(x.dtype)
 
     return intq, scales_and_zeros
 
