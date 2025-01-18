@@ -67,7 +67,7 @@ class TestIntQ(unittest.TestCase):
         x = torch.eye(bs, input_dim, dtype=dtype).to("cuda")
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point, unsigned=unsigned)
-        # torch.testing.assert_close(wq1, wq2)
+        torch.testing.assert_close(wq1, wq2)
         # torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
 
         wdeq1 = any4.intq_dequantize(intq=wq1, scales_and_zeros=scales_and_zeros1, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping)
