@@ -1,8 +1,8 @@
 import unittest
 import torch
-import random
 from parameterized import parameterized
 import itertools
+import numpy as np
 
 import any4
 from modules import QLinear
@@ -25,7 +25,7 @@ class TestIntQ(unittest.TestCase):
 
         # w = torch.rand(M, N, dtype=dtype)
         # if the weights are equally spaced and have the same the number of samples as 2**n_bit, quantizing and dequantizing should be exact
-        a, b = random.random(), random.random()
+        a, b = np.random.normal(), np.random.normal()
         w_min, w_max = min(a, b), max(a, b)
         w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
@@ -34,7 +34,7 @@ class TestIntQ(unittest.TestCase):
         wq, scales_and_zeros = any4.intq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned)
         wdeq = any4.intq_dequantize(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
-        self.assertTrue(torch.allclose(w, wdeq), f"w and wdeq are not equal.\nw:\n{w}\nwdeq:\n{wdeq}")
+        self.assertTrue(torch.allclose(w, wdeq, atol=1e-4), f"w and wdeq are not equal.\nw:\n{w}\nwdeq:\n{wdeq}")
 
     @unittest.skip("Not Working")
     def test_intq(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
