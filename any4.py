@@ -83,7 +83,7 @@ def pack_scales_and_zeros(scales, zeros, w_shape):
     return scales_and_zeros
 
 # TODO: add option to group_q to decide max and min of scaling: 0 to 15? -1 to 1? -7 to 8? -7.5 to 8.5?
-def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
+def group_q(w_orig, n_bit, q_group_size=128, zero_point=True, unsigned=True):
     w = w_orig.float()
     assert q_group_size > 1
     assert w.shape[-1] % q_group_size == 0
@@ -95,8 +95,12 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
     if zero_point:
         max_val = to_quant.amax(dim=1, keepdim=True)
         min_val = to_quant.amin(dim=1, keepdim=True)
-        max_int = 2**n_bit - 1
-        min_int = 0
+        if unsigned:
+            min_int = 0
+            max_int = 2**n_bit - 1
+        else:
+            min_int = -(2**(n_bit - 1))
+            max_int = 2**(n_bit - 1) - 1
         scales = (max_val - min_val).clamp(min=1e-6) / (max_int - min_int)
         zeros = min_val + scales * (2 ** (n_bit - 1))
 
@@ -155,11 +159,8 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
         intq = intq.round()
         # TBD: add similar condition
     else:
-        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only, unsigned=unsigned)
         intq = intq.round()
-        # TODO: instead of handling unsigned here, handle it inside group_q. Perhaps by modifying max_int and min_int inside group_q()?
-        if not unsigned:
-            intq= intq.clamp(0, (2 ** n_bit) - 1).sub(2**(n_bit - 1))
         assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
     intq = intq.to(torch.int32)

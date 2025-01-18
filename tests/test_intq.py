@@ -11,19 +11,20 @@ import tinygemm.utils
 
 class TestIntQ(unittest.TestCase):
     @parameterized.expand([
-        (M, N, group_size, n_bit)
+        (M, N, group_size, n_bit, unsigned)
         for M in [1, 4, 8, 24]
         for N in [256, 1024, 2048]
         for group_size in [32, 64, 128]
         for n_bit in [2, 4]
+        for unsigned in [True, False]
         if group_size % 2**n_bit == 0 and N % group_size == 0  # Optional condition to filter combinations
     ])
-    def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.float32, new_grouping=False, unsigned=True):
+    def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, unsigned=True, dtype=torch.float32):
         device = "cuda"
+        new_grouping = False
         assert group_size % 2**n_bit == 0, f"This test case assumes that group_size is a multiple of 2**n_bit, but instead we got group_size={group_size}, n_bit={n_bit}."
         assert N % group_size == 0, f"This test case assumes that number of elements per row is a multiple of group_size, but instead we got N={N}, group_size={group_size}."
 
-        # w = torch.rand(M, N, dtype=dtype)
         # if the weights are equally spaced and have the same the number of samples as 2**n_bit, quantizing and dequantizing should be exact
         a, b = np.random.normal(), np.random.normal()
         w_min, w_max = min(a, b), max(a, b)
