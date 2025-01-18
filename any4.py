@@ -83,7 +83,7 @@ def pack_scales_and_zeros(scales, zeros, w_shape):
     return scales_and_zeros
 
 # TODO: add option to group_q to decide max and min of scaling: 0 to 15? -1 to 1? -7 to 8? -7.5 to 8.5?
-def group_q(w_orig, n_bit, q_group_size=128, zero_point=True, unsigned=True):
+def group_q(w_orig, n_bit, q_group_size=128, assymetric=True, unsigned=True, zero_point=False):
     w = w_orig.float()
     assert q_group_size > 1
     assert w.shape[-1] % q_group_size == 0
@@ -92,7 +92,7 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True, unsigned=True):
     to_quant = w.reshape(-1, q_group_size)
     assert torch.isnan(to_quant).sum() == 0
 
-    if zero_point:
+    if assymetric:
         max_val = to_quant.amax(dim=1, keepdim=True)
         min_val = to_quant.amin(dim=1, keepdim=True)
         if unsigned:
@@ -102,12 +102,16 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True, unsigned=True):
             min_int = -(2**(n_bit - 1))
             max_int = 2**(n_bit - 1) - 1
         scales = (max_val - min_val).clamp(min=1e-6) / (max_int - min_int)
-        zeros = min_val + scales * (2 ** (n_bit - 1))
+        if zero_point:
+            zeros = min_val + scales * (2 ** (n_bit - 1))
+        else:
+            zeros = min_val
 
         w_new = to_quant.sub(min_val).div(scales).reshape(w_orig.size())
         w_new_zeros = torch.zeros(to_quant.size(), dtype=to_quant.dtype, device=to_quant.device).sub(min_val).div(scales).reshape(w_orig.size())
     else:
         # TODO: this wastes one bit. Review with Jeff.
+        # TODO: check how to handle "unsigned" argument
         absmax_val = to_quant.abs().amax(dim=1, keepdim=True)
         absmax_int = 2**(n_bit - 1) - 1
         scales = absmax_val.clamp(min=1e-6) / absmax_int
@@ -120,7 +124,7 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True, unsigned=True):
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(zeros).sum() == 0
 
-    scales_and_zeros = pack_scales_and_zeros(scales, min_val, w.shape)
+    scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
 
     return w_new, w_new_zeros, scales_and_zeros
 
@@ -152,14 +156,14 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, **kwargs):
+def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=True, **kwargs):
     if new_grouping:
-        intq, scales, zeros = group_q1(x, n_bit=n_bit, zero_point=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
+        intq, scales, zeros = group_q1(x, n_bit=n_bit, assymetric=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
         intq = intq.round()
         # TBD: add similar condition
     else:
-        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only, unsigned=unsigned)
+        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only, unsigned=unsigned, zero_point=zero_point)
         intq = intq.round()
         assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
@@ -179,21 +183,21 @@ def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, *args, **kwargs):
-    intq, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping)
+def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, zero_point=True, *args, **kwargs):
+    intq, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping, zero_point=zero_point)
     reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
 
     return reconstructed
 
 def pseudo_quantize_tensor(
-    w, n_bit=8, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False
+    w, n_bit=8, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False
 ):
     org_w_shape = w.shape
     if q_group_size > 0:
         assert org_w_shape[-1] % q_group_size == 0
         w = w.reshape(-1, q_group_size)
     assert w.dim() == 2
-    if zero_point:
+    if assymetric:
         max_val = w.amax(dim=1, keepdim=True)
         min_val = w.amin(dim=1, keepdim=True)
         max_int = 2**n_bit - 1
@@ -230,14 +234,14 @@ def pseudo_quantize_tensor(
 
 # TODO: add min_int and max_int as optional args
 def group_q1(
-    w, n_bit=4, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True,
+    w, n_bit=4, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True,
 ):
     org_w_shape = w.shape
     if q_group_size > 0:
         assert org_w_shape[-1] % q_group_size == 0
         w = w.reshape(-1, q_group_size)
     assert w.dim() == 2
-    if zero_point:
+    if assymetric:
         max_val = w.amax(dim=1, keepdim=True)
         min_val = w.amin(dim=1, keepdim=True)
         max_int = 2**n_bit - 1
@@ -306,7 +310,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
 
     if pseudo:
         w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
-        # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, zero_point=not kwargs.get("scale_only", False), q_group_size=group_size)
+        # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, assymetric=not kwargs.get("scale_only", False), q_group_size=group_size)
         if transpose:
             w_deq = w_deq.t()
         module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
@@ -469,7 +473,7 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 # TODO: this needs to be revisited to verify that it is in sync with reconstruct_any4_grouped
 def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
     if q_group_size:
-        to_cluster, to_cluster_group_zero_point, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+        to_cluster, to_cluster_group_zero_point, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
     else:
         to_cluster = x.float()
 
@@ -674,9 +678,9 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, s
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         if new_grouping:
             W = W.detach()
-            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only, get_scale_zp=True, inplace=True)
+            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
         else:
-            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
+            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
             scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg.shape, q_group_size)
             del scales_and_zeros
 

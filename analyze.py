@@ -153,7 +153,7 @@ def main(
             per_layer_quant_args["scale_only"] = per_layer_quant_args.get("scale_only", False)
 
             ## Centred Weights
-            wc, _, scales_and_zeros = group_q(w, n_bit=per_layer_quant_args["n_bit"], q_group_size=per_layer_quant_args["group_size"], zero_point=not per_layer_quant_args["scale_only"])
+            wc, _, scales_and_zeros = group_q(w, n_bit=per_layer_quant_args["n_bit"], q_group_size=per_layer_quant_args["group_size"], assymetric=not per_layer_quant_args["scale_only"])
 
             # Log Stats
             (wc_mean, wc_std) = torch.std_mean(wc)

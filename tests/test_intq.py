@@ -22,6 +22,7 @@ class TestIntQ(unittest.TestCase):
     def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, unsigned=True, dtype=torch.float32):
         device = "cuda"
         new_grouping = False
+        zero_point = False
         assert group_size % 2**n_bit == 0, f"This test case assumes that group_size is a multiple of 2**n_bit, but instead we got group_size={group_size}, n_bit={n_bit}."
         assert N % group_size == 0, f"This test case assumes that number of elements per row is a multiple of group_size, but instead we got N={N}, group_size={group_size}."
 
@@ -32,12 +33,25 @@ class TestIntQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wq, scales_and_zeros = any4.intq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned)
+        wq, scales_and_zeros = any4.intq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
         wdeq = any4.intq_dequantize(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
         self.assertTrue(torch.allclose(w, wdeq, atol=1e-4), f"w and wdeq are not equal.\nw:\n{w}\nwdeq:\n{wdeq}")
 
-    @unittest.skip("Not Working")
+    def test_tinygemm_quantize(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
+        new_grouping = False
+        zero_point = True
+        w = torch.randn(output_dim, input_dim, dtype=dtype, device="cuda")
+        x = torch.randn(bs, input_dim, dtype=dtype).to("cuda")
+        wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
+        wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
+        self.assertTrue(torch.allclose(wq1, wq2), f"wq1 and wq2 are not equal.\nwq1:\n{wq1}\nwq2:\n{wq2}")
+        self.assertTrue(torch.allclose(scales_and_zeros1, scales_and_zeros2), f"scales_and_zeros1 and scales_and_zeros2 are not equal.\scales_and_zeros1:\n{scales_and_zeros1}\scales_and_zeros2:\n{scales_and_zeros2}")
+
+        wdeq1 = any4.intq_dequantize(intq=wq1, scales_and_zeros=scales_and_zeros1, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping)
+        wdeq2 = any4.intq_dequantize(intq=wq2, scales_and_zeros=scales_and_zeros2, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping)
+        torch.testing.assert_close(wdeq1, wdeq2)
+
     def test_intq(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
         w = torch.randn(input_dim, output_dim, dtype=dtype, device="cuda") * 0.001
         x = torch.randn(bs, input_dim, dtype=dtype).to("cuda") * 0.001
