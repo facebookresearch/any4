@@ -38,15 +38,26 @@ class TestIntQ(unittest.TestCase):
 
         torch.testing.assert_close(w, wdeq)
 
-    def test_tinygemm_quantize(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
+    @parameterized.expand([
+        (M, N, group_size, n_bit, dtype)
+        for M in [1, 4, 8, 24]
+        for N in [256, 1024, 2048]
+        for group_size in [32, 64, 128]
+        for n_bit in [4, 8]
+        for dtype in [torch.float16, torch.bfloat16]
+    ])
+    def test_tinygemm_quantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.bfloat16):
         new_grouping = False
         zero_point = True
-        w = torch.randn(output_dim, input_dim, dtype=dtype, device="cuda")
-        x = torch.randn(bs, input_dim, dtype=dtype).to("cuda")
+        w = torch.randn(M, N, dtype=dtype, device="cuda")
+
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
+
         torch.testing.assert_close(wq1, wq2)
         torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
+
+        # TODO: add dequantize check?
 
     def test_intq(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
         new_grouping = False
