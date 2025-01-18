@@ -156,7 +156,10 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
         # TBD: add similar condition
     else:
         intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
-        intq.round_().clamp_(0, (2 ** n_bit) - 1).sub_(2**(n_bit - 1))
+        intq = intq.round()
+        # TODO: instead of handling unsigned here, handle it inside group_q. Perhaps by modifying max_int and min_int inside group_q()?
+        if not unsigned:
+            intq= intq.clamp(0, (2 ** n_bit) - 1).sub(2**(n_bit - 1))
         assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
     intq = intq.to(torch.int32)
@@ -164,7 +167,7 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
 
     return intq, scales_and_zeros
 
-def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16):
+def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16, unsigned=False):
     if new_grouping:
         reconstructed = degroup_q1(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, q_group_size=q_group_size, inplace=False)
         reconstructed = reconstructed.to(dtype=dtype)
