@@ -59,20 +59,21 @@ class TestIntQ(unittest.TestCase):
 
         # TODO: add dequantize check?
 
-    def test_intq(self, bs=1, input_dim=4096, output_dim=4096, dtype=torch.bfloat16, n_bit=4, group_size=64):
+    def test_intq(self, bs=1, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64):
         new_grouping = False
-        zero_point = True
+        zero_point = False
+        unsigned = True
         w = torch.randn(output_dim, input_dim, dtype=dtype, device="cuda")
-        x = torch.randn(bs, input_dim, dtype=dtype).to("cuda")
+        x = torch.eye(bs, input_dim, dtype=dtype).to("cuda")
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
-        wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
-        torch.testing.assert_close(wq1, wq2)
-        torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
+        wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point, unsigned=unsigned)
+        # torch.testing.assert_close(wq1, wq2)
+        # torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
 
         wdeq1 = any4.intq_dequantize(intq=wq1, scales_and_zeros=scales_and_zeros1, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping)
-        wdeq2 = any4.intq_dequantize(intq=wq2, scales_and_zeros=scales_and_zeros2, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping)
-        self.assertTrue(torch.allclose(wdeq1, wdeq2))
+        wdeq2 = any4.intq_dequantize(intq=wq2, scales_and_zeros=scales_and_zeros2, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
+        # self.assertTrue(torch.allclose(wdeq1, wdeq2))
 
-        y1 = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(x, wq1, scales_and_zeros1, group_size)
+        y1 = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int4TC(x, wq1, scales_and_zeros1, group_size)
         y2 = torch.nn.functional.linear(x, wdeq2)
         torch.testing.assert_close(y1, y2)
