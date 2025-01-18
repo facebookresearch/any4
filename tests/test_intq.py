@@ -61,14 +61,14 @@ class TestIntQ(unittest.TestCase):
 
     def test_intq(self, bs=1, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64):
         new_grouping = False
-        zero_point = False
         unsigned = True
         w = torch.randn(output_dim, input_dim, dtype=dtype, device="cuda")
         x = torch.eye(bs, input_dim, dtype=dtype).to("cuda")
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
-        wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point, unsigned=unsigned)
+        wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=False, unsigned=unsigned)
         wq3, scales_and_zeros3 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=True, unsigned=unsigned)
         torch.testing.assert_close(wq1, wq2)
+        torch.testing.assert_close(wq1, wq3)
         # torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
         torch.testing.assert_close(scales_and_zeros1, scales_and_zeros3)
 
@@ -80,4 +80,6 @@ class TestIntQ(unittest.TestCase):
 
         y1 = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int4TC(x, wq1, scales_and_zeros1, group_size)
         y2 = torch.nn.functional.linear(x, wdeq2)
+        y3 = torch.nn.functional.linear(x, wdeq3)
         torch.testing.assert_close(y1, y2)
+        # torch.testing.assert_close(y1, y3)
