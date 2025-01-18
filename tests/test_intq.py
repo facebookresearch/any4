@@ -15,7 +15,7 @@ class TestIntQ(unittest.TestCase):
         for M in [1, 4, 8, 24]
         for N in [256, 1024, 2048]
         for group_size in [32, 64, 128]
-        for n_bit in [2, 4]
+        for n_bit in [2, 3, 4, 6, 8]
         for unsigned in [True, False]
         if group_size % 2**n_bit == 0 and N % group_size == 0  # Optional condition to filter combinations
     ])
