@@ -63,7 +63,7 @@ class TestIntQ(unittest.TestCase):
         new_grouping = False
         unsigned = True
         w = torch.randn(output_dim, input_dim, dtype=dtype, device="cuda")
-        x = torch.eye(bs, input_dim, dtype=dtype).to("cuda")
+        x = torch.randn(bs, input_dim, dtype=dtype).to("cuda")
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=False, unsigned=unsigned)
         wq3, scales_and_zeros3 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=True, unsigned=unsigned)
