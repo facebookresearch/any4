@@ -116,22 +116,22 @@ def group_q(w_orig, n_bit, q_group_size=128, zero_point=True):
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(zeros).sum() == 0
 
-    scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
+    scales_and_zeros = pack_scales_and_zeros(scales, min_val, w.shape)
 
     return w_new, w_new_zeros, scales_and_zeros
 
-def extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size):
+def extract_scales_and_zeros(scales_and_zeros, w_shape, q_group_size):
     scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
     zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
 
-    scales = expand_q_groups(scales, w_c.size(), q_group_size)
-    zeros = expand_q_groups(zeros, w_c.size(), q_group_size)
+    scales = expand_q_groups(scales, w_shape, q_group_size)
+    zeros = expand_q_groups(zeros, w_shape, q_group_size)
 
     return scales, zeros
 
 def degroup_q(w_c, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, centering=True):
     if scales is None:
-        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size)
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c.shape, q_group_size)
 
     if q_group_size:
         if centering:
@@ -273,7 +273,7 @@ def degroup_q1(
     w, scales_and_zeros=None, scales=None, zeros=None, q_group_size=-1, inplace=False
 ):
     if scales is None:
-        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c, q_group_size)
+        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, q_group_size)
 
     org_w_shape = w.shape
     if q_group_size > 0:
@@ -310,7 +310,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
         intq, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
         if transpose:
             intq = intq.t()
-            scales, zeros = extract_scales_and_zeros(scales_and_zeros, group_size)
+            scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, group_size)
             scales = scales.t()
             zeros = zeros.t()
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
@@ -673,7 +673,7 @@ def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, s
             Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only, get_scale_zp=True, inplace=True)
         else:
             Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, zero_point=not scale_only)
-            scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg, q_group_size)
+            scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg.shape, q_group_size)
             del scales_and_zeros
 
         if scale_sample_weight:
