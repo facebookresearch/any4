@@ -61,9 +61,9 @@ class TestIntQ(unittest.TestCase):
 
     @parameterized.expand([
         (bs, input_dim, output_dim, dtype, n_bit, group_size, functional_api, w_inner_k)
-        for bs in [64]
-        for input_dim in [64]
-        for output_dim in [64]
+        for bs in [1, 2, 3, 29, 64]
+        for input_dim in [64, 256] # TODO: support 1024, 2048
+        for output_dim in [64] # TODO: support 128
         for dtype in [torch.float16, torch.bfloat16]
         for n_bit in [4]
         for group_size in [64]
