@@ -66,7 +66,7 @@ class TestIntQ(unittest.TestCase):
         for output_dim in [64] # TODO: support 128
         for dtype in [torch.float16, torch.bfloat16]
         for n_bit in [4]
-        for group_size in [64]
+        for group_size in [32, 64, 128]
         for functional_api in ["linear_y_f16RM_x_f16RM_W_int4TC", "linear_y_f16TC_W_int4TC_x_f16TC", "linear_y_f16RM_x_f16RM_W_int4TC", "linear_y_f16RM_W_int4TC_x_f16RM", "linear_y_f16TC_W_int4TC_x_f16TC"]
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**n_bit == 0 and input_dim % group_size == 0 and not (functional_api=="linear_y_f16RM_x_f16RM_W_int4TC" and w_inner_k==1) # Conditions to filter combinations
