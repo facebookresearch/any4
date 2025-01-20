@@ -33,6 +33,7 @@ class TestEval(unittest.TestCase):
             tasks=tasks,
             device=device,
             num_samples=num_samples,
+            overwrite_results=True,
         )
 
         for task, min_expected in zip(tasks, min_expected_results):
