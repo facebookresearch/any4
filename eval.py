@@ -56,8 +56,9 @@ def main(
     model_args: Dict,
     tasks: List[str],
     device: str,
-    log_dir: Path,
-    generation_args: Dict,
+    log_dir: Optional[Path] = Path("./logs/tmp/"),
+    generation_args: Optional[Dict] = {},
+    num_samples: Optional[int] = None,
     batch_size: Optional[int] = None,
     append_results: Optional[bool] = False,
     overwrite_results: Optional[bool] = False,
@@ -182,8 +183,9 @@ def main(
         print("Running Perplexity (GPTQ Implementation) Tasks")
         data_gptq_results = {}
         for task in data_gptq_tasks:
+            task_num_samples = num_samples if num_samples is None else 128
             _, testloader = get_loaders(
-                task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=max_seq_len
+                task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=max_seq_len, nsamples=task_num_samples,
             )
             result = llama_eval(lm_obj.model, testloader, device, seqlen=max_seq_len)
             data_gptq_results[task] = result
@@ -202,7 +204,9 @@ def main(
         print("Running Perplexity Tasks")
         data_results = {}
         for task in data_tasks:
-            result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=batch_size if batch_size is not None else 1, max_seq_len=max_seq_len, **task_dataset_configs[task])
+            task_batch_size = batch_size if batch_size is not None else 1
+            num_batches = num_samples//batch_size if num_samples is None else 256
+            result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=task_batch_size, max_seq_len=max_seq_len, num_batches=num_batches, **task_dataset_configs[task])
             data_results[task] = result
             log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
             results.update({task: result})
@@ -225,7 +229,7 @@ def main(
             "n_samples": 1, # number of generated candidate solutions
             "batch_size": 1, # for BigCode, batch_size <= n_samples
             "max_length_generation": 512,
-            "limit": None,
+            "limit": num_samples,
             "limit_start": 0,
             "instruction_tokens": None,
             "save_every_k_tasks": 1,
@@ -274,6 +278,7 @@ def main(
             harness_output = lm_eval.simple_evaluate( # call simple_evaluate
                 model=lm_obj,
                 tasks=[task],
+                limit=num_samples,
                 num_fewshot=num_fewshot,
                 task_manager=task_manager,
                 model_args={"parallelize": parallelize},
@@ -290,6 +295,8 @@ def main(
     # Log results
     print(f"All Eval Results: {results}")
 
+    return results
+
 
 if __name__ == '__main__':
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -305,6 +312,7 @@ if __name__ == '__main__':
     parser.add_argument("--nnq-args", type=str, help="Comma separated string args to pass to neural network training for any4.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["piqa","arc_easy","arc_challenge","hellaswag","winogrande", "bbh","gsm8k","lambada","mathqa","mmlu","nq_open", "openbookqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "c4_new", "ptb", "ptb_new", "codeparrot"], help="lm-evaluation-harness tasks to evaluate.")
+    parser.add_argument("--num_samples", type=int, default=None, help="Number of samples per task to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=None, help="Batch size.")
@@ -341,6 +349,7 @@ if __name__ == '__main__':
         calibrate_args=calibrate_args,
         nnq_args=nnq_args,
         tasks=args.tasks,
+        num_samples=args.num_samples,
         num_fewshot=args.num_fewshot,
         device=args.device,
         batch_size=args.batch_size,
