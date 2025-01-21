@@ -83,7 +83,7 @@ def pack_scales_and_zeros(scales, zeros, w_shape):
     return scales_and_zeros
 
 # TODO: add option to group_q to decide max and min of scaling: 0 to 15? -1 to 1? -7 to 8? -7.5 to 8.5?
-def group_q(w_orig, n_bit, q_group_size=128, assymetric=True, unsigned=True, zero_point=False):
+def group_q(w_orig, n_bit, q_group_size=128, assymetric=True, unsigned=True, zero_point=True):
     w = w_orig.float()
     assert q_group_size > 1
     assert w.shape[-1] % q_group_size == 0
