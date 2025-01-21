@@ -112,3 +112,35 @@ class TestIntQ(unittest.TestCase):
 
         torch.testing.assert_close(y, y_ref)
 
+    def test_tinygemm_int4_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
+        device = "cuda"
+        qtype="int4"
+
+        linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
+
+        x = torch.randn(bs, input_dim, dtype=dtype, device=device)
+        # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
+        w_min, w_max = -8, 7
+        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
+        w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(output_dim * input_dim // 2**n_bit)]).view(output_dim, input_dim)
+        linear.weight.data = w_vals[w_indices]
+
+        y_ref = linear(x)
+
+        linear_quant = QLinear(
+            in_features=input_dim,
+            out_features=output_dim,
+            bias=linear.bias is not None,
+            device=device,
+            qtype=qtype,
+            dtype=dtype,
+            group_size=group_size
+        )
+        w_int32, scales_and_zeros = tinygemm.utils.group_quantize_tensor(linear.weight, n_bit, group_size)
+        linear_quant.bias.data = linear.bias
+        linear_quant.weight.data = w_int32
+        linear_quant.scales_and_zeros.data = scales_and_zeros
+
+        y = linear_quant(x)
+
+        torch.testing.assert_close(y, y_ref)
