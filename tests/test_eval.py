@@ -13,10 +13,10 @@ class TestEval(unittest.TestCase):
         for device in ["cuda"] # TODO: support "cpu"
     ])
     def test_baseline(
-            self,
-            dtype="float16",
-            device="cuda"
-        ):
+        self,
+        dtype="float16",
+        device="cuda"
+    ):
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
         num_samples = 50
@@ -40,12 +40,12 @@ class TestEval(unittest.TestCase):
         for quant_method in [any4.intq, any4.fp4, any4.nf4, any4.anyq]
     ])
     def test_quantize(
-            self,
-            quant_method=any4.intq,
-            group_size=64,
-            device="cuda",
-            dtype="bfloat16",
-        ):
+        self,
+        quant_method=any4.intq,
+        group_size=64,
+        device="cuda",
+        dtype="bfloat16",
+    ):
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
         num_samples = 50
@@ -71,12 +71,12 @@ class TestEval(unittest.TestCase):
         for n_bit  in [2, 4, 8]
     ])
     def test_intq(
-            self,
-            n_bit=4,
-            group_size=64,
-            dtype="float16",
-            device="cuda"
-        ):
+        self,
+        n_bit=4,
+        group_size=64,
+        dtype="float16",
+        device="cuda"
+    ):
         quant_method=any4.intq
 
         model_name="facebook/opt-125m"
@@ -104,10 +104,10 @@ class TestEval(unittest.TestCase):
         for group_size in [64, 128, 256]
     ])
     def test_nf4(
-            self,
-            group_size=64,
-            dtype="float16",
-        ):
+        self,
+        group_size=64,
+        dtype="float16",
+    ):
         quant_method=any4.nf4
         device="cuda"
 
@@ -136,10 +136,10 @@ class TestEval(unittest.TestCase):
         for group_size in [64, 128, 256]
     ])
     def test_fp4(
-            self,
-            group_size=64,
-            dtype="float16",
-        ):
+        self,
+        group_size=64,
+        dtype="float16",
+    ):
         quant_method=any4.fp4
         device="cuda"
 
@@ -169,12 +169,12 @@ class TestEval(unittest.TestCase):
         for group_size in [32, 64, 128]
     ])
     def test_anyq(
-            self,
-            n_bit=4,
-            group_size=64,
-            dtype="bfloat16",
-            device="cuda"
-        ):
+        self,
+        n_bit=4,
+        group_size=64,
+        dtype="bfloat16",
+        device="cuda"
+    ):
         quant_method=any4.anyq
 
         model_name="facebook/opt-125m"
