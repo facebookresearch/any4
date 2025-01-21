@@ -185,7 +185,7 @@ def main(
         print("Running Perplexity (GPTQ Implementation) Tasks")
         data_gptq_results = {}
         for task in data_gptq_tasks:
-            task_num_samples = num_samples if num_samples is None else 128
+            task_num_samples = num_samples if num_samples is not None else 128
             _, testloader = get_loaders(
                 task, tokenizer=lm_obj.tokenizer, seed=seed, seqlen=max_seq_len, nsamples=task_num_samples,
             )
