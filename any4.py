@@ -11,7 +11,7 @@ import bitsandbytes as bnb
 import kmeans
 import gc
 
-from modules import INT4Linear
+from modules import QLinear
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -318,7 +318,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
             w_deq = w_deq.t()
         module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     else:
-        intq, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        intq, _, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
         if transpose:
             intq = intq.t()
             scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, group_size)
@@ -326,18 +326,21 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
             zeros = zeros.t()
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
         if n_bit == 4:
-            module = INT4Linear(
+            qmodule = QLinear(
                 in_features=module.in_features,
                 out_features=module.out_features,
                 bias=module.bias is not None,
                 device=module.weight.device,
+                qtype=f"int{n_bit}",
                 dtype=module.weight.dtype,
                 group_size=group_size,
             )
         else:
             raise ValueError(f"No quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
-        module.weight.data = intq.to(device=module.weight.device)
-        module.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
+        qmodule.weight.data = intq.to(device=module.weight.device)
+        qmodule.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
+        qmodule.bias = module.bias
+        module = qmodule
 
     return module
 

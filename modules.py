@@ -1,17 +1,16 @@
 import torch
-import tinygemm
+import tinygemm.functional
 
-class INT4Linear(torch.nn.Module):
+class QLinear(torch.nn.Module):
     def __init__(
         self,
         in_features: int,
         out_features: int,
         bias: bool = True,
         device = None,
+        qtype = None,
         dtype = None,
         group_size: int = 32,
-        x_inner_k: int = 1,
-        w_inner_k: int = 4,
     ) -> None:
         super().__init__()
         self.in_features = in_features
@@ -28,18 +27,14 @@ class INT4Linear(torch.nn.Module):
             self.bias = torch.nn.Parameter(torch.empty(out_features, device=device, dtype=dtype))
         else:
             self.register_parameter("bias", None)
-        self.x_inner_k = x_inner_k
-        self.w_inner_k = w_inner_k
+        self.qtype = qtype
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(input, self.x_inner_k)
-        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(self.weight, self.w_inner_k)
-        y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int4TC(
-            x2, w2, self.group_size, self.scales_and_zeros, True
-        )
-        y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-            y2, input.size(0), self.weight.size(0)
-        )
+        if self.qtype == "int4":
+            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size)
+        else:
+            raise ValueError(f"Unsupported quantization type {self.qtype}")
+
         if self.bias is not None:
             y = y + self.bias
         return y
