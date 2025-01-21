@@ -138,8 +138,12 @@ def extract_scales_and_zeros(scales_and_zeros, w_shape, q_group_size):
     return scales, zeros
 
 def degroup_q(w_c, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, centering=True):
-    if scales is None:
-        scales, zeros = extract_scales_and_zeros(scales_and_zeros, w_c.shape, q_group_size)
+    if scales_and_zeros is not None:
+        scales1, zeros1 = extract_scales_and_zeros(scales_and_zeros, w_c.shape, q_group_size)
+        if scales is None:
+            scales = scales1
+        if zeros is None:
+            zeros = zeros1
 
     if q_group_size:
         if centering:
@@ -161,31 +165,30 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
         intq, scales, zeros = group_q1(x, n_bit=n_bit, assymetric=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
         intq = intq.round()
-        # TBD: add similar condition
+        intq_zeros = zeros
     else:
-        intq, _, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only, unsigned=unsigned, zero_point=zero_point)
+        intq, intq_zeros, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only, unsigned=unsigned, zero_point=zero_point)
         intq = intq.round()
         assert intq.size(1) == q_group_size * scales_and_zeros.size(0)
 
     intq = intq.to(torch.int32)
     scales_and_zeros = scales_and_zeros.to(x.dtype)
 
-    return intq, scales_and_zeros
+    return intq, intq_zeros, scales_and_zeros
 
 def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16, unsigned=False):
     if new_grouping:
         reconstructed = degroup_q1(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, q_group_size=q_group_size, inplace=False)
-        reconstructed = reconstructed.to(dtype=dtype)
     else:
         reconstructed = degroup_q(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=False)
-
+    reconstructed = reconstructed.to(dtype=dtype)
     return reconstructed
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, zero_point=True, *args, **kwargs):
-    intq, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping, zero_point=zero_point)
-    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
+    intq, intq_zeros, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping, zero_point=zero_point)
+    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, zeros=intq_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
 
     return reconstructed
 
