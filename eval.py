@@ -25,6 +25,8 @@ from utils import CustomJSONEncoder, dtype_str_to_torch
 from data import task_dataset_configs, eval_perplexity
 from data_gptq import task_dataset_gptq_configs, get_loaders, llama_eval
 
+default_device = "cuda" if torch.cuda.is_available() else "cpu"
+
 def log_results(
         log_dir: Path,
         results: Dict,
@@ -51,11 +53,11 @@ def log_results(
 
 def main(
     model_name: str,
-    quant_args: Dict,
-    quant_method: Callable,
-    model_args: Dict,
     tasks: List[str],
-    device: str,
+    device: str = default_device,
+    quant_args: Optional[Dict] = {},
+    quant_method: Optional[Callable] = None,
+    model_args: Optional[Dict] = None,
     log_dir: Optional[Path] = Path("./logs/tmp/"),
     generation_args: Optional[Dict] = {},
     num_samples: Optional[int] = None,
@@ -283,7 +285,7 @@ def main(
                 task_manager=task_manager,
                 model_args={"parallelize": parallelize},
             )
-            result = harness_output['results']
+            result = harness_output['results'][task]
             harness_results[task] = result
             log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
             results.update({task: result})
@@ -299,8 +301,6 @@ def main(
 
 
 if __name__ == '__main__':
-    default_device = "cuda" if torch.cuda.is_available() else "cpu"
-
     parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
