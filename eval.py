@@ -285,10 +285,10 @@ def main(
                 task_manager=task_manager,
                 model_args={"parallelize": parallelize},
             )
-            result = harness_output['results'][task]
-            harness_results[task] = result
-            log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
-            results.update({task: result})
+            result = harness_output['results']
+            harness_results.update(result)
+            log_results(log_dir, result, append=append_results or len(results) > 0, prompt="NLP Eval Results", json_filename="results.json")
+            results.update(result)
         print(f"NLP Eval Results: {harness_results}")
 
     if tasks:
