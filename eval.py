@@ -207,7 +207,7 @@ def main(
         data_results = {}
         for task in data_tasks:
             task_batch_size = batch_size if batch_size is not None else 1
-            num_batches = num_samples//batch_size if num_samples is None else 256
+            num_batches = num_samples//batch_size if num_samples is not None else 256
             result = eval_perplexity(model=lm_obj.model, tokenizer=lm_obj.tokenizer, batch_size=task_batch_size, max_seq_len=max_seq_len, num_batches=num_batches, **task_dataset_configs[task])
             data_results[task] = result
             log_results(log_dir, {task: result}, append=append_results or len(results) > 0, prompt="Perplexity Eval Results", json_filename="results.json")
