@@ -27,7 +27,7 @@ layer_to_list_activations = {}
 layer_filter = None
 do_return_activations = False
 
-def get_mean_activations(name):
+def get_mean_activations(name, abs):
     def hook(model, input, output):
         if layer_filter is not None and name not in layer_filter:
             return
@@ -37,6 +37,8 @@ def get_mean_activations(name):
         # take the mean along all dimensions except the embedding dimension (which is the last dimension)
         # converting input to double() to minimize chances of overflow when summing activations
         input = input.detach().cpu().double()
+        if abs:
+            input = input.abs()
         sum_activation = input.sum(dim=torch.arange(input.ndim - 1).tolist())
         num_activations = np.prod(input.shape[:input.ndim - 1])
 
@@ -55,7 +57,7 @@ def get_mean_activations(name):
 def register_forward_hook(model: torch.nn.Module, layer_type: Type = torch.nn.Linear, **kwargs):
     for name, module in model.named_modules():
         if isinstance(module, (layer_type)):
-            module.register_forward_hook(get_mean_activations(name))
+            module.register_forward_hook(get_mean_activations(name, **kwargs))
 
     return model
 
@@ -75,6 +77,7 @@ def calibrate(
     truncate: bool = False,
     layers: List[str] = None,
     return_activations: bool = False,
+    abs: bool = False,
 ):
     if max_seq_len is not None:
         truncate = True
@@ -88,7 +91,7 @@ def calibrate(
     layer_to_num_activations = {}
     layer_filter = layers
     do_return_activations = return_activations
-    register_forward_hook(model)
+    register_forward_hook(model, abs=abs)
 
     if not isinstance(config, List):
         config = [config]
@@ -144,6 +147,7 @@ def main(
     truncate: bool = False,
     layers: List[str] = None,
     save_type: str = "pt",
+    abs: bool = False,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -178,6 +182,7 @@ def main(
         padding=padding,
         truncate=truncate,
         layers=layers,
+        abs=abs,
     )
     print(layer_to_num_activations)
 
@@ -214,6 +219,7 @@ if __name__ == '__main__':
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
+    parser.add_argument("--abs", default=False, action=argparse.BooleanOptionalAction, help="Apply absolute() on tensor before calculating average.")
     # TODO: add --task option to load data using lm_eval
 
     args = parser.parse_args()
@@ -232,5 +238,6 @@ if __name__ == '__main__':
         num_batches=args.num_batches,
         max_seq_len=args.max_seq_len,
         log_dir=args.log_dir,
-        save_type=args.save_type
+        save_type=args.save_type,
+        abs=args.abs,
     )
