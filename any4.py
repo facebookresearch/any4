@@ -32,7 +32,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
             calibrate_fn = kwargs["sample_weight"]
 
     # TODO: use tqdm instead of printing each layer name
-    for name, module in model.named_modules():
+    for name, module in list(model.named_modules()):
         if isinstance(module, (layer_from)):
             print(f"{name}")
             if name in skip_modules:
@@ -49,7 +49,17 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
                 else:
                     kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
 
-            layer_to(module, name=name, **kwargs)
+            new_module = layer_to(module, name=name, **kwargs)
+
+            # Get the parent module
+            parent_name = '.'.join(name.split('.')[:-1])
+            if parent_name:
+                parent_module = model.get_submodule(parent_name)
+            else:
+                parent_module = model
+            # Replace the old module with the new one
+            setattr(parent_module, name.split('.')[-1], new_module)
+
             index += 1
 
             # Save memory
