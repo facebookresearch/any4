@@ -28,10 +28,16 @@ class QLinear(torch.nn.Module):
         else:
             self.register_parameter("bias", None)
         self.qtype = qtype
+        self.reshaped_weight = False
+
+    # TODO: add `set_weight()` function that will automatically reshape?
+    def reshape_weight(self, w_inner_k: int = 4,):
+        self.weight.data = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(self.weight, w_inner_k)
+        self.reshaped_weight = True
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         if self.qtype == "int4":
-            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size)
+            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, reshape_weight=not self.reshaped_weight)
         else:
             raise ValueError(f"Unsupported quantization type {self.qtype}")
 

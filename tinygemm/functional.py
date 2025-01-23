@@ -43,8 +43,12 @@ def linear_y_f16RM_x_f16RM_W_int4TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
+    if reshape_weight:
+        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
+    else:
+        w2 = w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int4TC(
         x, w2, q_group, w_scales_and_zeros, True
     )
