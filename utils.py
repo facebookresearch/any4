@@ -6,6 +6,21 @@ import numpy as np
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 
+def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
+    for _ in range(warmup):
+        f(*args, **kwargs)
+    torch.cuda.synchronize()
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    start_event.record()
+
+    for _ in range(iters):
+        f(*args, **kwargs)
+
+    end_event.record()
+    torch.cuda.synchronize()
+    return start_event.elapsed_time(end_event) / float(iters)
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (Path, PurePosixPath)):

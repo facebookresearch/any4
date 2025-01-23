@@ -1,21 +1,7 @@
 import torch
 
+from utils import benchmark_in_ms
 from modules import QLinear
-
-def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
-    for _ in range(warmup):
-        f(*args, **kwargs)
-    torch.cuda.synchronize()
-    start_event = torch.cuda.Event(enable_timing=True)
-    end_event = torch.cuda.Event(enable_timing=True)
-    start_event.record()
-
-    for _ in range(iters):
-        f(*args, **kwargs)
-
-    end_event.record()
-    torch.cuda.synchronize()
-    return start_event.elapsed_time(end_event) / float(iters)
 
 # TODO: support int4, int8
 def microbenchmark_module(bs=1, seqlen=1, input_dim=16384, output_dim=16384, dtype=torch.bfloat16, group_size=128):
@@ -53,4 +39,5 @@ def microbenchmark_module(bs=1, seqlen=1, input_dim=16384, output_dim=16384, dty
     print(f"{qtype}:\t\t {linear_quant_time}")
 
 
+# TODO: add argument parsing
 microbenchmark_module()

@@ -340,6 +340,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
         qmodule.weight.data = intq.to(device=module.weight.device)
         qmodule.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
         qmodule.bias = module.bias
+        qmodule.reshape_weight()
         module = qmodule
 
     return module
