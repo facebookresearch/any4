@@ -71,7 +71,6 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
             torch.cuda.empty_cache()
             gc.collect()
 
-
     return model
 
 def pack_scales_and_zeros(scales, zeros, w_shape):
