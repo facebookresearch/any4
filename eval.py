@@ -71,6 +71,7 @@ def main(
     num_fewshot: Optional[int] = None,
     parallelize: bool = True,
     bnb_args: Optional[Dict] = None,
+    gptq_args: Optional[Dict] = None,
     calibrate_args: Dict = {},
     nnq_args: Dict = {},
     seed: int = 0,
@@ -92,6 +93,12 @@ def main(
     if bnb_args:
         bnb_config = transformers.BitsAndBytesConfig(**bnb_args)
         model_args["quantization_config"] = bnb_config
+    if gptq_args:
+        # Defaults to consider setting
+        # gptq_args["tokenizer"] = transformers.AutoTokenizer.from_pretrained(model_name)
+        # (bits=4, dataset="c4", tokenizer=tokenizer)
+        gptq_config = transformers.GPTQConfig(**gptq_args)
+        model_args["quantization_config"] = gptq_config
 
     if quant_args:
         if "sample_weight" in quant_args:
@@ -311,6 +318,7 @@ if __name__ == '__main__':
     parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
     parser.add_argument("--nnq-args", type=str, help="Comma separated string args to pass to neural network training for any4.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
+    parser.add_argument("--gptq-args", type=str, help="Comma separated string args to pass to AutoGPTQ quantization config.")
     parser.add_argument("--tasks", type=str, nargs="+", default=["piqa","arc_easy","arc_challenge","hellaswag","winogrande", "bbh","gsm8k","lambada","mathqa","mmlu","nq_open", "openbookqa", "race","social_iqa","toxigen","triviaqa","truthfulqa","wikitext","boolq", "copa", "squadv2", "humaneval", "mbpp", "wikitext-2", "wikipedia", "c4", "c4_new", "ptb", "ptb_new", "codeparrot"], help="lm-evaluation-harness tasks to evaluate.")
     parser.add_argument("--num_samples", type=int, default=None, help="Number of samples per task to evaluate.")
     parser.add_argument("--num_fewshot", type=int, default=None, help="Number of few shots to evaluate tasks.")
@@ -334,6 +342,7 @@ if __name__ == '__main__':
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
     nnq_args = {} if not args.nnq_args else simple_parse_args_string(args.nnq_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
+    gptq_args = None if not args.gptq_args else simple_parse_args_string(args.gptq_args)
     # TODO: create our own generation args and then adapt them to Eval Harness and BigCode Eval
     generation_args = asdict(bigcode_eval.arguments.EvalArguments())
     if args.generation_args:
@@ -362,4 +371,5 @@ if __name__ == '__main__':
         load_weights=args.load_weights,
         save_model=args.save_model,
         bnb_args=bnb_args,
+        gptq_args=gptq_args,
     )
