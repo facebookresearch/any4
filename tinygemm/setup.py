@@ -18,6 +18,7 @@ setup(
                 "TinyGemmConvertB.cu",
                 "TinyGemmDequantize.cu",
             ],
+            extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3', '--use_fast_math']},
         )
     ],
     cmdclass={"build_ext": cpp_extension.BuildExtension},
