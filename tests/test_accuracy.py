@@ -33,3 +33,24 @@ class TestEval(unittest.TestCase):
         for task, expected in zip(tasks, expected_results):
             self.assertTrue(task in results)
             self.assertEqual(results[task], expected)
+
+    def test_any4_opt_125m(
+        self,
+    ):
+        # python eval.py --model-name facebook/opt-125m --quantize anyq
+        model_name="facebook/opt-125m"
+        device="cuda"
+        tasks = ["c4"]
+        expected_results = [27.1861515045166]
+
+        results = eval(
+            model_name=model_name,
+            quant_method=any4.anyq,
+            tasks=tasks,
+            device=device,
+            overwrite_results=True,
+        )
+
+        for task, expected in zip(tasks, expected_results):
+            self.assertTrue(task in results)
+            self.assertEqual(results[task], expected)

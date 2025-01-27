@@ -57,7 +57,7 @@ def main(
     device: str = default_device,
     quant_args: Optional[Dict] = {},
     quant_method: Optional[Callable] = None,
-    model_args: Optional[Dict] = None,
+    model_args: Optional[Dict] = {},
     log_dir: Optional[Path] = Path("./logs/tmp/"),
     generation_args: Optional[Dict] = {},
     num_samples: Optional[int] = None,
