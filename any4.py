@@ -490,27 +490,100 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-# TODO: this needs to be revisited to verify that it is in sync with anyq_reconstruct
-def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
+def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+    orig_device = W.device
+    if device is not None:
+        W = W.to(device)
+
+    if sample_weight_preprocess:
+        assert sample_weight is not None and isinstance(sample_weight, torch.Tensor)
+        # We won't apply absolute here and it can be applied in another call to build_sample_weight before clustering
+        sample_weight = kmeans.build_sample_weight(sample_weight.unsqueeze(dim=1).detach().cpu().numpy(), sample_weight_preprocess, abs=False)
+        sample_weight = torch.Tensor(sample_weight)
+
     if q_group_size:
-        to_cluster, to_cluster_group_zero_point, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
+        # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
+        if new_grouping:
+            W = W.detach()
+            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
+            scales_and_zeros = pack_scales_and_zeros(scales, zeros, W.shape)
+        else:
+            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
+            scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg.shape, q_group_size)
+
+        if scale_sample_weight:
+            if sample_weight is None:
+               sample_weight = torch.ones_like(W[0])
+            sample_weight = sample_weight.to(scales.device) * scales
     else:
-        to_cluster = x.float()
+        Wg = W.float()
+        scales, zeros = 1, 0
+
+    if abs_weight_sample_weight:
+        if sample_weight is None:
+            sample_weight = torch.ones_like(W[0])
+        sample_weight = sample_weight.to(W.device) * W.abs()
+
+    Wg = Wg.contiguous()
+    if sample_weight is not None and isinstance(sample_weight, torch.Tensor):
+        sample_weight = sample_weight.contiguous()
 
     if surrogate_cluster:
-        surrogate_to_cluster = x
+        surrogate_to_cluster = W
     else:
         surrogate_to_cluster = None
 
-    assign, any4, assign_val = cluster_matrix(to_cluster, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, x_cluster=surrogate_to_cluster, **kwargs)
+    if cluster_row is not None:
+        assign, any4, Wc = cluster_matrix(Wg, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster, **kwargs)
+    else:
+        assert nnq, "We should either enabling clustering (cluster_row should be not None) or enable neural network learning (nnq should be True) but we have cluster_row: {cluster_row}, nnq: {nnq}"
+        assign, any4, Wc = None, None, Wg
 
+    if nnq:
+        try:
+            assign, any4, Wc = learn_anyq(
+                Wc=Wc,
+                scales=scales,
+                zeros=zeros,
+                W=W,
+                n_bit=n_bit,
+                q_group_size=q_group_size,
+                scale_only=scale_only,
+                init_values=any4,
+                X_train=sample_activations,
+                X_val=sample_weight,
+                device=device,
+                **nnq_args,
+            )
+        except RuntimeError as e:
+            if 'out of memory' in str(e):
+                torch.cuda.empty_cache()
+                print(f"Hit OOM so will not update this layer")
+            else:
+                raise
+        except Exception as e:
+            raise
+        # Ensure tensors are back on same device as weight
+        Wc = Wc.to(W.device)
+
+    return assign.to(orig_device), any4.to(orig_device), scales_and_zeros.to(orig_device)
+
+def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False):
+    Wc = torch.gather(input=any4, dim=1, index=assign.long())
+    scales, zeros = extract_scales_and_zeros(scales_and_zeros, assign.shape, q_group_size)
+    # TODO: create separate de_group function
     if q_group_size:
-        # any4 above is roughly in the range [0+eps, 15+eps], but dequant expects [-8+eps, 7+eps]
-        # so adjust for usage
-        any4 = any4 - 2.0 ** (n_bit - 1)
-        any4 = any4.to(dtype=x.dtype)
+        if new_grouping:
+            Wdeq = degroup_q1(Wc, scales=scales, zeros=zeros, q_group_size=q_group_size)
+        else:
+            if not scale_only:
+                any4.sub_(2**(n_bit - 1))
+            Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
+        del scales, zeros
+    else:
+        Wdeq = Wc
 
-    return assign.to(device=x.device), any4.to(dtype=x.dtype, device=x.device), scales_and_zeros.to(dtype=x.dtype, device=x.device)
+    return Wdeq
 
 class STEMin(torch.autograd.Function):
   @staticmethod
@@ -684,99 +757,12 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
 def anyq_reconstruct(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
-    if device is not None:
-        orig_device = W.device
-        W = W.to(device)
-
-    if sample_weight_preprocess:
-        assert sample_weight is not None and isinstance(sample_weight, torch.Tensor)
-        # We won't apply absolute here and it can be applied in another call to build_sample_weight before clustering
-        sample_weight = kmeans.build_sample_weight(sample_weight.unsqueeze(dim=1).detach().cpu().numpy(), sample_weight_preprocess, abs=False)
-        sample_weight = torch.Tensor(sample_weight)
-
-    if q_group_size:
-        # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
-        if new_grouping:
-            W = W.detach()
-            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
-        else:
-            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
-            scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg.shape, q_group_size)
-            del scales_and_zeros
-
-        if scale_sample_weight:
-            if sample_weight is None:
-               sample_weight = torch.ones_like(W[0])
-            sample_weight = sample_weight.to(scales.device) * scales
-    else:
-        Wg = W.float()
-        scales, zeros = 1, 0
-
-    if abs_weight_sample_weight:
-        if sample_weight is None:
-            sample_weight = torch.ones_like(W[0])
-        sample_weight = sample_weight.to(W.device) * W.abs()
-
-    Wg = Wg.contiguous()
-    if sample_weight is not None and isinstance(sample_weight, torch.Tensor):
-        sample_weight = sample_weight.contiguous()
-
-    if surrogate_cluster:
-        surrogate_to_cluster = W
-    else:
-        surrogate_to_cluster = None
-
-    if cluster_row is not None:
-        assign, any4, Wc = cluster_matrix(Wg, n_bit=n_bit, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, parallelize=parallelize, x_cluster=surrogate_to_cluster, **kwargs)
-    else:
-        assert nnq, "We should either enabling clustering (cluster_row should be not None) or enable neural network learning (nnq should be True) but we have cluster_row: {cluster_row}, nnq: {nnq}"
-        assign, any4, Wc = None, None, Wg
-
-    if nnq:
-        try:
-            assign, any4, Wc = learn_anyq(
-                Wc=Wc,
-                scales=scales,
-                zeros=zeros,
-                W=W,
-                n_bit=n_bit,
-                q_group_size=q_group_size,
-                scale_only=scale_only,
-                init_values=any4,
-                X_train=sample_activations,
-                X_val=sample_weight,
-                device=device,
-                **nnq_args,
-            )
-        except RuntimeError as e:
-            if 'out of memory' in str(e):
-                torch.cuda.empty_cache()
-                print(f"Hit OOM so will not update this layer")
-            else:
-                raise
-        except Exception as e:
-            raise
-        # Ensure tensors are back on same device as weight
-        Wc = Wc.to(W.device)
-
-    # TODO: create separate de_group function
-    if q_group_size:
-        if new_grouping:
-            Wdeq = degroup_q1(Wc, scales=scales, zeros=zeros, q_group_size=q_group_size)
-        else:
-            if not scale_only:
-                any4.sub_(2**(n_bit - 1))
-            Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
-        del scales, zeros
-    else:
-        Wdeq = Wc
+    assign, any4, scales_and_zeros = anyq_quantize(W, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, sample_weight_preprocess=sample_weight_preprocess, sample_activations=sample_activations, scale_sample_weight=scale_sample_weight, abs_weight_sample_weight=abs_weight_sample_weight, parallelize=parallelize, surrogate_cluster=surrogate_cluster, nnq=nnq, nnq_args=nnq_args, device=device, **kwargs)
+    Wdeq = anyq_dequantize(assign, any4, scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only)
 
     del assign, any4
     torch.cuda.empty_cache()
     gc.collect()
-
-    if device is not None:
-        Wdeq = Wdeq.to(orig_device)
 
     return Wdeq
 
