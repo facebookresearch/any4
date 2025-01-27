@@ -17,10 +17,8 @@ class TestAnyQ(unittest.TestCase):
         assert group_size % 2**n_bit == 0, f"This test case assumes that group_size is a multiple of 2**n_bit, but instead we got group_size={group_size}, n_bit={n_bit}."
         assert N % group_size == 0, f"This test case assumes that number of elements per row is a multiple of group_size, but instead we got N={N}, group_size={group_size}."
 
-        # if the weights are equally spaced and have the same the number of samples as 2**n_bit, quantizing and dequantizing should be exact
-        a, b = np.random.normal(), np.random.normal()
-        w_min, w_max = min(a, b), max(a, b)
-        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
+        # if we only have 2**n_bit values per row and there is no scaling, quantizing and dequantizing should be exact
+        w_vals = torch.randn(2**n_bit, dtype=dtype, device=device)
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
