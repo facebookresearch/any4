@@ -11,7 +11,8 @@ class QLinear(torch.nn.Module):
         qtype = None,
         dtype = None,
         group_size: int = 32,
-        kernel: str = "linear_y_f16RM_W_int4TC_x_f16RM"
+        kernel: str = "linear_y_f16RM_W_int4TC_x_f16RM",
+        w_inner_k: int = 4,
     ) -> None:
         super().__init__()
         self.in_features = in_features
@@ -30,6 +31,7 @@ class QLinear(torch.nn.Module):
             self.register_parameter("bias", None)
         self.qtype = qtype
         self.kernel = kernel
+        self.w_inner_k = w_inner_k
         self.weight_reshaped = False
 
     # TODO: add `set_weight()` function that will automatically reshape?
