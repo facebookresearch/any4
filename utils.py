@@ -3,6 +3,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, OrderedDict
 import torch
 import numpy as np
+from torch._inductor.utils import do_bench_using_profiling
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 
@@ -20,6 +21,11 @@ def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
     end_event.record()
     torch.cuda.synchronize()
     return start_event.elapsed_time(end_event) / float(iters)
+
+def benchmark_cuda_only_in_ms(func, warmup, iters, *args, **kwargs):
+    no_args = lambda: func(*args, **kwargs)
+    time = do_bench_using_profiling(no_args, warmup, iters)
+    return time
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):

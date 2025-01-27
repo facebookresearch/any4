@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 from lm_eval.utils import simple_parse_args_string
 
-from utils import benchmark_in_ms
+from utils import benchmark_in_ms, benchmark_cuda_only_in_ms
 from any4 import convert, quant_methods
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,11 +33,18 @@ def benchmark_model(
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device, **model_args)
     input_ids = torch.randint(0, model.config.vocab_size, (bs, seqlen), device=model.device)
     attention_mask = torch.ones((bs, seqlen), dtype=torch.long, device=model.device)
+    hidden_states = torch.randn(bs, seqlen, model.config.hidden_size, dtype=model.dtype, device=model.device)
+    position_ids = torch.linspace(0, seqlen, steps=seqlen, device=model.device).repeat(bs, 1)
 
     # Benchmark
+    ## Total Time
     model_time = benchmark_in_ms(model, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-    layer = model.model.layers[31].mlp
-    layer_time = benchmark_in_ms(model.model.layers[31].mlp, n_warmup, n_iters, torch.randn(bs, seqlen, model.config.hidden_size, dtype=model.dtype, device=model.device))
+    attn_time = benchmark_in_ms(model.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
+    mlp_time = benchmark_in_ms(model.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+    ## CUDA Time
+    model_cuda_time = benchmark_cuda_only_in_ms(model, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
+    attn_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
+    mlp_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
 
     if quant_method:
         # Quantize
@@ -47,14 +54,25 @@ def benchmark_model(
         print(qmodel)
 
         # Benchmark Quantized
+        ## Total Time
         qmodel_time = benchmark_in_ms(qmodel, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-        qlayer = model.model.layers[31].mlp
-        qlayer_time = benchmark_in_ms(qlayer, n_warmup, n_iters, torch.randn(bs, seqlen, model.config.hidden_size, dtype=model.dtype, device=model.device))
+        qattn_time = benchmark_in_ms(qmodel.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
+        qmlp_time = benchmark_in_ms(qmodel.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+        ## CUDA Time
+        qmodel_cuda_time = benchmark_cuda_only_in_ms(qmodel, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
+        qattn_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
+        qmlp_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
 
     # Log Results
-    print(f"Baseline:\t{model_time} ms, {layer_time} ms")
+    print("Baseline:")
+    print(f"\tModel: Total: {model_time:.4f} ms\tCUDA: {model_cuda_time:.4f} ms")
+    print(f"\tAttn: Total: {attn_time:.4f} ms\t\tCUDA: {attn_cuda_time:.4f} ms")
+    print(f"\tMLP: Total: {mlp_time:.4f} ms\t\tCUDA: {mlp_cuda_time:.4f} ms")
     if quant_method:
-        print(f"Quantized:\t{qmodel_time} ms, {qlayer_time} ms")
+        print("Quantized:")
+        print(f"\tModel: Total: {qmodel_time:.4f} ms\tCUDA: {qmodel_cuda_time:.4f} ms")
+        print(f"\tAttn: Total: {qattn_time:.4f} ms\t\tCUDA: {qattn_cuda_time:.4f} ms")
+        print(f"\tMLP: Total: {qmlp_time:.4f} ms\t\tCUDA: {qmlp_cuda_time:.4f} ms")
 
 
 if __name__ == '__main__':
