@@ -490,7 +490,7 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, zero_point=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
     orig_device = W.device
     if device is not None:
         W = W.to(device)
@@ -508,7 +508,7 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=F
             Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, W.shape)
         else:
-            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
+            Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, zero_point=zero_point)
             scales, zeros = extract_scales_and_zeros(scales_and_zeros, Wg.shape, q_group_size)
 
         if scale_sample_weight:
@@ -566,7 +566,7 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=F
         # Ensure tensors are back on same device as weight
         Wc = Wc.to(W.device)
 
-    return assign.to(orig_device), any4.to(orig_device), scales_and_zeros.to(orig_device)
+    return assign.to(orig_device), any4.to(orig_device, W.dtype), scales_and_zeros.to(orig_device, W.dtype)
 
 def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False):
     Wc = torch.gather(input=any4, dim=1, index=assign.long())

@@ -26,3 +26,32 @@ class TestAnyQ(unittest.TestCase):
         wdeq = any4.anyq_dequantize(wq, lut, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping)
 
         torch.testing.assert_close(w, wdeq)
+
+    def test_do_y_f16TC_x_f16TC_W_any4TC(self, bs=64, input_dim=64, output_dim=64, q_group=32, w_inner_k=2, x_inner_k=1, dt=torch.bfloat16):
+        dev = torch.device("cuda:0")
+        n_bit=4
+        new_grouping = False
+        zero_point = True
+
+        x = torch.randn((bs, input_dim), dtype=dt, device=dev)
+        # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
+        w_min, w_max = -8, 7
+        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dt, device=dev)
+        w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(output_dim * input_dim // 2**n_bit)]).view(output_dim, input_dim)
+        w = w_vals[w_indices]
+        y_ref = x @ w.t()
+
+        # lookup table to represent int4 uniform quantization as any4
+        # int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
+        # w_int32, w_scales_and_zeros = tinygemm.utils.group_quantize_tensor(w, n_bit=4, q_group_size=q_group)
+
+        int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
+        w_int32, _, w_scales_and_zeros = any4.intq_quantize(w, n_bit, q_group, new_grouping=new_grouping, zero_point=zero_point)
+
+        _, _, _ = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point)
+
+        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(
+            x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k
+        )
+
+        torch.testing.assert_close(y, y_ref)
