@@ -41,17 +41,20 @@ class TestAnyQ(unittest.TestCase):
         w = w_vals[w_indices]
         y_ref = x @ w.t()
 
-        # lookup table to represent int4 uniform quantization as any4
-        # int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
-        # w_int32, w_scales_and_zeros = tinygemm.utils.group_quantize_tensor(w, n_bit=4, q_group_size=q_group)
-
         int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
         w_int32, _, w_scales_and_zeros = any4.intq_quantize(w, n_bit, q_group, new_grouping=new_grouping, zero_point=zero_point)
 
-        _, _, _ = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point)
+        w_int32_b, int4_dequant_b, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point)
+        wdeq = any4.anyq_dequantize(w_int32_b, int4_dequant_b, scales_and_zeros=w_scales_and_zeros, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping)
+        torch.testing.assert_close(w, wdeq)
 
-        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(
-            x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k
-        )
+        int4_dequant_c = int4_dequant_b - (2**(n_bit - 1))
+        w_int32_c = w_int32_b
+        for i in range(output_dim):
+            torch.testing.assert_close(int4_dequant_c[i][w_int32_c[i]], int4_dequant[w_int32[i]])
 
+        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
         torch.testing.assert_close(y, y_ref)
+
+        y_c = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32_c, int4_dequant_c, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
+        torch.testing.assert_close(y_c, y_ref)

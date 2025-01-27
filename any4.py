@@ -576,8 +576,9 @@ def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, n
         if new_grouping:
             Wdeq = degroup_q1(Wc, scales=scales, zeros=zeros, q_group_size=q_group_size)
         else:
-            if not scale_only:
-                any4.sub_(2**(n_bit - 1))
+            # Commenting this inplace operation because this applies a side effect on an input argument that won't be noticed when calling the function
+            # if not scale_only:
+            #     any4.sub_(2**(n_bit - 1))
             Wdeq = degroup_q(Wc, scales=scales, zeros=zeros, n_bit=n_bit, q_group_size=q_group_size, centering=not scale_only)
         del scales, zeros
     else:

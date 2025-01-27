@@ -59,6 +59,7 @@ class TestIntQ(unittest.TestCase):
 
         # TODO: add dequantize check?
 
+    # TODO: support int8
     @parameterized.expand([
         (bs, input_dim, output_dim, dtype, n_bit, group_size, functional_api, w_inner_k)
         for bs in [1, 2, 3, 29, 64]
