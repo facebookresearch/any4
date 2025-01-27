@@ -4,6 +4,7 @@ from utils import benchmark_in_ms
 from modules import QLinear
 
 # TODO: support int4, int8
+@torch.no_grad()
 def microbenchmark_module(bs=1, seqlen=1, input_dim=16384, output_dim=16384, n_warmup=50, n_iters=100, dtype=torch.bfloat16, n_bit = 4, group_size=128, kernel="linear_y_f16RM_W_int4TC_x_f16RM", w_inner_k=4):
     device = "cuda"
     qtype="int4"

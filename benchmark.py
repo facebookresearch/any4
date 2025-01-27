@@ -12,6 +12,7 @@ from any4 import convert, quant_methods
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # TODO: support int4, int8
+@torch.no_grad()
 def benchmark_model(
     model_name: str,
     model_args: Dict ={},
