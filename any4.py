@@ -321,13 +321,17 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
         w = w.t()
 
     if pseudo:
+
         w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
         # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, assymetric=not kwargs.get("scale_only", False), q_group_size=group_size)
+
         if transpose:
             w_deq = w_deq.t()
+
         module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     else:
         intq, _, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+
         if transpose:
             intq = intq.t()
             scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, group_size)
@@ -345,7 +349,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
                 group_size=group_size,
             )
         else:
-            raise ValueError(f"No quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
+            raise ValueError(f"No int quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
         qmodule.weight.data = intq.to(device=module.weight.device)
         qmodule.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
         qmodule.bias = module.bias
@@ -783,40 +787,44 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, **kwargs):
     w = module.weight
-    if transpose:
-        w = w.t()
-
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
 
-    if any_group_size:
-        w = w.view(-1, any_group_size)
+    if pseudo:
+        if transpose:
+            w = w.t()
+        if any_group_size:
+            w = w.view(-1, any_group_size)
 
-    try:
-        w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
-    except RuntimeError as e:
-        if 'out of memory' in str(e):
-            torch.cuda.empty_cache()
-            gc.collect()
-            print(f"Hit OOM so will move weights to CPU and re-run")
-            orig_device = w.device
-            w.to("cpu")
+        # TODO: implement this try-except with a decorator to the function?
+        try:
             w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
-            w_deq.to(orig_device)
-        else:
+        except RuntimeError as e:
+            if 'out of memory' in str(e):
+                torch.cuda.empty_cache()
+                gc.collect()
+                print(f"Hit OOM so will move weights to CPU and re-run")
+                orig_device = w.device
+                w.to("cpu")
+                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+                w_deq.to(orig_device)
+            else:
+                raise
+        except Exception as e:
             raise
-    except Exception as e:
-        raise
 
-    if any_group_size:
-        w_deq = w_deq.view(module.weight.shape)
+        if any_group_size:
+            w_deq = w_deq.view(module.weight.shape)
+        if transpose:
+            w_deq = w_deq.t()
 
-    if transpose:
-        w_deq = w_deq.t()
-
-    module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+        module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
+    else:
+        assert transpose is False, "anyq quantized modules don't yet support transpose."
+        assert any_group_size is None, "anyq quantized modules don't yet support transpose."
+        raise ValueError(f"No anyq quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
 
     # Save memory
     if isinstance(sample_weight, Dict):
