@@ -486,7 +486,7 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-# TODO: this needs to be revisited to verify that it is in sync with reconstruct_any4_grouped
+# TODO: this needs to be revisited to verify that it is in sync with anyq_reconstruct
 def quantize_to_any4(x, q_group_size=128, n_bit = 4, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, surrogate_cluster=False, **kwargs):
     if q_group_size:
         to_cluster, to_cluster_group_zero_point, scales_and_zeros = group_q(x, n_bit, q_group_size=q_group_size, assymetric=not scale_only)
@@ -679,7 +679,7 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def reconstruct_any4_grouped(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+def anyq_reconstruct(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
     if device is not None:
         orig_device = W.device
         W = W.to(device)
@@ -795,7 +795,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
         w = w.view(-1, any_group_size)
 
     try:
-        w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+        w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
     except RuntimeError as e:
         if 'out of memory' in str(e):
             torch.cuda.empty_cache()
@@ -803,7 +803,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
             print(f"Hit OOM so will move weights to CPU and re-run")
             orig_device = w.device
             w.to("cpu")
-            w_deq = reconstruct_any4_grouped(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+            w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
             w_deq.to(orig_device)
         else:
             raise
