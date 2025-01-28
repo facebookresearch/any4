@@ -5,8 +5,7 @@ import torch
 
 from lm_eval.utils import simple_parse_args_string
 
-from utils import benchmark_in_ms
-from modules import Int4Linear
+from utils import benchmark_in_ms, benchmark_cuda_only_in_ms
 from any4 import quant_methods
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -38,14 +37,20 @@ def microbenchmark_module(
         bias=bias,
     )
     linear_time = benchmark_in_ms(linear, n_warmup, n_iters, x)
-    print(f"Baseline:\t{linear_time} ms")
+    linear_cuda_time = benchmark_cuda_only_in_ms(linear, n_warmup, n_iters, x)
 
     if quant_method:
         # Quantize
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        linear_quant = quant_method(linear, pseudo=False, **quant_args)
-        linear_quant_time = benchmark_in_ms(linear_quant, n_warmup, n_iters, x)
-        print(f"Quantized:\t{linear_quant_time} ms")
+        qlinear = quant_method(linear, pseudo=False, **quant_args)
+        qlinear_time = benchmark_in_ms(qlinear, n_warmup, n_iters, x)
+        qlinear_cuda_time = benchmark_cuda_only_in_ms(qlinear, n_warmup, n_iters, x)
+
+    print("Baseline:")
+    print(f"\tTotal: {linear_time:.4f} ms\tCUDA: {linear_cuda_time:.4f} ms")
+    if quant_method:
+            print("Quantized:")
+            print(f"\tTotal: {qlinear_time:.4f} ms\tCUDA: {qlinear_cuda_time:.4f} ms")
 
 
 if __name__ == '__main__':
