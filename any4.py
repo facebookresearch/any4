@@ -11,7 +11,7 @@ import bitsandbytes as bnb
 import kmeans
 import gc
 
-from modules import Int4Linear
+from modules import Any4Linear, Int4Linear
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -321,7 +321,6 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
         w = w.t()
 
     if pseudo:
-
         w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
         # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, assymetric=not kwargs.get("scale_only", False), q_group_size=group_size)
 
@@ -793,7 +792,7 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, **kwargs):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, **kwargs):
     w = module.weight
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
@@ -830,7 +829,28 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
     else:
         assert transpose is False, "anyq quantized modules don't yet support transpose."
         assert any_group_size is None, "anyq quantized modules don't yet support transpose."
-        raise ValueError(f"No anyq quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
+        intq, lut, scales_and_zeros = anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+
+        if n_bit == 4:
+            qmodule = Any4Linear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                device=module.weight.device,
+                dtype=module.weight.dtype,
+                group_size=group_size,
+                per_row=per_row,
+                kernel=kernel,
+                w_inner_k=w_inner_k,
+            )
+        else:
+            raise ValueError(f"No int quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
+        qmodule.weight.data = intq.to(device=module.weight.device)
+        qmodule.scales_and_zeros.data = scales_and_zeros.to(device=module.weight.device)
+        qmodule.lut.data = lut.to(device=module.weight.device) - (2**(n_bit - 1))
+        qmodule.bias = module.bias
+        qmodule.reshape_weight()
+        module = qmodule
 
     # Save memory
     if isinstance(sample_weight, Dict):
