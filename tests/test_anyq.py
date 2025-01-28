@@ -7,6 +7,7 @@ import numpy as np
 import any4
 from modules import QLinear
 import tinygemm
+import tinygemm.functional
 import tinygemm.utils
 
 class TestAnyQ(unittest.TestCase):
@@ -42,14 +43,15 @@ class TestAnyQ(unittest.TestCase):
         torch.testing.assert_close(w, wdeq)
 
     @parameterized.expand([
-        (bs, input_dim, output_dim, dtype, group_size, functional_api)
+        (bs, input_dim, output_dim, dtype, group_size, functional_api, w_inner_k)
         for bs in [64]
         for input_dim in [64]
         for output_dim in [64]
         for dtype in [torch.bfloat16]
         for group_size in [64]
         for functional_api in ["linear_y_f16TC_x_f16TC_W_any4TC", "linear_y_f16TC_W_any4TC_x_f16TC", "linear_y_f16RM_x_f16RM_W_any4TC", "linear_y_f16RM_W_any4TC_x_f16RM"]
-        if group_size % 2**4 == 0 and input_dim % group_size == 0  # Conditions to filter combinations
+        for w_inner_k in [1, 2, 4] # TODO: support 8
+        if group_size % 2**4 == 0 and input_dim % group_size == 0 and tinygemm.functional.valid_tinygemm_kernel_call(functional_api, w_inner_k) # Conditions to filter combinations
     ])
     def test_tinygemm_any4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, group_size=64, functional_api="linear_y_f16TC_x_f16TC_W_any4TC", w_inner_k=4):
         device = "cuda"

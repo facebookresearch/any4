@@ -1,6 +1,16 @@
 import torch
 import tinygemm
 
+def valid_tinygemm_kernel_call(functional_api, w_inner_k):
+    if functional_api=="linear_y_f16RM_x_f16RM_W_any4TC" and w_inner_k in [2, 4, 8]:
+        return True
+    if functional_api=="linear_y_f16TC_x_f16TC_W_any4TC" and w_inner_k in [2, 4, 8]:
+        return True
+    if functional_api=="linear_y_f16TC_W_any4TC_x_f16TC" and w_inner_k in [1, 2, 4]:
+        return True
+    if functional_api=="linear_y_f16RM_W_any4TC_x_f16RM" and w_inner_k in [1, 2, 4]:
+        return True
+
 def linear_y_f16TC_x_f16TC_W_int4TC(
         x: torch.Tensor,
         w_int32: torch.Tensor,
