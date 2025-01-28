@@ -490,10 +490,14 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, zero_point=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, zero_point=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
     orig_device = W.device
     if device is not None:
         W = W.to(device)
+
+    if not per_row:
+        orig_shape = W.shape
+        W = W.reshape(1, -1)
 
     if sample_weight_preprocess:
         assert sample_weight is not None and isinstance(sample_weight, torch.Tensor)
@@ -566,10 +570,22 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, zero_point=T
         # Ensure tensors are back on same device as weight
         Wc = Wc.to(W.device)
 
+    if not per_row:
+        W = W.reshape(orig_shape)
+        assign = assign.reshape(orig_shape)
+        scales_and_zeros = scales_and_zeros.reshape(-1, orig_shape[0], 2)
+        any4 = any4.squeeze()
+
     return assign.to(orig_device), any4.to(orig_device, W.dtype), scales_and_zeros.to(orig_device, W.dtype)
 
-def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False):
-    Wc = torch.gather(input=any4, dim=1, index=assign.long())
+def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, per_row=True, new_grouping=False, scale_only=False):
+    if not per_row:
+        orig_shape = assign.shape
+        assign = assign.reshape(1, -1)
+        scales_and_zeros = scales_and_zeros.reshape(-1, 1, 2)
+        Wc = any4[assign]
+    else:
+        Wc = torch.gather(input=any4, dim=1, index=assign.long())
     scales, zeros = extract_scales_and_zeros(scales_and_zeros, assign.shape, q_group_size)
     # TODO: create separate de_group function
     if q_group_size:
@@ -583,6 +599,9 @@ def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, n
         del scales, zeros
     else:
         Wdeq = Wc
+
+    if not per_row:
+        Wdeq = Wdeq.reshape(orig_shape)
 
     return Wdeq
 
@@ -757,9 +776,9 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def anyq_reconstruct(W, n_bit=4, q_group_size=128, new_grouping=False, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
-    assign, any4, scales_and_zeros = anyq_quantize(W, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, sample_weight_preprocess=sample_weight_preprocess, sample_activations=sample_activations, scale_sample_weight=scale_sample_weight, abs_weight_sample_weight=abs_weight_sample_weight, parallelize=parallelize, surrogate_cluster=surrogate_cluster, nnq=nnq, nnq_args=nnq_args, device=device, **kwargs)
-    Wdeq = anyq_dequantize(assign, any4, scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only)
+def anyq_reconstruct(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+    assign, any4, scales_and_zeros = anyq_quantize(W, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, sample_weight_preprocess=sample_weight_preprocess, sample_activations=sample_activations, scale_sample_weight=scale_sample_weight, abs_weight_sample_weight=abs_weight_sample_weight, parallelize=parallelize, surrogate_cluster=surrogate_cluster, nnq=nnq, nnq_args=nnq_args, device=device, **kwargs)
+    Wdeq = anyq_dequantize(assign, any4, scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only)
 
     del assign, any4
     torch.cuda.empty_cache()
@@ -774,7 +793,7 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, **kwargs):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, **kwargs):
     w = module.weight
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
@@ -787,7 +806,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
 
         # TODO: implement this try-except with a decorator to the function?
         try:
-            w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+            w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
         except RuntimeError as e:
             if 'out of memory' in str(e):
                 torch.cuda.empty_cache()
@@ -795,7 +814,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
                 print(f"Hit OOM so will move weights to CPU and re-run")
                 orig_device = w.device
                 w.to("cpu")
-                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
                 w_deq.to(orig_device)
             else:
                 raise

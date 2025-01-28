@@ -14,15 +14,19 @@ class TestAnyQ(unittest.TestCase):
     def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, parallelize=True, dtype=torch.float32):
         device = "cuda"
         new_grouping = False
+        zero_point = True
+        parallelize=True
         assert group_size % 2**n_bit == 0, f"This test case assumes that group_size is a multiple of 2**n_bit, but instead we got group_size={group_size}, n_bit={n_bit}."
         assert N % group_size == 0, f"This test case assumes that number of elements per row is a multiple of group_size, but instead we got N={N}, group_size={group_size}."
 
         # if we only have 2**n_bit values per row and there is no scaling, quantizing and dequantizing should be exact
+        # TODO: have different w_vals for each row
         w_vals = torch.randn(2**n_bit, dtype=dtype, device=device)
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wq, lut, scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, parallelize=parallelize)
+        wq, lut, scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, parallelize=parallelize, zero_point=zero_point)
+        #lut.sub_(2**(n_bit - 1))
         wdeq = any4.anyq_dequantize(wq, lut, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping)
 
         torch.testing.assert_close(w, wdeq)
@@ -32,6 +36,7 @@ class TestAnyQ(unittest.TestCase):
         n_bit=4
         new_grouping = False
         zero_point = True
+        per_row=False
 
         x = torch.randn((bs, input_dim), dtype=dt, device=dev)
         # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
@@ -44,14 +49,15 @@ class TestAnyQ(unittest.TestCase):
         int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
         w_int32, _, w_scales_and_zeros = any4.intq_quantize(w, n_bit, q_group, new_grouping=new_grouping, zero_point=zero_point)
 
-        w_int32_b, int4_dequant_b, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point)
-        wdeq = any4.anyq_dequantize(w_int32_b, int4_dequant_b, scales_and_zeros=w_scales_and_zeros, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping)
+        w_int32_b, int4_dequant_b, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
+        wdeq = any4.anyq_dequantize(w_int32_b, int4_dequant_b, scales_and_zeros=w_scales_and_zeros, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, per_row=per_row)
         torch.testing.assert_close(w, wdeq)
 
         int4_dequant_c = int4_dequant_b - (2**(n_bit - 1))
         w_int32_c = w_int32_b
-        for i in range(output_dim):
-            torch.testing.assert_close(int4_dequant_c[i][w_int32_c[i]], int4_dequant[w_int32[i]])
+        if per_row:
+            for i in range(output_dim):
+                torch.testing.assert_close(int4_dequant_c[i][w_int32_c[i]], int4_dequant[w_int32[i]])
 
         y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
         torch.testing.assert_close(y, y_ref)
