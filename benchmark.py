@@ -2,7 +2,7 @@ from typing import Callable, Dict, Optional
 import argparse
 import os
 import torch
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig, GPTQConfig
 
 from lm_eval.utils import simple_parse_args_string
 
@@ -23,12 +23,19 @@ def benchmark_model(
     device: str = default_device,
     quant_args: Optional[Dict] = {},
     quant_method: Optional[Callable] = None,
-    bnb_args: Optional[Dict] = {},
+    bnb_args: Optional[Dict] = None,
+    gptq_args: Optional[Dict] = None,
 ):
     # Pre-process some args
     if bnb_args:
         bnb_config = BitsAndBytesConfig(**bnb_args)
         model_args["quantization_config"] = bnb_config
+    if gptq_args:
+        # Defaults to consider setting
+        # gptq_args["tokenizer"] = AutoTokenizer.from_pretrained(model_name)
+        # (bits=4, dataset="c4", tokenizer=tokenizer)
+        gptq_config = GPTQConfig(**gptq_args)
+        model_args["quantization_config"] = gptq_config
 
     # Setup
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device, **model_args)
@@ -81,9 +88,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-2-7b-hf", help="HuggingFace model name or path.")
     parser.add_argument("--model-args", type=str, default="torch_dtype=bfloat16", help="Comma separated string arguments for HuggingFace model.")
-    parser.add_argument("--quantize", type=str, default="intq", choices=quant_methods.keys(), help="Quantization method.")
+    parser.add_argument("--quantize", type=str, default=None, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
+    parser.add_argument("--gptq-args", type=str, help="Comma separated string args to pass to AutoGPTQ quantization config.")
     parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size of sample input.")
     parser.add_argument("--seqlen", type=int, default=1, help="Sequence length of sample input.")
@@ -97,6 +105,7 @@ if __name__ == '__main__':
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
+    gptq_args = None if not args.gptq_args else simple_parse_args_string(args.gptq_args)
 
     # Run Evaluation
     benchmark_model(
@@ -108,6 +117,7 @@ if __name__ == '__main__':
         bs=args.batch_size,
         seqlen=args.seqlen,
         bnb_args=bnb_args,
+        gptq_args=gptq_args,
         n_warmup=args.warmup,
         n_iters=args.iters,
     )
