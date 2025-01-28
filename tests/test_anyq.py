@@ -12,7 +12,6 @@ import tinygemm.utils
 class TestAnyQ(unittest.TestCase):
     # TODO: sweep on more arguments
     # TODO: have separate test for some arguments to save time, e.g., separate test for parallelize=False
-    """
     @parameterized.expand([
         (M, N, group_size, n_bit, dtype)
         for M in [1, 4, 8, 24]
@@ -22,7 +21,6 @@ class TestAnyQ(unittest.TestCase):
         for dtype in [torch.float32] # TODO: suport torch.float16, torch.bfloat16
         if group_size % 2**n_bit == 0 and N % group_size == 0  # Conditions to filter combinations
     ])
-    """
     def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.float32):
         device = "cuda"
         new_grouping = False
@@ -43,6 +41,16 @@ class TestAnyQ(unittest.TestCase):
 
         torch.testing.assert_close(w, wdeq)
 
+    @parameterized.expand([
+        (bs, input_dim, output_dim, dtype, group_size, functional_api)
+        for bs in [64]
+        for input_dim in [64]
+        for output_dim in [64]
+        for dtype in [torch.bfloat16]
+        for group_size in [64]
+        for functional_api in ["linear_y_f16TC_x_f16TC_W_any4TC", "linear_y_f16TC_W_any4TC_x_f16TC", "linear_y_f16RM_x_f16RM_W_any4TC", "linear_y_f16RM_W_any4TC_x_f16RM"]
+        if group_size % 2**4 == 0 and input_dim % group_size == 0  # Conditions to filter combinations
+    ])
     def test_tinygemm_any4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, group_size=64, functional_api="linear_y_f16TC_x_f16TC_W_any4TC", w_inner_k=4):
         device = "cuda"
         n_bit=4
