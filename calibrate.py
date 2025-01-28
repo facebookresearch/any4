@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 from tqdm import tqdm
 import gc
 import json
@@ -10,6 +10,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 import pickle
 from pathlib import Path
+
+from lm_eval.utils import simple_parse_args_string
 
 from utils import CustomJSONEncoder, remove_all_hooks
 from data_gptq import get_loaders
@@ -68,6 +70,7 @@ def calibrate(
     prompt: str = default_prompt,
     dataset: Optional[str] = None,
     config: Optional[Union[str, List[str]]] = None,
+    dataset_args: Optional[Dict]={},
     split: str = "train",
     field: str = "text",
     seed: int = 42,
@@ -104,7 +107,8 @@ def calibrate(
             tokenizer.pad_token = tokenizer.eos_token
         for name in config:
             if dataloader_type is None:
-                dataloader = load_dataset(dataset, name=name, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size)
+                # TODO: consider having `load_dataset_kwargs` dictionary to pass in cli
+                dataloader = load_dataset(dataset, name=name, split=split, streaming=True, **dataset_args).shuffle(seed=seed).iter(batch_size=batch_size)
             elif dataloader_type == "gptq":
                 # TODO: find a better way to automate setting default values
                 nsamples = num_batches // batch_size if num_batches is not None else 128
@@ -155,6 +159,7 @@ def main(
     prompt: str = default_prompt,
     dataset: Optional[str] = None,
     config: Optional[List[str]] = None,
+    dataset_args: Optional[Dict]={},
     split: str = "train",
     field: str = "text",
     seed: int = 42,
@@ -192,6 +197,7 @@ def main(
         prompt=prompt,
         dataset=dataset,
         config=config,
+        dataset_args=dataset_args,
         split=split,
         field=field,
         seed=seed,
@@ -236,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--dataset", type=str, help="Dataset to load samples from.")
     parser.add_argument("--config", nargs="+", type=str, help="Config to load from within the dataset.")
+    parser.add_argument("--dataset-args", type=str, help="Comma separated string arguments for Hugging Face load_dataset() API.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
@@ -245,6 +252,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Pre-process some args
+    dataset_args = {} if not args.dataset_args else simple_parse_args_string(args.dataset_args)
+
     # Run Evaluation
     main(
         model_name=args.model_name,
@@ -253,6 +263,7 @@ if __name__ == '__main__':
         config=args.config,
         split=args.split,
         field=args.field,
+        dataset_args=dataset_args,
         seed=args.seed,
         prompt=args.prompt,
         batch_size=args.batch_size,
