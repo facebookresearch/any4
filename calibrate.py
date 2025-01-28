@@ -12,6 +12,7 @@ import pickle
 from pathlib import Path
 
 from utils import CustomJSONEncoder, remove_all_hooks
+from data_gptq import get_loaders
 
 default_prompt = """This is a diverse prompt that contains:
                 - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
@@ -78,6 +79,7 @@ def calibrate(
     layers: List[str] = None,
     return_activations: bool = False,
     abs: bool = False,
+    dataloader_type: Optional[str] = None,
 ):
     if max_seq_len is not None:
         truncate = True
@@ -101,10 +103,26 @@ def calibrate(
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         for name in config:
-            for idx, batch in enumerate(tqdm(load_dataset(dataset, name=name, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size))):
+            if dataloader_type is None:
+                dataloader = load_dataset(dataset, name=name, split=split, streaming=True).shuffle(seed=seed).iter(batch_size=batch_size)
+            elif dataloader_type == "gptq":
+                # TODO: find a better way to automate setting default values
+                nsamples = num_batches // batch_size if num_batches is not None else 128
+                max_seq_len = max_seq_len if max_seq_len is not None else 2048
+                dataloader, _ = get_loaders(dataset, tokenizer=tokenizer, seed=seed, seqlen=max_seq_len, nsamples=nsamples)
+            else:
+                raise ValueError(f"Unsupported dataloader type {dataloader_type}.")
+
+            for idx, batch in enumerate(tqdm(dataloader)):
+                # TODO: in the dataloader slice with num samples instead of checking for num_batches. Hint: We can use `split="train[:1000]"` in `load_dataset()` API
                 if num_batches is not None and idx >= num_batches:
                     break
-                inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
+                # TODO: refactor code to avoid this if-condition
+                if dataloader_type is None:
+                    inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
+                elif dataloader_type == "gptq":
+                    inputs = {"input_ids": batch[0].to(model.device)}
+
                 model(**inputs)
                 del inputs
     else:
@@ -148,6 +166,7 @@ def main(
     layers: List[str] = None,
     save_type: str = "pt",
     abs: bool = False,
+    dataloader_type: Optional[str] = None,
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -183,6 +202,7 @@ def main(
         truncate=truncate,
         layers=layers,
         abs=abs,
+        dataloader_type=dataloader_type,
     )
     print(layer_to_num_activations)
 
@@ -220,6 +240,7 @@ if __name__ == '__main__':
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
     parser.add_argument("--abs", default=False, action=argparse.BooleanOptionalAction, help="Apply absolute() on tensor before calculating average.")
+    parser.add_argument("--dataloader-type", type=str, default=None, choices=[None, "gptq"], help="Whether to use a custom dataloader implementation used in other papers.")
     # TODO: add --task option to load data using lm_eval
 
     args = parser.parse_args()
@@ -240,4 +261,5 @@ if __name__ == '__main__':
         log_dir=args.log_dir,
         save_type=args.save_type,
         abs=args.abs,
+        dataloader_type=args.dataloader_type,
     )
