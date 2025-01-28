@@ -10,8 +10,20 @@ import tinygemm
 import tinygemm.utils
 
 class TestAnyQ(unittest.TestCase):
-    # TODO: sweep over the arguments of anyq()
-    def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, parallelize=True, dtype=torch.float32):
+    # TODO: sweep on more arguments
+    # TODO: have separate test for some arguments to save time, e.g., separate test for parallelize=False
+    """
+    @parameterized.expand([
+        (M, N, group_size, n_bit, dtype)
+        for M in [1, 4, 8, 24]
+        for N in [256, 1024, 2048]
+        for group_size in [64, 128] # TODO: support 32
+        for n_bit in [4] # TODO: support 2, 3, 4, 6, 8
+        for dtype in [torch.float32] # TODO: suport torch.float16, torch.bfloat16
+        if group_size % 2**n_bit == 0 and N % group_size == 0  # Conditions to filter combinations
+    ])
+    """
+    def test_quantize_dequantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.float32):
         device = "cuda"
         new_grouping = False
         zero_point = True
@@ -30,6 +42,51 @@ class TestAnyQ(unittest.TestCase):
         wdeq = any4.anyq_dequantize(wq, lut, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping)
 
         torch.testing.assert_close(w, wdeq)
+
+    def test_tinygemm_any4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, group_size=64, functional_api="linear_y_f16TC_x_f16TC_W_any4TC", w_inner_k=4):
+        device = "cuda"
+        n_bit=4
+        new_grouping = False
+        zero_point = True
+        per_row=False
+
+        # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
+        w_min, w_max = -8, 7
+        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
+        w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(output_dim * input_dim // 2**n_bit)]).view(output_dim, input_dim)
+        w = w_vals[w_indices]
+
+        x = torch.randn(bs, input_dim, dtype=dtype, device=device)
+        y_ref = x @ w.t()
+
+        w_int32, w_lut, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
+        w_lut = w_lut - (2**(n_bit - 1))
+
+        match functional_api:
+            case "linear_y_f16TC_x_f16TC_W_any4TC":
+                y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(
+                    x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k, x_inner_k = 1
+                )
+
+            case "linear_y_f16TC_W_any4TC_x_f16TC":
+                y = tinygemm.functional.linear_y_f16TC_W_any4TC_x_f16TC(
+                    x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k, x_inner_k = 1
+                )
+
+            case "linear_y_f16RM_x_f16RM_W_any4TC":
+                y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_any4TC(
+                    x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k
+                )
+
+            case "linear_y_f16RM_W_any4TC_x_f16RM":
+                y = tinygemm.functional.linear_y_f16RM_W_any4TC_x_f16RM(
+                    x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k
+                )
+
+            case _:
+                raise ValueError(f"tinygemm.functional has no function {functional_api}.")
+
+        torch.testing.assert_close(y, y_ref)
 
     def test_do_y_f16TC_x_f16TC_W_any4TC(self, bs=64, input_dim=64, output_dim=64, q_group=32, w_inner_k=2, x_inner_k=1, dt=torch.bfloat16):
         dev = torch.device("cuda:0")
