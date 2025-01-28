@@ -44,11 +44,11 @@ class TestAnyQ(unittest.TestCase):
 
     @parameterized.expand([
         (bs, input_dim, output_dim, dtype, group_size, functional_api, w_inner_k)
-        for bs in [64]
-        for input_dim in [64]
-        for output_dim in [64]
-        for dtype in [torch.bfloat16]
-        for group_size in [64]
+        for bs in [1, 2, 3, 29, 64]
+        for input_dim in [64, 256] # TODO: support 1024, 2048
+        for output_dim in [64] # TODO: support 128
+        for dtype in [torch.float16, torch.bfloat16]
+        for group_size in [32, 64, 128]
         for functional_api in ["linear_y_f16TC_x_f16TC_W_any4TC", "linear_y_f16TC_W_any4TC_x_f16TC", "linear_y_f16RM_x_f16RM_W_any4TC", "linear_y_f16RM_W_any4TC_x_f16RM"]
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**4 == 0 and input_dim % group_size == 0 and tinygemm.functional.valid_tinygemm_kernel_call(functional_api, w_inner_k) # Conditions to filter combinations
