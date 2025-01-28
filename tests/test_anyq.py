@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 
 import any4
-from modules import QLinear
+from modules import Any4Linear
 import tinygemm
 import tinygemm.functional
 import tinygemm.utils
@@ -98,6 +98,7 @@ class TestAnyQ(unittest.TestCase):
 
         torch.testing.assert_close(y, y_ref)
 
+    # Temporary test case to debug kernel invocation
     def test_do_y_f16TC_x_f16TC_W_any4TC(self, bs=64, input_dim=64, output_dim=64, q_group=32, w_inner_k=2, x_inner_k=1, dt=torch.bfloat16):
         dev = torch.device("cuda:0")
         n_bit=4
@@ -131,3 +132,39 @@ class TestAnyQ(unittest.TestCase):
 
         y_c = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32_c, int4_dequant_c, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
         torch.testing.assert_close(y_c, y_ref)
+
+    def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_any4TC", w_inner_k=4):
+        device = "cuda"
+        per_row = False
+
+        linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
+
+        x = torch.randn(bs, input_dim, dtype=dtype, device=device)
+        # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
+        w_min, w_max = -8, 7
+        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
+        w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(output_dim * input_dim // 2**n_bit)]).view(output_dim, input_dim)
+        linear.weight.data = w_vals[w_indices]
+
+        y_ref = linear(x)
+
+        linear_quant = Any4Linear(
+            in_features=input_dim,
+            out_features=output_dim,
+            bias=linear.bias is not None,
+            device=device,
+            dtype=dtype,
+            group_size=group_size,
+            kernel=functional_api,
+            w_inner_k=w_inner_k,
+        )
+        w_int32, w_lut, w_scales_and_zeros = any4.anyq_quantize(linear.weight, n_bit=n_bit, q_group_size=group_size, per_row=per_row)
+        w_lut = w_lut - (2**(n_bit - 1))
+        linear_quant.bias.data = linear.bias
+        linear_quant.weight.data = w_int32
+        linear_quant.scales_and_zeros.data = w_scales_and_zeros
+        linear_quant.lut.data = w_lut
+
+        y = linear_quant(x)
+
+        torch.testing.assert_close(y, y_ref)

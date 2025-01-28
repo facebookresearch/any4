@@ -11,7 +11,7 @@ import bitsandbytes as bnb
 import kmeans
 import gc
 
-from modules import QLinear
+from modules import Int4Linear
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -339,7 +339,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
             zeros = zeros.t()
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
         if n_bit == 4:
-            qmodule = QLinear(
+            qmodule = Int4Linear(
                 in_features=module.in_features,
                 out_features=module.out_features,
                 bias=module.bias is not None,

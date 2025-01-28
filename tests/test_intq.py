@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 
 import any4
-from modules import QLinear
+from modules import Int4Linear
 import tinygemm
 import tinygemm.utils
 
@@ -114,9 +114,9 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
+    # TODO: sweep over parameters
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
-        qtype="int4"
 
         linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
 
@@ -129,14 +129,15 @@ class TestIntQ(unittest.TestCase):
 
         y_ref = linear(x)
 
-        linear_quant = QLinear(
+        linear_quant = Int4Linear(
             in_features=input_dim,
             out_features=output_dim,
             bias=linear.bias is not None,
             device=device,
-            qtype=qtype,
             dtype=dtype,
-            group_size=group_size
+            group_size=group_size,
+            kernel=functional_api,
+            w_inner_k=w_inner_k,
         )
         w_int32, scales_and_zeros = tinygemm.utils.group_quantize_tensor(linear.weight, n_bit, group_size)
         linear_quant.bias.data = linear.bias
@@ -148,6 +149,7 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
+    # TODO: sweep over parameters
     def test_conversion_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         new_grouping = False

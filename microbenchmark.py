@@ -1,7 +1,7 @@
 import torch
 
 from utils import benchmark_in_ms
-from modules import QLinear
+from modules import Int4Linear
 
 # TODO: support int4, int8
 @torch.no_grad()
@@ -22,7 +22,7 @@ def microbenchmark_module(bs=1, seqlen=1, input_dim=16384, output_dim=16384, n_w
     linear_time = benchmark_in_ms(linear, n_warmup, n_iters, x)
     print(f"Baseline:\t{linear_time} ms")
 
-    linear_quant = QLinear(
+    linear_quant = Int4Linear(
         in_features=input_dim,
         out_features=output_dim,
         bias=linear.bias is not None,
