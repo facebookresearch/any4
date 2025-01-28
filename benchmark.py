@@ -1,12 +1,13 @@
 from typing import Callable, Dict, Optional
 import argparse
+import gc
 import os
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, GPTQConfig
 
 from lm_eval.utils import simple_parse_args_string
 
-from utils import benchmark_in_ms, benchmark_cuda_only_in_ms
+from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, MemoryTracker
 from any4 import convert, quant_methods
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -53,6 +54,9 @@ def benchmark_model(
     model_cuda_time = benchmark_cuda_only_in_ms(model, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
     attn_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
     mlp_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+    ## Memory
+    model_size = get_model_size(model)
+    model_peak_memory_mb = benchmark_memory(model, MemoryTracker(), n_warmup, input_ids=input_ids, attention_mask=attention_mask)
 
     if quant_method:
         # Quantize
@@ -70,14 +74,22 @@ def benchmark_model(
         qmodel_cuda_time = benchmark_cuda_only_in_ms(qmodel, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
         qattn_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
         qmlp_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+        # Clean up Memory
+        torch.cuda.empty_cache()
+        gc.collect()
+        ## Memory
+        qmodel_size = get_model_size(qmodel)
+        qmodel_peak_memory_mb = benchmark_memory(qmodel, MemoryTracker(), n_warmup, input_ids=input_ids, attention_mask=attention_mask)
 
     # Log Results
     print("Baseline:")
+    print(f"\tModel Size: {model_size/1e9:.4f} GB\t\tCUDA Peak: {model_peak_memory_mb/1e3:.4f} GB")
     print(f"\tModel: Total: {model_time:.4f} ms\tCUDA: {model_cuda_time:.4f} ms")
     print(f"\tAttn: Total: {attn_time:.4f} ms\t\tCUDA: {attn_cuda_time:.4f} ms")
     print(f"\tMLP: Total: {mlp_time:.4f} ms\t\tCUDA: {mlp_cuda_time:.4f} ms")
     if quant_method:
         print("Quantized:")
+        print(f"\tModel Size: {qmodel_size/1e9:.4f} GB\t\tCUDA Peak: {qmodel_peak_memory_mb/1e3:.4f} GB")
         print(f"\tModel: Total: {qmodel_time:.4f} ms\tCUDA: {qmodel_cuda_time:.4f} ms")
         print(f"\tAttn: Total: {qattn_time:.4f} ms\t\tCUDA: {qattn_cuda_time:.4f} ms")
         print(f"\tMLP: Total: {qmlp_time:.4f} ms\t\tCUDA: {qmlp_cuda_time:.4f} ms")
