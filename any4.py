@@ -520,7 +520,8 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True
             sample_weight = sample_weight.to(scales.device) * scales
     else:
         Wg = W.float()
-        scales, zeros = 1, 0
+        scales, zeros = torch.ones(W.shape[0]), torch.zeros(W.shape[0])
+        scales_and_zeros = pack_scales_and_zeros(scales, zeros, W.shape)
 
     if abs_weight_sample_weight:
         if sample_weight is None:
@@ -838,7 +839,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
                 bias=module.bias is not None,
                 device=module.weight.device,
                 dtype=module.weight.dtype,
-                group_size=group_size,
+                group_size=group_size if group_size is not 0 else w.shape[1],
                 per_row=per_row,
                 kernel=kernel,
                 w_inner_k=w_inner_k,
