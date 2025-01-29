@@ -1,9 +1,11 @@
+import itertools
 from typing import Dict, List, Optional, Tuple, Type, Union
 from tqdm import tqdm
 import gc
 import json
 import numpy as np
 import os
+import random
 import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -13,7 +15,7 @@ from pathlib import Path
 
 from lm_eval.utils import simple_parse_args_string
 
-from utils import CustomJSONEncoder, remove_all_hooks
+from utils import CustomJSONEncoder, remove_all_hooks, trim_inputs
 from data_gptq import get_loaders
 
 default_prompt = """This is a diverse prompt that contains:
@@ -75,17 +77,20 @@ def calibrate(
     field: str = "text",
     seed: int = 42,
     batch_size: int = 1,
+    num_samples: Optional[int] = None,
     num_batches: Optional[int] = None,
     max_seq_len: Optional[int] = None,
     padding: bool = True,
-    truncate: bool = False,
+    truncate: Optional[bool] = None,
+    start_rand: bool = False,
     layers: List[str] = None,
     return_activations: bool = False,
     abs: bool = False,
     dataloader_type: Optional[str] = None,
 ):
-    if max_seq_len is not None:
-        truncate = True
+    if truncate is None:
+        if max_seq_len is not None and start_rand is False:
+            truncate = True
 
     global layer_to_sum_activations
     global layer_to_num_activations
@@ -101,19 +106,28 @@ def calibrate(
     if not isinstance(config, List):
         config = [config]
 
+    assert not (num_batches is not None and num_samples is not None), "Cannot specify both num_batch and num_samples. Can only specify one of them."
+
     # Apply inputs
     if dataset:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         for name in config:
             if dataloader_type is None:
-                # TODO: consider having `load_dataset_kwargs` dictionary to pass in cli
                 dataloader = load_dataset(dataset, name=name, split=split, streaming=True, **dataset_args).shuffle(seed=seed).iter(batch_size=batch_size)
+                if num_samples is not None:
+                    # TODO: fix this to num_batches rather than num_samples
+                    dataloader = itertools.islice(dataloader, num_samples)
             elif dataloader_type == "gptq":
                 # TODO: find a better way to automate setting default values
-                nsamples = num_batches // batch_size if num_batches is not None else 128
+                if num_samples is not None:
+                    num_samples_arg = num_samples
+                elif num_batches is not None:
+                    num_samples_arg = num_batches // batch_size
+                else:
+                    num_samples_arg = 128
                 max_seq_len = max_seq_len if max_seq_len is not None else 2048
-                dataloader, _ = get_loaders(dataset, tokenizer=tokenizer, seed=seed, seqlen=max_seq_len, nsamples=nsamples)
+                dataloader, _ = get_loaders(dataset, tokenizer=tokenizer, seed=seed, seqlen=max_seq_len, nsamples=num_samples_arg)
             else:
                 raise ValueError(f"Unsupported dataloader type {dataloader_type}.")
 
@@ -124,6 +138,18 @@ def calibrate(
                 # TODO: refactor code to avoid this if-condition
                 if dataloader_type is None:
                     inputs = tokenizer.batch_encode_plus(batch[field], return_tensors="pt", padding=padding, truncation=truncate, max_length=max_seq_len).to(model.device)
+
+                    if start_rand:
+                        rand_end_margin = max_seq_len + 1 if max_seq_len is not None else 1
+                        rand_end_margin = min(rand_end_margin, inputs.input_ids.shape[1] - 1)
+                        start_idx = random.randint(0, inputs.input_ids.shape[1] - rand_end_margin)
+                    else:
+                        start_idx = None
+                    if max_seq_len is not None:
+                        end_idx = start_idx + max_seq_len
+                    else:
+                        end_idx = None
+                    inputs = trim_inputs(inputs, start_idx, end_idx)
                 elif dataloader_type == "gptq":
                     inputs = {"input_ids": batch[0].to(model.device)}
 
@@ -164,10 +190,12 @@ def main(
     field: str = "text",
     seed: int = 42,
     batch_size: int = 1,
+    num_samples: Optional[int] = None,
     num_batches: Optional[int] = None,
     max_seq_len: Optional[int] = None,
     padding: bool = True,
-    truncate: bool = False,
+    truncate: Optional[bool] = None,
+    start_rand: bool = False,
     layers: List[str] = None,
     save_type: str = "pt",
     abs: bool = False,
@@ -202,10 +230,12 @@ def main(
         field=field,
         seed=seed,
         batch_size=batch_size,
+        num_samples=num_samples,
         num_batches=num_batches,
         max_seq_len=max_seq_len,
         padding=padding,
         truncate=truncate,
+        start_rand=start_rand,
         layers=layers,
         abs=abs,
         dataloader_type=dataloader_type,
@@ -236,6 +266,7 @@ if __name__ == '__main__':
     parser.add_argument("--device", type=str, default="auto", help="Device to use.")
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size.")
     parser.add_argument("--max-seq-len", type=int, default=None, help="Maximum sequence length.")
+    parser.add_argument("--num-samples", type=int, default=None, help="Limit on number of samples.")
     parser.add_argument("--num-batches", type=int, default=None, help="Limit on number of batches.")
     parser.add_argument("--log-dir", type=Path, default="./profiles", help="Directory to log to.")
     parser.add_argument("--save-type", type=str, default="pt", choices=["pt", "pickle"], help="Type of file to save calibrated activations.")
@@ -246,6 +277,7 @@ if __name__ == '__main__':
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
     parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
+    parser.add_argument("--start-rand", default=False, action=argparse.BooleanOptionalAction, help="Make each sample to start at a random start index.")
     parser.add_argument("--abs", default=False, action=argparse.BooleanOptionalAction, help="Apply absolute() on tensor before calculating average.")
     parser.add_argument("--dataloader-type", type=str, default=None, choices=[None, "gptq"], help="Whether to use a custom dataloader implementation used in other papers.")
     # TODO: add --task option to load data using lm_eval
@@ -267,8 +299,10 @@ if __name__ == '__main__':
         seed=args.seed,
         prompt=args.prompt,
         batch_size=args.batch_size,
+        num_samples=args.num_samples,
         num_batches=args.num_batches,
         max_seq_len=args.max_seq_len,
+        start_rand=args.start_rand,
         log_dir=args.log_dir,
         save_type=args.save_type,
         abs=args.abs,

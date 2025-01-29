@@ -176,3 +176,22 @@ def remove_all_hooks(model: torch.nn.Module) -> None:
             elif hasattr(child, "_backward_hooks"):
                 child._backward_hooks: Dict[int, Callable] = OrderedDict()
             remove_all_hooks(child)
+
+def trim_inputs(inputs, start_idx=None, end_idx=None):
+    """
+    Trim the inputs dictionary from a specific start index to an end index.
+    Args:
+        inputs (dict): The inputs dictionary returned by the tokenizer.
+        start_idx (int, optional): The start index. Defaults to None.
+        end_idx (int, optional): The end index. Defaults to None.
+    Returns:
+        dict: The trimmed inputs dictionary.
+    """
+    if start_idx is None and end_idx is None:
+        return inputs  # No trimming needed
+    elif start_idx is None:
+        return {key: value[:, :end_idx] for key, value in inputs.items()}
+    elif end_idx is None:
+        return {key: value[:, start_idx:] for key, value in inputs.items()}
+    else:
+        return {key: value[:, start_idx:end_idx] for key, value in inputs.items()}
