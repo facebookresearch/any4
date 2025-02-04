@@ -1,20 +1,43 @@
-from typing import Callable, Dict, List, Optional
-from pathlib import Path
 import json
 import os
-import numpy as np
-import pandas as pd
 import pickle
 import sys
-import torch
-import transformers
+from pathlib import Path
+from typing import Callable, Dict, List, Optional
+
 import lm_eval
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-from lm_eval.utils import simple_parse_args_string
+import numpy as np
+import pandas as pd
+import scipy
+import torch
+import transformers
 
-from any4 import convert, quant_methods, group_q
+from any4 import convert, group_q, quant_methods
+from lm_eval.utils import simple_parse_args_string
+from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats
 from utils import CustomJSONEncoder
+
+
+def get_entropy(t):
+    hist, bins = np.histogram(t.flatten().float().cpu(), bins="auto", density=True)
+    probs = hist / np.sum(hist)
+    return stats.entropy(probs, base=2)
+
+
+# Original
+
+
+def weighted_entropy(entropies, num_weight_entries):
+    total_weights = sum(num_weight_entries)
+    return sum(
+        [
+            ((num_weight_entries[idx] / total_weights) * entropy)
+            for idx, entropy in enumerate(entropies)
+        ]
+    )
+
 
 def main(
     model_name: str,
@@ -33,11 +56,11 @@ def main(
     # Log args
     args = locals()
     print(args)
-    with Path(log_dir/"args.json").open("w") as f:
+    with Path(log_dir / "args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
     # Log command to a file
-    arg_str = ' '.join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
+    arg_str = " ".join([arg.replace("'", "'\\''") for arg in sys.argv[1:]])
     with open(log_dir / "command_line.txt", "w") as f:
         f.write(f"python {os.path.basename(__file__)} {arg_str}\n")
 
@@ -48,17 +71,25 @@ def main(
         bnb_config = transformers.BitsAndBytesConfig(**bnb_args)
         model_args["quantization_config"] = bnb_config
 
-    lm_obj = lm_eval.models.huggingface.HFLM(pretrained=model_name, device=device, batch_size=bs, parallelize=parallelize, **model_args)
+    lm_obj = lm_eval.models.huggingface.HFLM(
+        pretrained=model_name,
+        device=device,
+        batch_size=bs,
+        parallelize=parallelize,
+        **model_args,
+    )
     model = lm_obj._model
 
     # Load calibration activations
     calib_activations = None
     if calib_activations_file:
         if calib_activations_file.endswith(".pickle"):
-            with open(calib_activations_file, 'rb') as handle:
+            with open(calib_activations_file, "rb") as handle:
                 calib_activations = pickle.load(handle)
         elif calib_activations_file.endswith(".pt"):
-            calib_activations = torch.load(calib_activations_file, map_location=torch.device(device))
+            calib_activations = torch.load(
+                calib_activations_file, map_location=torch.device(device)
+            )
 
     # Create list of modules
     modules = []
@@ -80,9 +111,13 @@ def main(
         w = module.weight.data.clone()
 
         # Apply on random inputs
-        x_uni = torch.rand(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
+        x_uni = torch.rand(
+            size=(bs, module.in_features), device=w.device, dtype=w.dtype
+        )
         y_uni = module(x_uni)
-        x_norm = torch.randn(size=(bs, module.in_features), device=w.device, dtype=w.dtype)
+        x_norm = torch.randn(
+            size=(bs, module.in_features), device=w.device, dtype=w.dtype
+        )
         y_norm = module(x_norm)
         if calib_activations:
             x_calib = calib_activations[name].to(w.device).to(w.dtype)
@@ -92,11 +127,15 @@ def main(
         # Log Stats
         (w_mean, w_std) = torch.std_mean(w)
         w_min, w_max = w.min(), w.max()
+        w_entropy = get_entropy(w)
         layer_stats["w_mean"] = w_mean.item()
         layer_stats["w_std"] = w_std.item()
         layer_stats["w_min"] = w_min.item()
         layer_stats["w_max"] = w_max.item()
-        print(f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}")
+        layer_stats["w_entropy"] = w_entropy.item()
+        print(
+            f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}, w_entropy_uq:{w_entropy.item}"
+        )
 
         # Plot Surface
         fig = plot_surface(w)
@@ -122,7 +161,9 @@ def main(
             layer_stats["x_calib_std"] = x_calib_std.item()
             layer_stats["x_calib_min"] = x_calib_min.item()
             layer_stats["x_calib_max"] = x_calib_max.item()
-            print(f"\tInput: Mean:{x_calib_mean.item()}, Std:{x_calib_std.item()}, Min:{x_calib_min.item()}, Max:{x_calib_max.item()}")
+            print(
+                f"\tInput: Mean:{x_calib_mean.item()}, Std:{x_calib_std.item()}, Min:{x_calib_min.item()}, Max:{x_calib_max.item()}"
+            )
 
             (y_calib_mean, y_calib_std) = torch.std_mean(y_calib)
             y_calib_min, y_calib_max = y_calib.min(), y_calib.max()
@@ -130,7 +171,9 @@ def main(
             layer_stats["y_calib_std"] = y_calib_std.item()
             layer_stats["y_calib_min"] = y_calib_min.item()
             layer_stats["y_calib_max"] = y_calib_max.item()
-            print(f"\tOutput: Mean:{y_calib_mean.item()}, Std:{y_calib_std.item()}, Min:{y_calib_min.item()}, Max:{y_calib_max.item()}")
+            print(
+                f"\tOutput: Mean:{y_calib_mean.item()}, Std:{y_calib_std.item()}, Min:{y_calib_min.item()}, Max:{y_calib_max.item()}"
+            )
 
             # Plot Line
             fig = plot_line(x_calib)
@@ -149,20 +192,36 @@ def main(
             # TODO: handle default arguments in a different way
             # TODO: consider reading wc from quantize or convert method
             per_layer_quant_args["n_bit"] = per_layer_quant_args.get("n_bit", 4)
-            per_layer_quant_args["group_size"] = per_layer_quant_args.get("group_size", w.shape[-1])
-            per_layer_quant_args["scale_only"] = per_layer_quant_args.get("scale_only", False)
+            per_layer_quant_args["group_size"] = per_layer_quant_args.get(
+                "group_size", w.shape[-1]
+            )
+            per_layer_quant_args["scale_only"] = per_layer_quant_args.get(
+                "scale_only", False
+            )
 
             ## Centred Weights
-            wc, _, scales_and_zeros = group_q(w, n_bit=per_layer_quant_args["n_bit"], q_group_size=per_layer_quant_args["group_size"], assymetric=not per_layer_quant_args["scale_only"])
+            wc, _, scales_and_zeros = group_q(
+                w,
+                n_bit=per_layer_quant_args["n_bit"],
+                q_group_size=per_layer_quant_args["group_size"],
+                assymetric=not per_layer_quant_args["scale_only"],
+            )
 
             # Log Stats
             (wc_mean, wc_std) = torch.std_mean(wc)
             wc_min, wc_max = wc.min(), wc.max()
+            wc_entropy = get_entropy(wc.round())
+            entropies.append(wc_entropy.item())
+            num_weight_entries.append(wc.numel())
+
             layer_stats["wc_mean"] = wc_mean.item()
             layer_stats["wc_std"] = wc_std.item()
             layer_stats["wc_min"] = wc_min.item()
             layer_stats["wc_max"] = wc_max.item()
-            print(f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}")
+            layer_stats["wc_entropy"] = wc_entropy.item()
+            print(
+                f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}, Wc_entropy:{wc_entropy.item()}, Weighted_entropy:{weight_entropy.item()}"
+            )
 
             # Plot Surface
             fig = plot_surface(wc)
@@ -180,22 +239,30 @@ def main(
             fig.savefig(pdf, format="pdf")
 
             ## Analyze Quantization
-            module = convert(module, layer_from=torch.nn.Linear, layer_to=quant_method, **per_layer_quant_args)
+            module = convert(
+                module,
+                layer_from=torch.nn.Linear,
+                layer_to=quant_method,
+                **per_layer_quant_args,
+            )
             wdeq = module.weight.data
 
             # Get mean square error
             y_uni_deq = module(x_uni)
             y_norm_deq = module(x_norm)
-            w_mse = torch.mean((w - wdeq)**2)
-            y_uni_mse = torch.mean((y_uni - y_uni_deq)**2)
-            y_norm_mse = torch.mean((y_norm - y_norm_deq)**2)
+            w_mse = torch.mean((w - wdeq) ** 2)
+            y_uni_mse = torch.mean((y_uni - y_uni_deq) ** 2)
+            y_norm_mse = torch.mean((y_norm - y_norm_deq) ** 2)
             layer_stats["w_mse"] = w_mse.item()
             layer_stats["y_uni_mse"] = y_uni_mse.item()
             layer_stats["y_norm_mse"] = y_norm_mse.item()
-            print(f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}", end=" ")
+            print(
+                f"\tMean Square Error: Weight:{w_mse}, Output: Uniform: {y_uni_mse} Normal: {y_norm_mse}",
+                end=" ",
+            )
             if calib_activations:
                 y_calib_deq = module(x_calib)
-                y_calib_mse = torch.mean((y_calib - y_calib_deq)**2)
+                y_calib_mse = torch.mean((y_calib - y_calib_deq) ** 2)
                 layer_stats["y_calib_mse"] = y_calib_mse.item()
                 print(f"Calib: {y_calib_mse}")
             else:
@@ -213,7 +280,9 @@ def main(
             layer_stats["wdeq_std"] = wdeq_std.item()
             layer_stats["wdeq_min"] = wdeq_min.item()
             layer_stats["wdeq_max"] = wdeq_max.item()
-            print(f"\tWeight Dequantized: Mean:{wdeq_mean.item()}, Std:{wdeq_std.item()}, Min:{wdeq_min.item()}, Max:{wdeq_max.item()}")
+            print(
+                f"\tWeight Dequantized: Mean:{wdeq_mean.item()}, Std:{wdeq_std.item()}, Min:{wdeq_min.item()}, Max:{wdeq_max.item()}"
+            )
 
             # Plot Surface
             fig = plot_surface(wdeq)
@@ -232,6 +301,9 @@ def main(
 
         print(flush=True)
 
+    weight_entropy = weighted_entropy(entropies, num_weight_entries)
+    print(f"\tWeight Centred: Weighted_average_entropy:{weight_entropy.item()}")
+
     pdf.close()
 
     # Log stats
@@ -239,6 +311,7 @@ def main(
     csv_path = log_dir / "stats.csv"
     print(f"Logging analysis to {csv_path}")
     df.to_csv(csv_path, index=False)
+
 
 def plot_line(x: torch.Tensor):
     assert x.dim() == 1
@@ -249,6 +322,7 @@ def plot_line(x: torch.Tensor):
     plt.grid(True)
     return fig
 
+
 def plot_histogram(x: torch.Tensor, bins: int):
     counts, bins = torch.histogram(x.float().cpu(), bins=bins)
     fig = plt.figure()
@@ -256,6 +330,7 @@ def plot_histogram(x: torch.Tensor, bins: int):
     plt.show()
     plt.close()
     return fig
+
 
 def plot_surface(x: torch.Tensor):
     # Create a figure with a 3D axis
@@ -269,7 +344,9 @@ def plot_surface(x: torch.Tensor):
     rows, cols = torch.meshgrid(rows, cols)
 
     # Plot the surface
-    surf = ax.plot_surface(rows.numpy(), cols.numpy(), x.float().cpu().numpy(), cmap="viridis")
+    surf = ax.plot_surface(
+        rows.numpy(), cols.numpy(), x.float().cpu().numpy(), cmap="viridis"
+    )
 
     # Add a color bar which maps values to colors
     fig.colorbar(surf, shrink=0.5, aspect=5)
@@ -285,29 +362,77 @@ def plot_surface(x: torch.Tensor):
     plt.close()
     return fig
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
     import argparse
-    parser = argparse.ArgumentParser(description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness.")
 
-    parser.add_argument("--model-name", type=str, default="meta-llama/Meta-Llama-3-8B", help="HuggingFace model name or path.")
-    parser.add_argument("--model-args", type=str, help="Comma separated string arguments for HuggingFace model.")
-    parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
-    parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
-    parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
-    parser.add_argument("--device", type=str, default=default_device, help="Device to use.")
-    parser.add_argument("--log-dir", type=Path, default="./analysis/tmp", help="Directory to log to.")
-    parser.add_argument("--row", type=int, default=0, help="Row of weight matrix to analyze.")
-    parser.add_argument("--calib-file", type=str, default=None, help="Path to calibration activations")
+    parser = argparse.ArgumentParser(
+        description="Evaluate any4 quantization on various language tasks using lm-evaluation-harness."
+    )
+
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="meta-llama/Meta-Llama-3-8B",
+        help="HuggingFace model name or path.",
+    )
+    parser.add_argument(
+        "--model-args",
+        type=str,
+        help="Comma separated string arguments for HuggingFace model.",
+    )
+    parser.add_argument(
+        "--quantize",
+        type=str,
+        choices=quant_methods.keys(),
+        help="Quantization method.",
+    )
+    parser.add_argument(
+        "--quantize-args",
+        type=str,
+        help="Comma separated string args to pass to quantization method.",
+    )
+    parser.add_argument(
+        "--bnb-args",
+        type=str,
+        help="Comma separated string args to pass to BitsAndBytes quantization config.",
+    )
+    parser.add_argument(
+        "--device", type=str, default=default_device, help="Device to use."
+    )
+    parser.add_argument(
+        "--log-dir", type=Path, default="./analysis/tmp", help="Directory to log to."
+    )
+    parser.add_argument(
+        "--row", type=int, default=0, help="Row of weight matrix to analyze."
+    )
+    parser.add_argument(
+        "--calib-file", type=str, default=None, help="Path to calibration activations"
+    )
 
     args = parser.parse_args()
 
     # Pre-process some args
-    model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
+    model_args = (
+        {} if not args.model_args else simple_parse_args_string(args.model_args)
+    )
     quant_method = None if not args.quantize else quant_methods[args.quantize]
-    quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    quant_args = (
+        {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    )
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
-    main(model_name=args.model_name, row=args.row, model_args=model_args, quant_method=quant_method, quant_args=quant_args, device=args.device, log_dir=args.log_dir, bnb_args=bnb_args, calib_activations_file=args.calib_file)
+    main(
+        model_name=args.model_name,
+        row=args.row,
+        model_args=model_args,
+        quant_method=quant_method,
+        quant_args=quant_args,
+        device=args.device,
+        log_dir=args.log_dir,
+        bnb_args=bnb_args,
+        calib_activations_file=args.calib_file,
+    )
