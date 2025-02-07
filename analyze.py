@@ -364,12 +364,15 @@ def plot_surface(x: torch.Tensor):
     return fig
 
 
-def plot_entropy(entropy_values):
+def plot_bar(x, title=None, xlabel=None, ylabel=None):
     fig, ax = plt.subplots()
-    ax.bar(range(len(entropy_values)), entropy_values)
-    ax.set_title("Entropy per Layer")
-    ax.set_xlabel("Layer Index")
-    ax.set_ylabel("Entropy")
+    ax.bar(range(len(x)), x)
+    if title:
+        fig.suptitle(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
     return fig
 
 
