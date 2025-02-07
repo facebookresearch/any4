@@ -288,23 +288,23 @@ def main(
 
         print(flush=True)
 
-    # Plot Entropy Distribution
-    fig = plot_entropy(entropies)
+    df = pd.DataFrame(layers_stats)
+
+    # Aggregate Stats across Layers
+    max_entropy = np.max(df["wc_entropy"])
+    min_entropy = np.min(df["wc_entropy"])
+    mean_entropy = np.average(df["wc_entropy"])
+    weighted_mean_entropy = np.average(df["wc_entropy"], weights=df["num_params"])
+
+    fig = plot_bar(df["wc_entropy"], title="Entropy per Layer", xlabel="Layer Index", ylabel="Entropy")
     fig.savefig(pdf, format="pdf")
 
-    max_entropy = np.max(entropies)
-    min_entropy = np.min(entropies)
-    mean_entropy = np.average(entropies)
-    weighted_mean_entropy = np.average(entropies, weights=num_weight_entries)
-    # weight_entropy = weighted_entropy(entropies, num_weight_entries)
-
-    with open(log_dir / "entropy_stats.txt", "w") as f:
+    # Log Aggregate Stats
+    with open(log_dir / "aggregate_stats.txt", "w") as f:
         f.write(f"Max Entropy: {max_entropy}\n")
         f.write(f"Min Entropy: {min_entropy}\n")
         f.write(f"Mean Entropy: {mean_entropy}\n")
         f.write(f"Weighted Mean Entropy: {weighted_mean_entropy}\n")
-    #    f.write(f"Weight Entropy: {weight_entropy}\n")
-
     pdf.close()
 
     # Log stats
