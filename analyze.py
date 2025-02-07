@@ -120,9 +120,10 @@ def main(
         layer_stats["w_std"] = w_std.item()
         layer_stats["w_min"] = w_min.item()
         layer_stats["w_max"] = w_max.item()
+        layer_stats["w_entropy"] = w_entropy
 
         print(
-            f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}"
+            f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}, Entropy: {w_entropy}"
         )
 
         # Plot Surface
