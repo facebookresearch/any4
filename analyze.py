@@ -101,9 +101,6 @@ def main(
             names.append(name)
             layers_stats.append({})
 
-    entropies = []
-    num_weight_entries = []
-
     # Analyze each module
     for name, module, layer_stats in zip(names, modules, layers_stats):
         print(f"{name}")
