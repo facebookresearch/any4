@@ -291,20 +291,26 @@ def main(
     df = pd.DataFrame(layers_stats)
 
     # Aggregate Stats across Layers
-    max_entropy = np.max(df["wc_entropy"])
-    min_entropy = np.min(df["wc_entropy"])
-    mean_entropy = np.average(df["wc_entropy"])
-    weighted_mean_entropy = np.average(df["wc_entropy"], weights=df["num_params"])
+    # TODO: do for all metrics not just wc_entropy.
+    if "wc_entropy" in df:
+        max_entropy = np.max(df["wc_entropy"])
+        min_entropy = np.min(df["wc_entropy"])
+        mean_entropy = np.average(df["wc_entropy"])
+        weighted_mean_entropy = np.average(df["wc_entropy"], weights=df["num_params"])
 
-    fig = plot_bar(df["wc_entropy"], title="Entropy per Layer", xlabel="Layer Index", ylabel="Entropy")
-    fig.savefig(pdf, format="pdf")
+    if "wc_entropy" in df:
+        fig = plot_bar(df["wc_entropy"], title="Entropy per Layer", xlabel="Layer Index", ylabel="Entropy")
+        fig.savefig(pdf, format="pdf")
 
     # Log Aggregate Stats
-    with open(log_dir / "aggregate_stats.txt", "w") as f:
-        f.write(f"Max Entropy: {max_entropy}\n")
-        f.write(f"Min Entropy: {min_entropy}\n")
-        f.write(f"Mean Entropy: {mean_entropy}\n")
-        f.write(f"Weighted Mean Entropy: {weighted_mean_entropy}\n")
+    aggregate_stats_path = log_dir / "aggregate_stats.txt"
+    print(f"Logging aggregate stats to {aggregate_stats_path}")
+    with open(aggregate_stats_path, "w") as f:
+        if "wc_entropy" in df:
+            f.write(f"Max Entropy: {max_entropy}\n")
+            f.write(f"Min Entropy: {min_entropy}\n")
+            f.write(f"Mean Entropy: {mean_entropy}\n")
+            f.write(f"Weighted Mean Entropy: {weighted_mean_entropy}\n")
     pdf.close()
 
     # Log stats
