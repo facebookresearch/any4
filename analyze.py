@@ -95,6 +95,8 @@ def main(
 
         # Store the weight
         w = module.weight.data.clone()
+        num_params = w.numel()
+        layer_stats["num_params"] = num_params
 
         # Apply on random inputs
         x_uni = torch.rand(
