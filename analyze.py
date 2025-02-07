@@ -26,6 +26,7 @@ def get_entropy(t):
     return stats.entropy(probs, base=2)
 
 
+"""
 def weighted_entropy(entropies, num_weight_entries):
     total_weights = sum(num_weight_entries)
     return sum(
@@ -34,6 +35,7 @@ def weighted_entropy(entropies, num_weight_entries):
             for idx, entropy in enumerate(entropies)
         ]
     )
+"""
 
 
 def main(
@@ -309,14 +311,14 @@ def main(
     min_entropy = np.min(entropies)
     mean_entropy = np.average(entropies)
     weighted_mean_entropy = np.average(entropies, weights=num_weight_entries)
-    weight_entropy = weighted_entropy(entropies, num_weight_entries)
+    # weight_entropy = weighted_entropy(entropies, num_weight_entries)
 
     with open(log_dir / "entropy_stats.txt", "w") as f:
         f.write(f"Max Entropy: {max_entropy}\n")
         f.write(f"Min Entropy: {min_entropy}\n")
         f.write(f"Mean Entropy: {mean_entropy}\n")
         f.write(f"Weighted Mean Entropy: {weighted_mean_entropy}\n")
-        f.write(f"Weight Entropy: {weight_entropy}\n")
+    #    f.write(f"Weight Entropy: {weight_entropy}\n")
 
     pdf.close()
 
