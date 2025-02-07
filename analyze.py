@@ -197,8 +197,6 @@ def main(
             (wc_mean, wc_std) = torch.std_mean(wc)
             wc_min, wc_max = wc.min(), wc.max()
             wc_entropy = get_entropy(wc.round())
-            entropies.append(wc_entropy.item())
-            num_weight_entries.append(wc.numel())
 
             layer_stats["wc_mean"] = wc_mean.item()
             layer_stats["wc_std"] = wc_std.item()
