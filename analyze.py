@@ -204,7 +204,7 @@ def main(
             layer_stats["wc_max"] = wc_max.item()
             layer_stats["wc_entropy"] = wc_entropy.item()
             print(
-                f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}, Wc_entropy:{wc_entropy.item()}"
+                f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}, Entropy:{wc_entropy.item()}"
             )
 
             # Plot Surface
