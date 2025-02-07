@@ -26,9 +26,6 @@ def get_entropy(t):
     return stats.entropy(probs, base=2)
 
 
-# Original
-
-
 def weighted_entropy(entropies, num_weight_entries):
     total_weights = sum(num_weight_entries)
     return sum(
@@ -102,6 +99,9 @@ def main(
             names.append(name)
             layers_stats.append({})
 
+    entropies = []
+    num_weight_entries = []
+
     # Analyze each module
     for name, module, layer_stats in zip(names, modules, layers_stats):
         print(f"{name}")
@@ -132,9 +132,9 @@ def main(
         layer_stats["w_std"] = w_std.item()
         layer_stats["w_min"] = w_min.item()
         layer_stats["w_max"] = w_max.item()
-        layer_stats["w_entropy"] = w_entropy.item()
+
         print(
-            f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}, w_entropy_uq:{w_entropy.item}"
+            f"\tWeight: Mean:{w_mean.item()}, Std:{w_std.item()}, Min:{w_min.item()}, Max:{w_max.item()}"
         )
 
         # Plot Surface
@@ -220,7 +220,7 @@ def main(
             layer_stats["wc_max"] = wc_max.item()
             layer_stats["wc_entropy"] = wc_entropy.item()
             print(
-                f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}, Wc_entropy:{wc_entropy.item()}, Weighted_entropy:{weight_entropy.item()}"
+                f"\tWeight Centred: Mean:{wc_mean.item()}, Std:{wc_std.item()}, Min:{wc_min.item()}, Max:{wc_max.item()}, Wc_entropy:{wc_entropy.item()}"
             )
 
             # Plot Surface
@@ -301,8 +301,22 @@ def main(
 
         print(flush=True)
 
+    # Plot Entropy Distribution
+    fig = plot_entropy(entropies)
+    fig.savefig(pdf, format="pdf")
+
+    max_entropy = np.max(entropies)
+    min_entropy = np.min(entropies)
+    mean_entropy = np.average(entropies)
+    weighted_mean_entropy = np.average(entropies, weights=num_weight_entries)
     weight_entropy = weighted_entropy(entropies, num_weight_entries)
-    print(f"\tWeight Centred: Weighted_average_entropy:{weight_entropy.item()}")
+
+    with open(log_dir / "entropy_stats.txt", "w") as f:
+        f.write(f"Max Entropy: {max_entropy}\n")
+        f.write(f"Min Entropy: {min_entropy}\n")
+        f.write(f"Mean Entropy: {mean_entropy}\n")
+        f.write(f"Weighted Mean Entropy: {weighted_mean_entropy}\n")
+        f.write(f"Weight Entropy: {weight_entropy}\n")
 
     pdf.close()
 
@@ -360,6 +374,15 @@ def plot_surface(x: torch.Tensor):
     ax.set_zlim(x.min().item(), x.max().item())
 
     plt.close()
+    return fig
+
+
+def plot_entropy(entropy_values):
+    fig, ax = plt.subplots()
+    ax.bar(range(len(entropy_values)), entropy_values)
+    ax.set_title("Entropy per Layer")
+    ax.set_xlabel("Layer Index")
+    ax.set_ylabel("Entropy")
     return fig
 
 
