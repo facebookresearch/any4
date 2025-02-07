@@ -25,19 +25,6 @@ def get_entropy(t):
     probs = hist / np.sum(hist)
     return stats.entropy(probs, base=2)
 
-
-"""
-def weighted_entropy(entropies, num_weight_entries):
-    total_weights = sum(num_weight_entries)
-    return sum(
-        [
-            ((num_weight_entries[idx] / total_weights) * entropy)
-            for idx, entropy in enumerate(entropies)
-        ]
-    )
-"""
-
-
 def main(
     model_name: str,
     row: int,
