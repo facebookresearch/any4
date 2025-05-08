@@ -1,6 +1,6 @@
 ipywidgets==8.1.5
 torch>=2.6.0
-transformers==4.48.0
+transformers==4.50.0
 bitsandbytes==0.43.1
 accelerate==0.30.1
 lm_eval==0.4.5
