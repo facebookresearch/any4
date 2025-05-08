@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 import argparse
 import json
 import pandas as pd
@@ -44,7 +50,7 @@ for json_path in directories:
 
     # Prepare a dictionary to hold the extracted data for this file
     extracted_data = {'Directory': os.path.dirname(json_path)}
-    
+
     # Iterate over each key in the JSON data
     for dataset, metrics in data.items():
         if isinstance(metrics, dict):
@@ -60,7 +66,7 @@ for json_path in directories:
                     extracted_data[header] = value
         else:
             extracted_data[dataset] = metrics
-    
+
     # Append the extracted data to the list
     all_data.append(extracted_data)
 

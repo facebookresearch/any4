@@ -1,9 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 import numpy as np
 import faiss
 
 d = 32  # data dimension
 
-# train set 
+# train set
 nt = 10000
 xt = np.random.rand(nt, d).astype('float32')
 
@@ -15,7 +21,7 @@ x = np.random.rand(n, d).astype('float32')
 sq = faiss.ScalarQuantizer(d, faiss.ScalarQuantizer.QT_8bit)
 sq.train(xt)
 
-# encode 
+# encode
 codes = sq.compute_codes(x)
 
 # decode

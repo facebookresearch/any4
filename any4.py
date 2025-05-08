@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Callable, Dict, List, Tuple, Type
 import random
 import time
@@ -17,11 +23,11 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
         if isinstance(module, layer_type):
             count += 1
-        
+
         if len(list(module.children())) > 0:
             # recurse
             count += count_layer_type(module, layer_type, 0)
-    return count 
+    return count
 
 def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
@@ -405,7 +411,7 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
         #
         # Note that there is no guarantee that each q-group is itself zero centered (there can be a "DC bias")
         # but note that across all q-groups, values closer to 0 and closer to 15 are extremal values
-        x = x - ((2 ** n_bit) - 1) / 2. 
+        x = x - ((2 ** n_bit) - 1) / 2.
         # give more weight to extremal values by considering the signed square
         x = (x.abs() ** bias_pow) * torch.sign(x)
 

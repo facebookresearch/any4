@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -111,7 +117,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
             self.input_ids = input_ids
     valenc = TokenizerWrapper(valenc)
 
-    return trainloader, valenc 
+    return trainloader, valenc
 
 def get_ptb_new(nsamples, seed, seqlen, tokenizer):
     from datasets import load_dataset

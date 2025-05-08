@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Callable, Dict, Optional
 import argparse
 import gc
@@ -133,4 +139,3 @@ if __name__ == '__main__':
         n_warmup=args.warmup,
         n_iters=args.iters,
     )
-

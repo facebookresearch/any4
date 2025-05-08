@@ -80,7 +80,7 @@ python eval.py --model-name facebook/opt-125m --quantize intq --tasks piqa
 ```
 
 Arguments:
-- `--tasks`: by default it runs a large number of natural language, coding, and perplexity evaluation tasks: 
+- `--tasks`: by default it runs a large number of natural language, coding, and perplexity evaluation tasks:
     - You can specify a space separate list of tasks, e.g., `--tasks piqa mbpp`.
     - You can pass in any task supported by [Eleuther LM Eval Harness](https://github.com/EleutherAI/lm-evaluation-harness), [BigCode Eval Harness](https://github.com/bigcode-project/bigcode-evaluation-harness), and any Hugging Face dataset to measure its perplexity.
 
@@ -110,3 +110,6 @@ python -m pytest .
 # TODOs:
 - Add Notebook
 - Integrate with torchao
+
+## License
+tinygemm and any4 quantization code are CC-BY-NC 4.0 licensed, as found in the LICENSE file.

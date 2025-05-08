@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 import torch
 import time
 from utils import log, get_max_n_numbers, get_min_n_numbers
@@ -45,12 +51,12 @@ def build_init(x, n_clusters, init_type):
             # NOTE: What I did here doesn't really make sense for D > 1.
             assert K == 16, "nf4 only works with 16 clusters"
             init = torch.zeros(K, D)
-            for i in range(D):                
+            for i in range(D):
                 init_vals = torch.Tensor(nf4)       # -1 to +1
                 init_vals += 1                  # 0 to +2
                 init_vals /= 2                  # 0 to +1
                 init_vals *= x[:, i].max() - x[:, i].min() # 0 to max-min
-                init_vals += x[:, i].min()      # min to max 
+                init_vals += x[:, i].min()      # min to max
                 init[:, i] = init_vals
             return init
 
