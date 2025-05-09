@@ -1,6 +1,6 @@
 # any4 + tinygemm
 
-This repo contains the tinygemm low-letency / small batch size GEMM library which implements bf16/fp16, int4 grouped quantization, any4 grouped quantization and MX4 quantization, and the code containing the technique to learn any4 quantization codes. 
+This repo contains the tinygemm low-letency / small batch size Nvidia GPU GEMM library which implements bf16/fp16, int4 grouped quantization, any4 grouped quantization and MX4 quantization, and the code containing the technique to learn any4 quantization codes. 
 
 This code release is meant to accompany the accepted ICML 2025 paper *any4: Learned 4-bit Numeric Representation for LLMs* by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo), which will be available on arXiv soon.
 
