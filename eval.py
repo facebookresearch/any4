@@ -69,7 +69,7 @@ def main(
     num_samples: Optional[int] = None,
     batch_size: Optional[int] = None,
     append_results: Optional[bool] = False,
-    overwrite_results: Optional[bool] = False,
+    overwrite_results: Optional[bool] = True,
     load_weights: Optional[Path] = None,
     tokenizer_name: Optional[str] = None,
     save_weights: Optional[bool] = False,
@@ -334,7 +334,7 @@ if __name__ == '__main__':
     parser.add_argument("--generation-args", type=str, help="Comma separated string args to pass to lm_eval and BigCode generation args.")
     parser.add_argument("--log-dir", type=Path, default="./logs/tmp", help="Directory to log to.")
     parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
-    parser.add_argument("--overwrite-results", default=False, action=argparse.BooleanOptionalAction, help="If task already exist in results.json, re-run and overwrite it.")
+    parser.add_argument("--overwrite-results", default=True, action=argparse.BooleanOptionalAction, help="If task already exist in results.json, re-run and overwrite it.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log_dir.")
     parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
     parser.add_argument("--save-model", default=False, action=argparse.BooleanOptionalAction, help="Save model in HF format after quantizing to args.log_dir.")
