@@ -9,10 +9,6 @@
 import unittest
 import torch
 
-import tinygemm
-from tinygemm.utils import group_quantize_tensor
-import tinygemm.functional
-
 
 def do_y_f16TC_x_f16TC_W_int4TC(x, w, q_group, w_inner_k, x_inner_k=1):
     y_ref = x @ w.t()
@@ -71,6 +67,14 @@ def do_y_f16RM_W_int4TC_x_f16RM(x, w, q_group, w_inner_k):
 
 
 class Test_y_f16TC_x_f16TC_W_int4TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -148,6 +152,14 @@ class Test_y_f16TC_x_f16TC_W_int4TC(unittest.TestCase):
 
 
 class Test_y_f16TC_W_int4TC_x_f16TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -241,6 +253,14 @@ class Test_y_f16TC_W_int4TC_x_f16TC(unittest.TestCase):
 
 
 class Test_y_f16RM_x_f16RM_W_int4TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -317,6 +337,14 @@ class Test_y_f16RM_x_f16RM_W_int4TC(unittest.TestCase):
 
 
 class Test_y_f16RM_W_int4TC_x_f16RM(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
