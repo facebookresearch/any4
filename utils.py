@@ -11,9 +11,16 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, OrderedDict
 import torch
 import numpy as np
+import unittest
 from torch._inductor.utils import do_bench_using_profiling
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
+
+def import_or_skip(module_name: str):
+    try:
+        return __import__(module_name)
+    except ImportError:
+        return None
 
 def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
     for _ in range(warmup):

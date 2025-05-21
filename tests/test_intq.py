@@ -11,6 +11,7 @@ import itertools
 import numpy as np
 
 import any4
+from utils import import_or_skip
 
 class TestIntQ(unittest.TestCase):
     @parameterized.expand([
@@ -49,6 +50,7 @@ class TestIntQ(unittest.TestCase):
         for n_bit in [4, 8]
         for dtype in [torch.float16, torch.bfloat16]
     ])
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_quantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.bfloat16):
         new_grouping = False
         zero_point = True
@@ -77,6 +79,7 @@ class TestIntQ(unittest.TestCase):
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**n_bit == 0 and input_dim % group_size == 0 and not (functional_api=="linear_y_f16RM_x_f16RM_W_int4TC" and w_inner_k==1) # Conditions to filter combinations
     ])
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_int4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
@@ -122,6 +125,7 @@ class TestIntQ(unittest.TestCase):
 
     # TODO: support int4, int8
     # TODO: sweep over parameters
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
 
@@ -160,6 +164,7 @@ class TestIntQ(unittest.TestCase):
 
     # TODO: support int4, int8
     # TODO: sweep over parameters
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_conversion_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         new_grouping = False
