@@ -11,9 +11,6 @@ import itertools
 import numpy as np
 
 import any4
-from modules import Int4Linear
-import tinygemm
-import tinygemm.utils
 
 class TestIntQ(unittest.TestCase):
     @parameterized.expand([
@@ -57,6 +54,8 @@ class TestIntQ(unittest.TestCase):
         zero_point = True
         w = torch.randn(M, N, dtype=dtype, device="cuda")
 
+        import tinygemm
+        import tinygemm.utils
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, _, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
 
@@ -89,6 +88,8 @@ class TestIntQ(unittest.TestCase):
         x = torch.randn(bs, input_dim, dtype=dtype, device=device)
         y_ref = x @ w.t()
 
+        import tinygemm
+        import tinygemm.utils
         w_int32, w_scales_and_zeros = tinygemm.utils.group_quantize_tensor(
             w, n_bit=n_bit, q_group_size=group_size
         )
@@ -135,6 +136,9 @@ class TestIntQ(unittest.TestCase):
 
         y_ref = linear(x)
 
+        from modules import Int4Linear
+        import tinygemm
+        import tinygemm.utils
         linear_quant = Int4Linear(
             in_features=input_dim,
             out_features=output_dim,

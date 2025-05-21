@@ -11,7 +11,6 @@ import itertools
 import numpy as np
 
 import any4
-from modules import Any4Linear
 import tinygemm
 import tinygemm.functional
 import tinygemm.utils
@@ -154,6 +153,7 @@ class TestAnyQ(unittest.TestCase):
 
         y_ref = linear(x)
 
+        from modules import Any4Linear
         linear_quant = Any4Linear(
             in_features=input_dim,
             out_features=output_dim,
