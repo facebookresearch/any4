@@ -61,7 +61,6 @@ Most of the scripts below will run baseline fp16 model by default. To quantize a
 - `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `anyq` (proposed lookup table quantization).
     - `--quantize-args`: comma-separated arguments to pass to a quantization algorithm, e.g., `--quantize-args n_bit=4,group_size=32` will perform 4-bit quantization with group size 32.
 - `--bnb-args`: comma-separated arguments to pass to [`BitsAndBytesConfig`](https://huggingface.co/docs/transformers/v4.46.3/en/main_classes/quantization#transformers.BitsAndBytesConfig), e.g., `load_in_4bit=True,bnb_4bit_compute_dtype=fp32`
-- `--torchao-args`: TBD
 
 ### Quick Example
 To run a simple text generation (with and without) quantization example script that you can try and edit:
@@ -112,7 +111,7 @@ python -m pytest .
 ```
 
 # TODOs:
-- Add Notebook
+- Add Notebook tutorial
 - Integrate with torchao
 - any4 LUT dequantization is currently via warp shuffle in the GEMM core, but higher throughput might be achievable by using smem to dequantize 2 x any4 codes (1 byte) at a time instead at the possible expense of added bank conflights.
 
