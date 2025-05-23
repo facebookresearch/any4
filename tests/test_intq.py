@@ -190,12 +190,20 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
-    # TODO: sweep over parameters
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
-    def test_conversion_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
+    # TODO: sweep over more parameters
+    @parameterized.expand([
+        (pseudo)
+        for pseudo in [True, False]
+    ])
+    def test_conversion_module(self, pseudo, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         new_grouping = False
-        zero_point = True
+        # Currently, tinygemm kernels (pseudo=False) only support zero_point, and pseudo=True only passes when zero_point is False
+        zero_point = not pseudo
+        if pseudo == False:
+            # TODO: fix the condition
+            if import_or_skip("tinygemm"):
+                self.skipTest("tinygemm not installed")
 
         linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
 
@@ -214,7 +222,7 @@ class TestIntQ(unittest.TestCase):
             group_size=group_size,
             new_grouping=new_grouping,
             zero_point=zero_point,
-            pseudo=False,
+            pseudo=pseudo,
         )
         y = linear_quant(x)
 
