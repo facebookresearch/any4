@@ -27,13 +27,16 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count
 
-def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
+def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, pre_process_fn = None, pre_process_args={}, **kwargs):
     index = 0
 
     calibrate_fn = None
     if "sample_weight" in kwargs:
         if isinstance(kwargs["sample_weight"], Callable):
             calibrate_fn = kwargs["sample_weight"]
+
+    if pre_process_fn:
+        model = pre_process_fn(model, tokenizer, **pre_process_args)
 
     # TODO: use tqdm instead of printing each layer name
     for name, module in list(model.named_modules()):
