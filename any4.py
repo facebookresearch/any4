@@ -845,7 +845,7 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
                 bias=module.bias is not None,
                 device=module.weight.device,
                 dtype=module.weight.dtype,
-                group_size=group_size if group_size is not 0 else w.shape[1],
+                group_size=group_size if group_size != 0 else w.shape[1],
                 per_row=per_row,
                 kernel=kernel,
                 w_inner_k=w_inner_k,
