@@ -11,9 +11,7 @@ import itertools
 import numpy as np
 
 import any4
-from modules import Int4Linear
-import tinygemm
-import tinygemm.utils
+from utils import import_or_skip
 
 class TestIntQ(unittest.TestCase):
     @parameterized.expand([
@@ -45,6 +43,33 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(w, wdeq)
 
     @parameterized.expand([
+        (M, N, group_size, n_bit, unsigned)
+        for M in [1, 4, 8, 24]
+        for N in [256, 1024, 2048]
+        for group_size in [32, 64, 128]
+        for n_bit in [2, 3, 4, 6, 8]
+        for unsigned in [True, False]
+        if group_size % 2**n_bit == 0 and N % group_size == 0  # Conditions to filter combinations
+    ])
+    def test_reconstruct(self, M=4096, N=4096, group_size=64, n_bit=4, unsigned=True, dtype=torch.float32):
+        device = "cuda"
+        new_grouping = False
+        zero_point = False
+        assert group_size % 2**n_bit == 0, f"This test case assumes that group_size is a multiple of 2**n_bit, but instead we got group_size={group_size}, n_bit={n_bit}."
+        assert N % group_size == 0, f"This test case assumes that number of elements per row is a multiple of group_size, but instead we got N={N}, group_size={group_size}."
+
+        # if the weights are equally spaced and have the same the number of samples as 2**n_bit, quantizing and dequantizing should be exact
+        a, b = np.random.normal(), np.random.normal()
+        w_min, w_max = min(a, b), max(a, b)
+        w_vals = torch.linspace(start=w_min, end=w_max, steps=2**n_bit, dtype=dtype, device=device)
+        w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
+        w = w_vals[w_indices]
+
+        wdeq = any4.intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
+
+        torch.testing.assert_close(w, wdeq)
+
+    @parameterized.expand([
         (M, N, group_size, n_bit, dtype)
         for M in [1, 4, 8, 24]
         for N in [256, 1024, 2048]
@@ -52,11 +77,14 @@ class TestIntQ(unittest.TestCase):
         for n_bit in [4, 8]
         for dtype in [torch.float16, torch.bfloat16]
     ])
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_quantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.bfloat16):
         new_grouping = False
         zero_point = True
         w = torch.randn(M, N, dtype=dtype, device="cuda")
 
+        import tinygemm
+        import tinygemm.utils
         wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, _, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
 
@@ -78,6 +106,7 @@ class TestIntQ(unittest.TestCase):
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**n_bit == 0 and input_dim % group_size == 0 and not (functional_api=="linear_y_f16RM_x_f16RM_W_int4TC" and w_inner_k==1) # Conditions to filter combinations
     ])
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_int4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
@@ -89,6 +118,8 @@ class TestIntQ(unittest.TestCase):
         x = torch.randn(bs, input_dim, dtype=dtype, device=device)
         y_ref = x @ w.t()
 
+        import tinygemm
+        import tinygemm.utils
         w_int32, w_scales_and_zeros = tinygemm.utils.group_quantize_tensor(
             w, n_bit=n_bit, q_group_size=group_size
         )
@@ -121,6 +152,7 @@ class TestIntQ(unittest.TestCase):
 
     # TODO: support int4, int8
     # TODO: sweep over parameters
+    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
 
@@ -135,6 +167,9 @@ class TestIntQ(unittest.TestCase):
 
         y_ref = linear(x)
 
+        from modules import Int4Linear
+        import tinygemm
+        import tinygemm.utils
         linear_quant = Int4Linear(
             in_features=input_dim,
             out_features=output_dim,
@@ -155,11 +190,20 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
-    # TODO: sweep over parameters
-    def test_conversion_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
+    # TODO: sweep over more parameters
+    @parameterized.expand([
+        (pseudo)
+        for pseudo in [True, False]
+    ])
+    def test_conversion_module(self, pseudo, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         new_grouping = False
-        zero_point = True
+        # Currently, tinygemm kernels (pseudo=False) only support zero_point, and pseudo=True only passes when zero_point is False
+        zero_point = not pseudo
+        if pseudo == False:
+            # TODO: fix the condition
+            if import_or_skip("tinygemm"):
+                self.skipTest("tinygemm not installed")
 
         linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
 
@@ -178,7 +222,7 @@ class TestIntQ(unittest.TestCase):
             group_size=group_size,
             new_grouping=new_grouping,
             zero_point=zero_point,
-            pseudo=False,
+            pseudo=pseudo,
         )
         y = linear_quant(x)
 

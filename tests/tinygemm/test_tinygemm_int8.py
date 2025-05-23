@@ -9,12 +9,16 @@
 import unittest
 import torch
 
-import tinygemm
-from tinygemm.utils import group_quantize_tensor
-import tinygemm.functional
-
 
 class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -111,6 +115,14 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
 
 
 class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -173,6 +185,14 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
 
 
 class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 
@@ -266,6 +286,14 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
 
 
 class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_identity_mul(self):
         dev = torch.device("cuda:0")
 

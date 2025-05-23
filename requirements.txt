@@ -1,8 +1,8 @@
 ipywidgets==8.1.5
 torch>=2.6.0
 transformers==4.50.0
-bitsandbytes==0.43.1
-accelerate==0.30.1
+bitsandbytes==0.45.5
+accelerate==0.32.0
 lm_eval==0.4.5
 optimum==1.23.3
 bigcode_eval @ git+https://github.com/bigcode-project/bigcode-evaluation-harness.git@0f3e95f0806e78a4f432056cdb1be93604a51d69

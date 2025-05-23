@@ -17,8 +17,6 @@ import bitsandbytes as bnb
 import kmeans
 import gc
 
-from modules import Any4Linear, Int4Linear
-
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
         if isinstance(module, layer_type):
@@ -175,7 +173,7 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=True, **kwargs):
+def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=False, **kwargs):
     if new_grouping:
         intq, scales, zeros = group_q1(x, n_bit=n_bit, assymetric=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
@@ -201,9 +199,9 @@ def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, zero_point=True, *args, **kwargs):
-    intq, intq_zeros, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, parallelize=parallelize, scale_only=scale_only, new_grouping=new_grouping, zero_point=zero_point)
-    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, zeros=intq_zeros, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, dtype=x.dtype)
+def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, unsigned=False, new_grouping=False, zero_point=False,  scale_only=False, dtype=torch.float16, *args, **kwargs):
+    intq, intq_zeros, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only, unsigned=unsigned, zero_point=zero_point)
+    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
     return reconstructed
 
@@ -344,6 +342,7 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
             zeros = zeros.t()
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, w.shape)
         if n_bit == 4:
+            from modules import Int4Linear
             qmodule = Int4Linear(
                 in_features=module.in_features,
                 out_features=module.out_features,
@@ -839,13 +838,14 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
         intq, lut, scales_and_zeros = anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
 
         if n_bit == 4:
+            from modules import Any4Linear
             qmodule = Any4Linear(
                 in_features=module.in_features,
                 out_features=module.out_features,
                 bias=module.bias is not None,
                 device=module.weight.device,
                 dtype=module.weight.dtype,
-                group_size=group_size if group_size is not 0 else w.shape[1],
+                group_size=group_size if group_size != 0 else w.shape[1],
                 per_row=per_row,
                 kernel=kernel,
                 w_inner_k=w_inner_k,

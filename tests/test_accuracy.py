@@ -21,6 +21,7 @@ class TestEval(unittest.TestCase):
         tasks = ["c4"]
         expected_results = [13.952826499938965]
 
+        # TODO: create separate test_calibrate.py
         results = eval(
             model_name=model_name,
             model_args={"dtype":dtype},
@@ -29,7 +30,7 @@ class TestEval(unittest.TestCase):
                 "group_size":128,
                 "skip_modules":"lm_head",
                 "scale_sample_weight":True,
-                "sample_weight":"./profiles/meta-llama/Llama-3.2-1B/prompt/prompt.pt",
+                "sample_weight":"calibrate",
             },
             tasks=tasks,
             device=device,

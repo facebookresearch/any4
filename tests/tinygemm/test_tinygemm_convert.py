@@ -13,6 +13,14 @@ import torch
 import tinygemm
 
 class TestConvert(unittest.TestCase):
+    def setUp(self):
+        try:
+            import tinygemm
+            import tinygemm.functional
+            from tinygemm.utils import group_quantize_tensor
+        except ImportError:
+            self.skipTest("tinygemm is not installed")
+
     def test_convert_A_exact_tile(self):
         dev = torch.device("cuda:0")
 
