@@ -114,6 +114,7 @@ python -m pytest .
 - Add Notebook tutorial
 - Integrate with torchao
 - any4 LUT dequantization is currently via warp shuffle in the GEMM core, but higher throughput might be achievable by using smem to dequantize 2 x any4 codes (1 byte) at a time instead at the possible expense of added bank conflights.
+- add commands/table to reproduce results from paper
 
 ## License
 tinygemm and any4 quantization code are CC-BY-NC 4.0 licensed, as found in the LICENSE file.
