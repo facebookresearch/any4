@@ -299,12 +299,6 @@ def degroup_q1(
     if scales is None:
         scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, q_group_size)
 
-    org_w_shape = w.shape
-    if q_group_size > 0:
-        assert org_w_shape[-1] % q_group_size == 0
-        w = w.reshape(-1, q_group_size)
-    assert w.dim() == 2
-
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(w).sum() == 0
 
@@ -313,8 +307,6 @@ def degroup_q1(
     else:
         w = (w - zeros) * scales
     assert torch.isnan(w).sum() == 0
-
-    w = w.reshape(org_w_shape)
 
     return w
 
