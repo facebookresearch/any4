@@ -4,7 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Callable, Type
+from typing import Dict, Callable, Optional, Type
 import json
 import os
 import pickle
@@ -17,9 +17,11 @@ from pathlib import Path
 from utils import CustomJSONEncoder
 from lm_eval.utils import simple_parse_args_string
 from any4 import convert, quant_methods
+from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import remove_all_hooks, dtype_str_to_torch
 
+# TODO: This also exists in calibrate.py. move to one file?
 default_prompt = """This is a diverse prompt that contains:
                 - Fiction: "Once upon a time, a girl named Alice was living alone on an island. One day, she met a wizard ..."
                 - News: "The United Nations held its General Assembly meeting this year amid multiple world crises and wars. In his speech, the General Secretary called for ..."
@@ -48,6 +50,8 @@ def main(
     device: str,
     quant_args: Dict,
     quant_method: Callable,
+    pre_quant_method: Optional[Callable] = None,
+    pre_quant_args: Optional[Dict] = {},
     prompt: str = default_prompt,
     calibrate_args: Dict = {},
     log_dir: Path = "./diffs",
@@ -94,6 +98,8 @@ def main(
                 quant_args["sample_weight"] = torch.load(quant_args["sample_weight"], map_location=torch.device(model.device))
             elif quant_args["sample_weight"] == "calibrate":
                 quant_args["sample_weight"] = calibrate
+    if pre_quant_method:
+        model = pre_quant_method(model, tokenizer, **pre_quant_args)
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
         model = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, calibrate_args=calibrate_args, **quant_args)
@@ -136,6 +142,8 @@ if __name__ == '__main__':
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Prompt to apply.")
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
+    parser.add_argument("--pre-quantize", type=str, choices=pre_quant_methods.keys(), help="Quantization pre-processing method.")
+    parser.add_argument("--pre-quantize-args", type=str, help="Comma separated string args to pass to quantization pre-process function.")
     parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
     parser.add_argument("--log-dir", type=Path, default="./diffs", help="Directory to log to.")
 
@@ -144,6 +152,8 @@ if __name__ == '__main__':
     # Pre-process some args
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    pre_quant_method = None if not args.pre_quantize else pre_quant_methods[args.pre_quantize]
+    pre_quant_args = {} if not args.pre_quantize_args else simple_parse_args_string(args.pre_quantize_args)
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
     model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
 
@@ -155,6 +165,8 @@ if __name__ == '__main__':
         prompt=args.prompt,
         quant_method=quant_method,
         quant_args=quant_args,
+        pre_quant_method=pre_quant_method,
+        pre_quant_args=pre_quant_args,
         calibrate_args=calibrate_args,
         log_dir=args.log_dir
     )

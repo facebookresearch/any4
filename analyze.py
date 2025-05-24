@@ -20,6 +20,7 @@ import torch
 import transformers
 
 from any4 import convert, group_q, quant_methods
+from pre_process.pre_quant import pre_quant_methods
 from lm_eval.utils import simple_parse_args_string
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import stats
@@ -43,6 +44,8 @@ def main(
     bs: int = 10,
     parallelize: bool = True,
     calib_activations_file: Optional[Dict] = None,
+    pre_quant_method: Optional[Callable] = None,
+    pre_quant_args: Optional[Dict] = {},
 ):
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
@@ -82,6 +85,10 @@ def main(
             calib_activations = torch.load(
                 calib_activations_file, map_location=torch.device(device)
             )
+
+    # Apply pre-quantization
+    if pre_quant_method:
+        model = pre_quant_method(model, tokenizer, **pre_quant_args)
 
     # Create list of modules
     modules = []
@@ -419,6 +426,8 @@ if __name__ == "__main__":
         type=str,
         help="Comma separated string args to pass to quantization method.",
     )
+    parser.add_argument("--pre-quantize", type=str, choices=pre_quant_methods.keys(), help="Quantization pre-processing method.")
+    parser.add_argument("--pre-quantize-args", type=str, help="Comma separated string args to pass to quantization pre-process function.")
     parser.add_argument(
         "--bnb-args",
         type=str,
@@ -447,6 +456,8 @@ if __name__ == "__main__":
     quant_args = (
         {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
     )
+    pre_quant_method = None if not args.pre_quantize else pre_quant_methods[args.pre_quantize]
+    pre_quant_args = {} if not args.pre_quantize_args else simple_parse_args_string(args.pre_quantize_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
 
     # Run Evaluation
@@ -454,6 +465,8 @@ if __name__ == "__main__":
         model_name=args.model_name,
         row=args.row,
         model_args=model_args,
+        pre_quant_method=pre_quant_method,
+        pre_quant_args=pre_quant_args,
         quant_method=quant_method,
         quant_args=quant_args,
         device=args.device,
