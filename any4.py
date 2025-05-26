@@ -790,7 +790,7 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, **kwargs):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, other_impl=False, **kwargs):
     w = module.weight
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
@@ -803,7 +803,11 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
 
         # TODO: implement this try-except with a decorator to the function?
         try:
-            w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+            if other_impl:
+                from pre_process.awq.quantizer import pseudo_any_quantize_tensor
+                w_deq = pseudo_any_quantize_tensor(w.detach().half(), n_bit=n_bit, zero_point=True, q_group_size=group_size, get_scale_zp=False)
+            else:
+                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
         except RuntimeError as e:
             if 'out of memory' in str(e):
                 torch.cuda.empty_cache()
