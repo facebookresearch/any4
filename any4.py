@@ -262,8 +262,8 @@ def group_q1(
         min_val = w.amin(dim=1, keepdim=True)
         max_int = 2**n_bit - 1
         min_int = 0
-        scales = (max_val - min_val).clamp(min=1e-5) / max_int
-        zeros = (-torch.round(min_val / scales)).clamp_(min_int, max_int)
+        scales = (max_val - min_val).clamp(min=1e-5) / (max_int - min_int)
+        zeros = (min_int -torch.round(min_val / scales)).clamp_(min_int, max_int)
     else:  # we actually never used this
         max_val = w.abs().amax(dim=1, keepdim=True)
         max_val = max_val.clamp(min=1e-5)
