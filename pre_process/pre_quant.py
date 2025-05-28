@@ -1,3 +1,4 @@
+import os
 import torch
 from accelerate import (
     infer_auto_device_map,
@@ -19,6 +20,7 @@ def awq(
     seqlen=512,
     calib_data="pileval",
     load_awq=None,
+    dump_awq=None,
     **kwargs
 ):
     orig_device_map = infer_auto_device_map(model)
@@ -42,6 +44,16 @@ def awq(
             calib_data=calib_data,
             **kwargs,
         )
+
+    if dump_awq:
+        dirpath = os.path.dirname(dump_awq)
+        os.makedirs(dirpath, exist_ok=True)
+
+        torch.save(awq_results, dump_awq)
+        print("AWQ results saved at", dump_awq)
+        print("Exiting...")
+        exit(0)
+
     apply_awq(model, awq_results)
 
     dispatch_model(model, orig_device_map)
