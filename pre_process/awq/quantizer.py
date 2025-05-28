@@ -307,8 +307,11 @@ def pseudo_any_quantize_tensor(
     assert torch.isnan(w).sum() == 0
 
     wscaled = w / scales + zeros
-    # TODO: replace round() with LUT
+
+    wscaled = wscaled.reshape(org_w_shape)
     wq = any_lut_quantize_tensor(wscaled, n_bit=n_bit, n_jobs=-1)
+
+    wq = wq.reshape(-1, q_group_size)
     wdeq = (wq - zeros) * scales
     assert torch.isnan(wdeq).sum() == 0
 
