@@ -250,7 +250,7 @@ def pseudo_quantize_tensor(
 
 # TODO: add min_int and max_int as optional args
 def group_q1(
-    w, n_bit=4, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True,
+    w, n_bit=4, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True, round_zeros=True
 ):
     org_w_shape = w.shape
     if q_group_size > 0:
@@ -263,7 +263,12 @@ def group_q1(
         max_int = 2**n_bit - 1
         min_int = 0
         scales = (max_val - min_val).clamp(min=1e-5) / (max_int - min_int)
-        zeros = (min_int -torch.round(min_val / scales)).clamp_(min_int, max_int)
+        if round_zeros:
+            zeros = min_int -torch.round(min_val / scales)
+        else:
+            zeros = min_int -(min_val / scales)
+        if clamp:
+            zeros.clamp_(min_int, max_int)
     else:  # we actually never used this
         max_val = w.abs().amax(dim=1, keepdim=True)
         max_val = max_val.clamp(min=1e-5)
@@ -505,7 +510,7 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         if new_grouping:
             W = W.detach()
-            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
+            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True, round_zeros=False, clamp=False)
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, W.shape)
         else:
             Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, zero_point=zero_point)
