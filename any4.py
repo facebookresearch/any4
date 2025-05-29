@@ -250,7 +250,7 @@ def pseudo_quantize_tensor(
 
 # TODO: add min_int and max_int as optional args
 def group_q1(
-    w, n_bit=4, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True,
+    w, n_bit=4, assymetric=True, q_group_size=-1, inplace=False, get_scale_zp=False, clamp=True, round_zeros=True
 ):
     org_w_shape = w.shape
     if q_group_size > 0:
@@ -262,8 +262,13 @@ def group_q1(
         min_val = w.amin(dim=1, keepdim=True)
         max_int = 2**n_bit - 1
         min_int = 0
-        scales = (max_val - min_val).clamp(min=1e-5) / max_int
-        zeros = (-torch.round(min_val / scales)).clamp_(min_int, max_int)
+        scales = (max_val - min_val).clamp(min=1e-5) / (max_int - min_int)
+        if round_zeros:
+            zeros = min_int -torch.round(min_val / scales)
+        else:
+            zeros = min_int -(min_val / scales)
+        if clamp:
+            zeros.clamp_(min_int, max_int)
     else:  # we actually never used this
         max_val = w.abs().amax(dim=1, keepdim=True)
         max_val = max_val.clamp(min=1e-5)
@@ -299,12 +304,6 @@ def degroup_q1(
     if scales is None:
         scales, zeros = extract_scales_and_zeros(scales_and_zeros, w.shape, q_group_size)
 
-    org_w_shape = w.shape
-    if q_group_size > 0:
-        assert org_w_shape[-1] % q_group_size == 0
-        w = w.reshape(-1, q_group_size)
-    assert w.dim() == 2
-
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(w).sum() == 0
 
@@ -313,8 +312,6 @@ def degroup_q1(
     else:
         w = (w - zeros) * scales
     assert torch.isnan(w).sum() == 0
-
-    w = w.reshape(org_w_shape)
 
     return w
 
@@ -513,7 +510,7 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True
         # TODO: create separate function that fuses scales and zeros into scales_and_zeros, and only use that when actually quantizing rather than reconstructing
         if new_grouping:
             W = W.detach()
-            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True)
+            Wg, scales, zeros = group_q1(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, get_scale_zp=True, inplace=True, round_zeros=False, clamp=False)
             scales_and_zeros = pack_scales_and_zeros(scales, zeros, W.shape)
         else:
             Wg, _, scales_and_zeros = group_q(W, n_bit, q_group_size=q_group_size, assymetric=not scale_only, zero_point=zero_point)
@@ -798,7 +795,7 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, **kwargs):
+def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, other_impl=False, **kwargs):
     w = module.weight
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
@@ -811,7 +808,11 @@ def anyq(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128
 
         # TODO: implement this try-except with a decorator to the function?
         try:
-            w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+            if other_impl:
+                from pre_process.awq.quantizer import pseudo_any_quantize_tensor
+                w_deq = pseudo_any_quantize_tensor(w.detach().half(), n_bit=n_bit, zero_point=True, q_group_size=group_size, get_scale_zp=False)
+            else:
+                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
         except RuntimeError as e:
             if 'out of memory' in str(e):
                 torch.cuda.empty_cache()

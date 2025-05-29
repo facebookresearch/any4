@@ -26,6 +26,7 @@ import bigcode_eval.arguments
 from accelerate import Accelerator, InitProcessGroupKwargs
 
 from any4 import convert, quant_methods
+from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import CustomJSONEncoder, dtype_str_to_torch
 from data import task_dataset_configs, eval_perplexity
@@ -62,6 +63,8 @@ def main(
     tasks: List[str],
     device: str = default_device,
     quant_args: Optional[Dict] = {},
+    pre_quant_method: Optional[Callable] = None,
+    pre_quant_args: Optional[Dict] = {},
     quant_method: Optional[Callable] = None,
     model_args: Optional[Dict] = {},
     log_dir: Optional[Path] = Path("./logs/tmp/"),
@@ -153,6 +156,8 @@ def main(
         lm_obj._model.load_state_dict(weights)
 
     # Apply our quantization algorithms
+    if pre_quant_method:
+        lm_obj._model = pre_quant_method(lm_obj._model, lm_obj.tokenizer, **pre_quant_args)
     # TODO: move nnq_args into quant_args only if quant_type is anyq
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
@@ -322,6 +327,8 @@ if __name__ == '__main__':
     parser.add_argument("--quantize", type=str, choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--calibrate-args", type=str, help="Comma separated string args to pass to calibration function.")
+    parser.add_argument("--pre-quantize", type=str, choices=pre_quant_methods.keys(), help="Quantization pre-processing method.")
+    parser.add_argument("--pre-quantize-args", type=str, help="Comma separated string args to pass to quantization pre-process function.")
     parser.add_argument("--nnq-args", type=str, help="Comma separated string args to pass to neural network training for any4.")
     parser.add_argument("--bnb-args", type=str, help="Comma separated string args to pass to BitsAndBytes quantization config.")
     parser.add_argument("--gptq-args", type=str, help="Comma separated string args to pass to AutoGPTQ quantization config.")
@@ -345,6 +352,8 @@ if __name__ == '__main__':
     model_args = {} if not args.model_args else simple_parse_args_string(args.model_args)
     quant_method = None if not args.quantize else quant_methods[args.quantize]
     quant_args = {} if not args.quantize_args else simple_parse_args_string(args.quantize_args)
+    pre_quant_method = None if not args.pre_quantize else pre_quant_methods[args.pre_quantize]
+    pre_quant_args = {} if not args.pre_quantize_args else simple_parse_args_string(args.pre_quantize_args)
     calibrate_args = {} if not args.calibrate_args else simple_parse_args_string(args.calibrate_args)
     nnq_args = {} if not args.nnq_args else simple_parse_args_string(args.nnq_args)
     bnb_args = None if not args.bnb_args else simple_parse_args_string(args.bnb_args)
@@ -359,8 +368,10 @@ if __name__ == '__main__':
         model_name=args.model_name,
         tokenizer_name=args.tokenizer_name,
         model_args=model_args,
+        pre_quant_method=pre_quant_method,
         quant_method=quant_method,
         quant_args=quant_args,
+        pre_quant_args=pre_quant_args,
         calibrate_args=calibrate_args,
         nnq_args=nnq_args,
         tasks=args.tasks,
