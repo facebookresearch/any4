@@ -13,6 +13,9 @@ import numpy as np
 import any4
 from utils import import_or_skip
 
+import tinygemm_lib.utils
+import tinygemm_lib.functional
+
 class TestIntQ(unittest.TestCase):
     @parameterized.expand([
         (M, N, group_size, n_bit, unsigned)
@@ -77,15 +80,13 @@ class TestIntQ(unittest.TestCase):
         for n_bit in [4, 8]
         for dtype in [torch.float16, torch.bfloat16]
     ])
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_quantize(self, M=4096, N=4096, group_size=64, n_bit=4, dtype=torch.bfloat16):
         new_grouping = False
         zero_point = True
         w = torch.randn(M, N, dtype=dtype, device="cuda")
 
-        import tinygemm
-        import tinygemm.utils
-        wq1, scales_and_zeros1 = tinygemm.utils.group_quantize_tensor(w, n_bit, group_size)
+        wq1, scales_and_zeros1 = tinygemm_lib.utils.group_quantize_tensor(w, n_bit, group_size)
         wq2, _, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
 
         torch.testing.assert_close(wq1, wq2)
@@ -106,7 +107,7 @@ class TestIntQ(unittest.TestCase):
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**n_bit == 0 and input_dim % group_size == 0 and not (functional_api=="linear_y_f16RM_x_f16RM_W_int4TC" and w_inner_k==1) # Conditions to filter combinations
     ])
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_int4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
         # currently tinygemm kernels return expected results if `zeros` are zero. So ensure each block of size `group_size` to be symmetrical.
@@ -118,41 +119,39 @@ class TestIntQ(unittest.TestCase):
         x = torch.randn(bs, input_dim, dtype=dtype, device=device)
         y_ref = x @ w.t()
 
-        import tinygemm
-        import tinygemm.utils
-        w_int32, w_scales_and_zeros = tinygemm.utils.group_quantize_tensor(
+        w_int32, w_scales_and_zeros = tinygemm_lib.utils.group_quantize_tensor(
             w, n_bit=n_bit, q_group_size=group_size
         )
 
         match functional_api:
             case "linear_y_f16RM_x_f16RM_W_int4TC":
-                y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(
+                y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int4TC(
                     x, w_int32, w_scales_and_zeros, group_size, w_inner_k
                 )
 
             case "linear_y_f16TC_W_int4TC_x_f16TC":
-                y = tinygemm.functional.linear_y_f16TC_W_int4TC_x_f16TC(
+                y = tinygemm_lib.functional.linear_y_f16TC_W_int4TC_x_f16TC(
                     x, w_int32, w_scales_and_zeros, group_size, w_inner_k, x_inner_k=1
                 )
 
             case "linear_y_f16RM_x_f16RM_W_int4TC":
-                y = tinygemm.functional.linear_y_f16TC_W_int4TC_x_f16TC(
+                y = tinygemm_lib.functional.linear_y_f16TC_W_int4TC_x_f16TC(
                     x, w_int32, w_scales_and_zeros, group_size, w_inner_k
                 )
 
             case "linear_y_f16RM_W_int4TC_x_f16RM":
-                y = tinygemm.functional.linear_y_f16TC_W_int4TC_x_f16TC(
+                y = tinygemm_lib.functional.linear_y_f16TC_W_int4TC_x_f16TC(
                     x, w_int32, w_scales_and_zeros, group_size, w_inner_k
                 )
 
             case _:
-                raise ValueError(f"tinygemm.functional has no function {functional_api}.")
+                raise ValueError(f"tinygemm_lib.functional has no function {functional_api}.")
 
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
     # TODO: sweep over parameters
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
 
@@ -168,8 +167,6 @@ class TestIntQ(unittest.TestCase):
         y_ref = linear(x)
 
         from modules import Int4Linear
-        import tinygemm
-        import tinygemm.utils
         linear_quant = Int4Linear(
             in_features=input_dim,
             out_features=output_dim,
@@ -180,7 +177,7 @@ class TestIntQ(unittest.TestCase):
             kernel=functional_api,
             w_inner_k=w_inner_k,
         )
-        w_int32, scales_and_zeros = tinygemm.utils.group_quantize_tensor(linear.weight, n_bit, group_size)
+        w_int32, scales_and_zeros = tinygemm_lib.utils.group_quantize_tensor(linear.weight, n_bit, group_size)
         linear_quant.bias.data = linear.bias
         linear_quant.weight.data = w_int32
         linear_quant.scales_and_zeros.data = scales_and_zeros
@@ -201,8 +198,7 @@ class TestIntQ(unittest.TestCase):
         # Currently, tinygemm kernels (pseudo=False) only support zero_point, and pseudo=True only passes when zero_point is False
         zero_point = not pseudo
         if pseudo == False:
-            # TODO: fix the condition
-            if import_or_skip("tinygemm"):
+            if not import_or_skip("tinygemm"):
                 self.skipTest("tinygemm not installed")
 
         linear = torch.nn.Linear(input_dim, output_dim, dtype=dtype, device=device)
