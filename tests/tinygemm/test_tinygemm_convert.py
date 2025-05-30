@@ -10,14 +10,10 @@ import random
 import unittest
 import torch
 
-import tinygemm
-
 class TestConvert(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
-            from tinygemm.utils import group_quantize_tensor
         except ImportError:
             self.skipTest("tinygemm is not installed")
 

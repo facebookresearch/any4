@@ -9,6 +9,7 @@
 import unittest
 import torch
 
+from tinygemm_lib.utils import quantize_mx4
 
 def do_y_f16TC_x_f16TC_W_mx4TC(x, w, w_inner_k, x_inner_k, exp_scale=False):
     y_ref = x @ w.t()
@@ -101,7 +102,6 @@ class Test_y_f16TC_x_f16TC_W_mx4TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            from tinygemm.utils import quantize_mx4
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -177,7 +177,6 @@ class Test_y_f16TC_W_mx4TC_x_f16TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            from tinygemm.utils import quantize_mx4
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -284,7 +283,6 @@ class Test_y_f16RM_x_f16RM_W_mx4TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            from tinygemm.utils import quantize_mx4
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -364,7 +362,6 @@ class Test_y_f16RM_W_mx4TC_x_f16RM(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            from tinygemm.utils import quantize_mx4
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -447,7 +444,6 @@ class Test_NaN_exponent(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            from tinygemm.utils import quantize_mx4
         except ImportError:
             self.skipTest("tinygemm is not installed")
 

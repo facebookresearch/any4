@@ -9,13 +9,14 @@
 import unittest
 import torch
 
+import tinygemm_lib.functional
+from tinygemm_lib.utils import group_quantize_tensor
+
 
 class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
-            from tinygemm.utils import group_quantize_tensor
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -35,7 +36,7 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                            y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_int8TC(
                                 x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                             )
 
@@ -64,7 +65,7 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                        y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_int8TC(
                             x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                         )
 
@@ -102,7 +103,7 @@ class Test_y_f16TC_x_f16TC_W_int8TC(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_int8TC(
+                                    y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_int8TC(
                                         x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                                     )
 
@@ -118,8 +119,6 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
-            from tinygemm.utils import group_quantize_tensor
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -140,7 +139,7 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            y = tinygemm.functional.linear_y_f16TC_W_int8TC_x_f16TC(
+                            y = tinygemm_lib.functional.linear_y_f16TC_W_int8TC_x_f16TC(
                                 x, w_int32, w_scales_and_zeros, q_group, w_inner_k, x_inner_k,
                             )
 
@@ -170,7 +169,7 @@ class Test_y_f16TC_W_int8TC_x_f16TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            y = tinygemm.functional.linear_y_f16TC_W_int8TC_x_f16TC(
+                            y = tinygemm_lib.functional.linear_y_f16TC_W_int8TC_x_f16TC(
                                 x, w_int32, w_scales_and_zeros, q_group, w_inner_k, x_inner_k,
                             )
 
@@ -188,8 +187,6 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
-            from tinygemm.utils import group_quantize_tensor
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -209,7 +206,7 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                            y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int8TC(
                                 x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                             )
 
@@ -238,7 +235,7 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                        y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int8TC(
                             x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                         )
 
@@ -276,7 +273,7 @@ class Test_y_f16RM_x_f16RM_W_int8TC(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int8TC(
+                                    y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int8TC(
                                         x, w_int32, w_scales_and_zeros, q_group, w_inner_k
                                     )
 
@@ -289,8 +286,6 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
-            from tinygemm.utils import group_quantize_tensor
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -310,7 +305,7 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                                 w, n_bit=8, q_group_size=q_group
                             )
 
-                            y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                            y = tinygemm_lib.functional.linear_y_f16RM_W_int8TC_x_f16RM(
                                 x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                             )
 
@@ -339,7 +334,7 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                             w, n_bit=8, q_group_size=q_group
                         )
 
-                        y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                        y = tinygemm_lib.functional.linear_y_f16RM_W_int8TC_x_f16RM(
                             x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                         )
 
@@ -378,7 +373,7 @@ class Test_y_f16RM_W_int8TC_x_f16RM(unittest.TestCase):
                                         w, n_bit=8, q_group_size=q_group
                                     )
 
-                                    y = tinygemm.functional.linear_y_f16RM_W_int8TC_x_f16RM(
+                                    y = tinygemm_lib.functional.linear_y_f16RM_W_int8TC_x_f16RM(
                                         x, w_int32, w_scales_and_zeros, q_group, w_inner_k,
                                     )
 

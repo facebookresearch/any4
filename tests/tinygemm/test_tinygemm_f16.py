@@ -9,13 +9,13 @@
 import unittest
 import torch
 
+import tinygemm_lib.functional
 
 # W on right
 class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -30,7 +30,7 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w.t()
 
-                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                        y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_f16TC(
                             x, w, w_inner_k,
                         )
 
@@ -51,7 +51,7 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w.t()
 
-                        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                        y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_f16TC(
                             x, w, w_inner_k,
                         )
 
@@ -70,7 +70,7 @@ class Test_y_f16TC_x_f16TC_W_f16TC(unittest.TestCase):
                             w = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = x @ w.t()
 
-                            y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_f16TC(
+                            y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_f16TC(
                                 x, w, w_inner_k,
                             )
 
@@ -82,7 +82,6 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -97,7 +96,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                         x = torch.randn((n, k), dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -113,7 +112,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                         x = torch.randn((n, k), dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -129,7 +128,7 @@ class Test_y_f16TC_W_f16TC_x_f16TC(unittest.TestCase):
                             x = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = (w @ x.t()).t()
 
-                            y = tinygemm.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
+                            y = tinygemm_lib.functional.linear_y_f16TC_W_f16TC_x_f16TC(x, w, x_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
 
@@ -139,7 +138,6 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -154,7 +152,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w
 
-                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -170,7 +168,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = x @ w
 
-                        y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -188,7 +186,7 @@ class Test_y_f16RM_x_f16RM_W_f16TC(unittest.TestCase):
                             w = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = x @ w.t()
 
-                            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
+                            y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_f16TC(x, w, w_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
 
@@ -198,7 +196,6 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
     def setUp(self):
         try:
             import tinygemm
-            import tinygemm.functional
         except ImportError:
             self.skipTest("tinygemm is not installed")
 
@@ -213,7 +210,7 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -229,7 +226,7 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                         w = torch.eye(k, dtype=dt, device=dev)
                         y_ref = (w @ x.t()).t()
 
-                        y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
+                        y = tinygemm_lib.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                         assert torch.equal(y_ref, y)
 
@@ -246,6 +243,6 @@ class Test_y_f16RM_W_f16TC_x_f16RM(unittest.TestCase):
                             x = torch.randn((n, k), dtype=dt, device=dev) * 0.1
                             y_ref = (w @ x.t()).t()
 
-                            y = tinygemm.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
+                            y = tinygemm_lib.functional.linear_y_f16RM_W_f16TC_x_f16RM(x, w, w_inner_k)
 
                             torch.testing.assert_close(y_ref, y, atol=0.01, rtol=0.1)
