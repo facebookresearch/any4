@@ -50,7 +50,7 @@ huggingface-cli login
 
 4. Install tinygemm kernels
 ```
-cd tinygemm
+cd tinygemm_lib
 python setup.py install
 cd ..
 ```
