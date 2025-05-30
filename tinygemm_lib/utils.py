@@ -66,6 +66,19 @@ def group_quantize_tensor(w_orig, n_bit, q_group_size=128):
 
     return out, scales_and_zeros.to(w_orig.dtype)
 
+def expand_q_groups(x, orig_size, q_group_size):
+    out = x.reshape(orig_size[0], orig_size[1] // q_group_size, 1)
+    out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
+    return out.contiguous().view(orig_size)
+
+def extract_scales_and_zeros(scales_and_zeros, w_shape, q_group_size):
+    scales = scales_and_zeros.transpose(0, 1)[:, :, 0]
+    zeros = scales_and_zeros.transpose(0, 1)[:, :, 1]
+
+    scales = expand_q_groups(scales, w_shape, q_group_size)
+    zeros = expand_q_groups(zeros, w_shape, q_group_size)
+
+    return scales, zeros
 
 # Produces a float32 matrix containing `q` rounded to the nearest mx4 value
 # and the assoicated group exponent scale
