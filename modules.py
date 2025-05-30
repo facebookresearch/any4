@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
-import tinygemm.functional
+import tinygemm_lib.functional
 
 class Int4Linear(torch.nn.Module):
     def __init__(
@@ -58,9 +58,9 @@ class Int4Linear(torch.nn.Module):
         # Apply GEMM
         if self.qtype == "int4":
             if self.kernel == "linear_y_f16RM_x_f16RM_W_int4TC":
-                y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+                y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
             elif self.kernel == "linear_y_f16RM_W_int4TC_x_f16RM":
-                y = tinygemm.functional.linear_y_f16RM_W_int4TC_x_f16RM(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+                y = tinygemm_lib.functional.linear_y_f16RM_W_int4TC_x_f16RM(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
             else:
                 raise ValueError(f"Unsupported kernel type {self.kernel}")
         else:
@@ -137,9 +137,9 @@ class Any4Linear(torch.nn.Module):
 
         # Apply GEMM
         if self.kernel == "linear_y_f16RM_x_f16RM_W_any4TC":
-            y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_any4TC(input, self.weight, self.lut, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+            y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_any4TC(input, self.weight, self.lut, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
         elif self.kernel == "linear_y_f16RM_W_any4TC_x_f16RM":
-            y = tinygemm.functional.linear_y_f16RM_W_any4TC_x_f16RM(input, self.weight, self.lut, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+            y = tinygemm_lib.functional.linear_y_f16RM_W_any4TC_x_f16RM(input, self.weight, self.lut, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
         else:
             raise ValueError(f"Unsupported kernel type {self.kernel}")
 

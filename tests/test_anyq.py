@@ -13,6 +13,9 @@ import numpy as np
 import any4
 from utils import import_or_skip
 
+import tinygemm_lib.functional
+import tinygemm_lib.utils
+
 class TestAnyQ(unittest.TestCase):
     # TODO: sweep on more arguments
     # TODO: have separate test for some arguments to save time, e.g., separate test for parallelize=False
@@ -56,7 +59,7 @@ class TestAnyQ(unittest.TestCase):
         for w_inner_k in [1, 2, 4] # TODO: support 8
         if group_size % 2**4 == 0 and input_dim % group_size == 0 # Conditions to filter combinations
     ])
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_any4_functional(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, group_size=64, functional_api="linear_y_f16TC_x_f16TC_W_any4TC", w_inner_k=4):
         device = "cuda"
         n_bit=4
@@ -76,38 +79,36 @@ class TestAnyQ(unittest.TestCase):
         w_int32, w_lut, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
         w_lut = w_lut - (2**(n_bit - 1))
 
-        import tinygemm
-        import tinygemm.functional
-        import tinygemm.utils
-        self.skipIf(tinygemm.functional.valid_tinygemm_kernel_call(functional_api, w_inner_k))
+        if not tinygemm_lib.functional.valid_tinygemm_kernel_call(functional_api, w_inner_k):
+            self.skipTest("Invalid kernel API and argument combination.")
         match functional_api:
             case "linear_y_f16TC_x_f16TC_W_any4TC":
-                y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(
+                y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_any4TC(
                     x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k, x_inner_k = 1
                 )
 
             case "linear_y_f16TC_W_any4TC_x_f16TC":
-                y = tinygemm.functional.linear_y_f16TC_W_any4TC_x_f16TC(
+                y = tinygemm_lib.functional.linear_y_f16TC_W_any4TC_x_f16TC(
                     x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k, x_inner_k = 1
                 )
 
             case "linear_y_f16RM_x_f16RM_W_any4TC":
-                y = tinygemm.functional.linear_y_f16RM_x_f16RM_W_any4TC(
+                y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_any4TC(
                     x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k
                 )
 
             case "linear_y_f16RM_W_any4TC_x_f16RM":
-                y = tinygemm.functional.linear_y_f16RM_W_any4TC_x_f16RM(
+                y = tinygemm_lib.functional.linear_y_f16RM_W_any4TC_x_f16RM(
                     x, w_int32, w_lut, w_scales_and_zeros, group_size, w_inner_k
                 )
 
             case _:
-                raise ValueError(f"tinygemm.functional has no function {functional_api}.")
+                raise ValueError(f"tinygemm_lib.functional has no function {functional_api}.")
 
         torch.testing.assert_close(y, y_ref)
 
     # Temporary test case to debug kernel invocation
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_do_y_f16TC_x_f16TC_W_any4TC(self, bs=64, input_dim=64, output_dim=64, q_group=32, w_inner_k=2, x_inner_k=1, dt=torch.bfloat16):
         dev = torch.device("cuda:0")
         n_bit=4
@@ -136,16 +137,13 @@ class TestAnyQ(unittest.TestCase):
             for i in range(output_dim):
                 torch.testing.assert_close(int4_dequant_c[i][w_int32_c[i]], int4_dequant[w_int32[i]])
 
-        import tinygemm
-        import tinygemm.functional
-        import tinygemm.utils
-        y = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
+        y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32, int4_dequant, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
         torch.testing.assert_close(y, y_ref)
 
-        y_c = tinygemm.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32_c, int4_dequant_c, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
+        y_c = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_any4TC(x, w_int32_c, int4_dequant_c, w_scales_and_zeros, q_group, w_inner_k, x_inner_k)
         torch.testing.assert_close(y_c, y_ref)
 
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_any4TC", w_inner_k=4):
         device = "cuda"
         per_row = False
@@ -184,7 +182,7 @@ class TestAnyQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: sweep over parameters
-    @unittest.skipIf(import_or_skip("tinygemm"), "tinygemm not installed")
+    @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_conversion_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_any4TC", w_inner_k=4):
         device = "cuda"
         per_row = False
