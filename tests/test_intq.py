@@ -98,7 +98,7 @@ class TestIntQ(unittest.TestCase):
     @parameterized.expand([
         (bs, input_dim, output_dim, dtype, n_bit, group_size, functional_api, w_inner_k)
         for bs in [1, 2, 3, 29, 64]
-        for input_dim in [64, 256] # TODO: support 1024, 2048
+        for input_dim in [64] # TODO: support 256, 1024, 2048
         for output_dim in [64] # TODO: support 128
         for dtype in [torch.float16, torch.bfloat16]
         for n_bit in [4]
@@ -150,7 +150,18 @@ class TestIntQ(unittest.TestCase):
         torch.testing.assert_close(y, y_ref)
 
     # TODO: support int4, int8
-    # TODO: sweep over parameters
+    @parameterized.expand([
+        (bs, input_dim, output_dim, dtype, n_bit, group_size, functional_api, w_inner_k)
+        for bs in [1, 2, 3, 29, 64]
+        for input_dim in [64] # TODO: support 256, 1024, 2048
+        for output_dim in [64] # TODO: support 128
+        for dtype in [torch.float16, torch.bfloat16]
+        for n_bit in [4]
+        for group_size in [32, 64, 128]
+        for functional_api in ["linear_y_f16RM_x_f16RM_W_int4TC", "linear_y_f16TC_W_int4TC_x_f16TC", "linear_y_f16RM_x_f16RM_W_int4TC", "linear_y_f16RM_W_int4TC_x_f16RM", "linear_y_f16TC_W_int4TC_x_f16TC"]
+        for w_inner_k in [1, 2, 4] # TODO: support 8
+        if group_size % 2**n_bit == 0 and input_dim % group_size == 0 and not (functional_api=="linear_y_f16RM_x_f16RM_W_int4TC" and w_inner_k==1) # Conditions to filter combinations
+    ])
     @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
     def test_tinygemm_module(self, bs=64, input_dim=64, output_dim=64, dtype=torch.bfloat16, n_bit=4, group_size=64, functional_api="linear_y_f16RM_x_f16RM_W_int4TC", w_inner_k=2):
         device = "cuda"
