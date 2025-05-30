@@ -14,7 +14,6 @@ class Int4Linear(torch.nn.Module):
         out_features: int,
         bias: bool = True,
         device = None,
-        qtype = None,
         dtype = None,
         group_size: int = 32,
         kernel: str = "linear_y_f16RM_W_int4TC_x_f16RM",
@@ -35,7 +34,6 @@ class Int4Linear(torch.nn.Module):
             self.bias = torch.nn.Parameter(torch.empty(out_features, device=device, dtype=dtype))
         else:
             self.register_parameter("bias", None)
-        self.qtype = qtype
         self.kernel = kernel
         self.w_inner_k = w_inner_k
         self.weight_reshaped = False
@@ -56,15 +54,12 @@ class Int4Linear(torch.nn.Module):
         input = input.view(-1, input.shape[-1])
 
         # Apply GEMM
-        if self.qtype == "int4":
-            if self.kernel == "linear_y_f16RM_x_f16RM_W_int4TC":
-                y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
-            elif self.kernel == "linear_y_f16RM_W_int4TC_x_f16RM":
-                y = tinygemm_lib.functional.linear_y_f16RM_W_int4TC_x_f16RM(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
-            else:
-                raise ValueError(f"Unsupported kernel type {self.kernel}")
+        if self.kernel == "linear_y_f16RM_x_f16RM_W_int4TC":
+            y = tinygemm_lib.functional.linear_y_f16RM_x_f16RM_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+        elif self.kernel == "linear_y_f16RM_W_int4TC_x_f16RM":
+            y = tinygemm_lib.functional.linear_y_f16RM_W_int4TC_x_f16RM(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
         else:
-            raise ValueError(f"Unsupported quantization type {self.qtype}")
+            raise ValueError(f"Unsupported kernel type {self.kernel}")
 
         # Apply bias
         if self.bias is not None:

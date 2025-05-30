@@ -345,7 +345,6 @@ def intq(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpo
                 out_features=module.out_features,
                 bias=module.bias is not None,
                 device=module.weight.device,
-                qtype=f"int{n_bit}",
                 dtype=module.weight.dtype,
                 group_size=group_size,
             )
