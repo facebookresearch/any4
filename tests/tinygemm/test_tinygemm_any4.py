@@ -220,7 +220,7 @@ class Test_y_f16TC_x_f16TC_W_any4TC(unittest.TestCase):
         else:
             raise NotImplementedError("Need to implement it")
         scales, zeros = extract_scales_and_zeros(w_scales_and_zeros, (n, k), q_group)
-        w = w_q * scales + zeros
+        w = torch.addcmul(zeros, w_q, scales)
 
         y_ref = x @ w.t()
 
