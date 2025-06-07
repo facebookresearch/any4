@@ -201,7 +201,7 @@ class Test_y_f16TC_x_f16TC_W_any4TC(unittest.TestCase):
         w_inner_k = 2
         q_group = 32
         x_inner_k = 1
-        per_row = False
+        per_row = True
 
         x = torch.randn((m, k), dtype=dt, device=dev)
         assert k % q_group == 0
@@ -210,7 +210,7 @@ class Test_y_f16TC_x_f16TC_W_any4TC(unittest.TestCase):
         if not per_row:
             int4_dequant = torch.randn((2**n_bit), dtype=x.dtype, device=x.device)
         else:
-            int4_dequant = torch.randn((m, 2**n_bit), dtype=x.dtype, device=x.device)
+            int4_dequant = torch.randn((n, 2**n_bit), dtype=x.dtype, device=x.device)
         w_scales_and_zeros = torch.randn((num_groups, n, 2), dtype=x.dtype, device=x.device)
         # Uncommenting this line will make the test case pass
         # w_scales_and_zeros[:,:, 1] = 0
@@ -218,7 +218,10 @@ class Test_y_f16TC_x_f16TC_W_any4TC(unittest.TestCase):
         if not per_row:
             w_q = int4_dequant[w_int32]
         else:
-            raise NotImplementedError("Need to implement it")
+            # Expand int4_dequant to align with w_int32 rows
+            w_q = torch.stack([
+                int4_dequant[i,:][w_int32[i, :]] for i in range(n)
+            ], dim=0)
         scales, zeros = extract_scales_and_zeros(w_scales_and_zeros, (n, k), q_group)
         w = torch.addcmul(zeros, w_q, scales)
 
