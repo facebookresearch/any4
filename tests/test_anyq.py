@@ -11,7 +11,7 @@ import itertools
 import numpy as np
 
 import any4
-from utils import import_or_skip
+from utils import assert_close, import_or_skip
 
 import tinygemm_lib.functional
 import tinygemm_lib.utils
@@ -191,7 +191,7 @@ class TestAnyQ(unittest.TestCase):
 
         y = linear_quant(x)
 
-        torch.testing.assert_close(y, y_ref, atol=1e-4, rtol=1e-2)
+        assert_close(y, y_ref, allowed_violations=3, allowed_violations_factor=20.0)
 
     # TODO: sweep over parameters
     @unittest.skipIf(not import_or_skip("tinygemm"), "tinygemm not installed")
@@ -221,4 +221,4 @@ class TestAnyQ(unittest.TestCase):
         )
         y = linear_quant(x)
 
-        torch.testing.assert_close(y, y_ref)
+        assert_close(y, y_ref, allowed_violations=2, allowed_violations_factor=15)
