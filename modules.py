@@ -15,7 +15,7 @@ class Int4Linear(torch.nn.Module):
         bias: bool = True,
         device = None,
         dtype = None,
-        group_size: int = 32,
+        group_size: int = 128,
         kernel: str = "linear_y_f16RM_W_int4TC_x_f16RM",
         w_inner_k: int = 4,
     ) -> None:
@@ -87,7 +87,7 @@ class Any4Linear(torch.nn.Module):
         bias: bool = True,
         device = None,
         dtype = None,
-        group_size: int = 32,
+        group_size: int = 128,
         kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",
         w_inner_k: int = 4,
         per_row: bool = True,
