@@ -7,7 +7,9 @@ This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric 
 The techique and code for learning any4 representations and quantizing a model was authored by Mostafa Elhoushi (previously Meta FAIR SysML research). The Nvidia GPU tinygemm library was authored by Jeff Johnson (currently Meta FAIR SysML reserach).  An extremely early version of the tinygemm kernels without any4/MX4 support [were upstreamed to PyTorch core in Q4 2023](https://github.com/pytorch/pytorch/pull/110914) for use by the Torch compiler.
 
 ## What is any4?
-![any4_process](https://github.com/user-attachments/assets/bf4a75f0-a271-43df-bdfe-a5296ca62407)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/bf4a75f0-a271-43df-bdfe-a5296ca62407" width="500">
+</div>
 There is a wide variety of 4-bit numerical formats implemented on CPU/GPU for ML inference, such as uniform int4 quantization, "fp4", NF4, AF4 and the like, all of which have the dequantization values fixed a priori. any4 substitutes a lookup table (LUT) to translate the 16 possible 4-bit quantization codes to any arbitrary bfloat16 or float16 floating-point value, and this GPU in-register LUT is used at dequantization time. Each row of a weight matrix can use a different 16 x bfloat16/float16 LUT, so the quantization codes can be tailored to each row of a matrix. k-means or neural network based clustering is used to learn the any4 LUTs based off the weight matrix data distribution. Effectively, any4 is 4-bit grouped quantization like typical int4 quantization, just that instead of the code dequantization values prior to scale and offset being integers in the range [-8, +7] or [0, 15], the dequantization values are here arbitrary floating point values from the LUT. any4 is thus a very efficient means of implementing NormalFloat4 (NF4) or AbnormalFloat4 (AF4), whose initial implementations used GPU unfriendly deeply-nested if/else blocks or switch statements.
 
 ## What is tinygemm
