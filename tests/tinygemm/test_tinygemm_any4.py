@@ -201,7 +201,7 @@ class Test_y_f16TC_x_f16TC_W_any4TC(unittest.TestCase):
         w_inner_k = 2
         q_group = 32
         x_inner_k = 1
-        per_row = True
+        per_row = False
 
         x = torch.randn((m, k), dtype=dt, device=dev)
         assert k % q_group == 0
