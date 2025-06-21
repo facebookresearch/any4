@@ -10,6 +10,7 @@ The techique and code for learning any4 representations and quantizing a model w
 
 There is a wide variety of 4-bit numerical formats implemented on CPU/GPU for ML inference, such as uniform int4 quantization, "fp4", NF4, AF4 and the like, all of which have the dequantization values fixed a priori. any4 substitutes a lookup table (LUT) to translate the 16 possible 4-bit quantization codes to any arbitrary bfloat16 or float16 floating-point value, and this GPU in-register LUT is used at dequantization time. Each row of a weight matrix can use a different 16 x bfloat16/float16 LUT, so the quantization codes can be tailored to each row of a matrix. k-means or neural network based clustering is used to learn the any4 LUTs based off the weight matrix data distribution. Effectively, any4 is 4-bit grouped quantization like typical int4 quantization, just that instead of the code dequantization values prior to scale and offset being integers in the range [-8, +7] or [0, 15], the dequantization values are here arbitrary floating point values from the LUT. any4 is thus a very efficient means of implementing NormalFloat4 (NF4) or AbnormalFloat4 (AF4), whose initial implementations used GPU unfriendly deeply-nested if/else blocks or switch statements.
 
+## What is tinygemm
 The tinygemm low-latency GPU GEMM library implements any4 quantization. Learning the any4 quantization codes is not part of tinygemm itself. While tinygemm supports most any arbitrary GEMM size (assuming the reduction/k dimension is a multiple of 16 or 32), it is primarily meant for matrix multiplication problems where one of the `m` or `n` problem dimensions (for a `(m x k) x (n x k)^t` matrix multiplication) is *smaller*  than a GPU tensor core tile size (e.g., 1 <= m <= 16 or 1 <= n <= 8), usually applied to the "activation" vector in neural networks. 
 
 tinygemm has two different modes, one that computes `Y = X W^t` and the other that computes `Y = (W X^t)^t` (both produce the same result, just whether the "weight" matrix is the "A" or "B" matrix for tensor core usage). All needed transpositions are performed on the fly as needed by tinygemm. For the m16n8k16 A100+ bf16/fp16 tensor core tile, the "A" matrix tile size is 16 x 16 and "B" is 8 x 16 (or 16 x 8 as desired). Putting activations (e.g., a `1 x k` matrix) on the right and weight on the left (so that the `1 x k` matrix will occupy the "B" tile) ensures that we will be running the tensor core unit at 1/8th throughput rather than 1/16th throughput. We have found that using the tensor core in this fashion for e.g., GEMV is pretty fast. tinygemm does not use larger tensor core multiplication primitives (again, because a typical use case is something like a `(1 x k) x (n x k)` GEMM. All matrices presented to tinygemm must be row-major with the reduction dimension `k` being innermost.
@@ -110,11 +111,8 @@ python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 python -m pytest .
 ```
 
-# TODOs:
-- Add Notebook tutorial
-- Integrate with torchao
-- any4 LUT dequantization is currently via warp shuffle in the GEMM core, but higher throughput might be achievable by using smem to dequantize 2 x any4 codes (1 byte) at a time instead at the possible expense of added bank conflights.
-- add commands/table to reproduce results from paper
+# Contribution
+We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
 ## License
 tinygemm and any4 quantization code are CC-BY-NC 4.0 licensed, as found in the LICENSE file.
