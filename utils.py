@@ -55,6 +55,76 @@ def get_model_size(model):
         )
     return model_size
 
+import torch
+
+def assert_close(
+    actual,
+    expected,
+    *,
+    atol=None,
+    rtol=None,
+    allowed_violations_factor=10.0,
+    allowed_violations=0,
+):
+    """
+    Like torch.testing.assert_close, but allows up to `allowed_violations` elements 
+    to exceed tight tolerance, as long as they are within 
+    allowed_violations_factor * (atol + rtol * |expected|).
+    """
+    # Default tolerances per dtype from torch.testing.assert_close (2025)
+    DTYPE_TOL = {
+        torch.float16:   (1e-5, 1e-3),
+        torch.bfloat16:  (1e-5, 1.6e-2),
+        torch.float32:   (1e-5, 1.3e-6),
+        torch.float64:   (1e-7, 1e-7),
+        torch.complex32: (1e-5, 1e-3),
+        torch.complex64: (1e-5, 1.3e-6),
+        torch.complex128:(1e-7, 1e-7),
+        torch.quint8:    (1e-5, 1.3e-6),
+        torch.quint2x4:  (1e-5, 1.3e-6),
+        torch.quint4x2:  (1e-5, 1.3e-6),
+        torch.qint8:     (1e-5, 1.3e-6),
+        torch.qint32:    (1e-5, 1.3e-6),
+    }
+
+    def get_default_tols(dtype):
+        return DTYPE_TOL.get(dtype, (0.0, 0.0))
+
+    actual = torch.as_tensor(actual)
+    expected = torch.as_tensor(expected)
+
+    # Determine tolerances if not specified
+    if atol is None and rtol is None:
+        a0, r0 = get_default_tols(actual.dtype)
+        a1, r1 = get_default_tols(expected.dtype)
+        atol = max(a0, a1)
+        rtol = max(r0, r1)
+
+    # Compute element-wise differences
+    diff = torch.abs(actual - expected)
+    tight = diff <= (atol + rtol * torch.abs(expected))
+    relaxed = diff <= (allowed_violations_factor * (atol + rtol * torch.abs(expected)))
+
+    too_relaxed = (~relaxed).sum().item()
+    too_tight = (~tight).sum().item()
+
+    if too_relaxed > 0:
+        idx = (~relaxed).nonzero(as_tuple=True)
+        val_exact = diff[idx][0].item()
+        raise AssertionError(
+            f"{too_relaxed} values exceed even relaxed tolerance; "
+            f"e.g. diff[{idx[0][0]}] = {val_exact:.3e} > "
+            f"{allowed_violations_factor:.1f} * (atol + rtol*|expected|)"
+        )
+    if too_tight > allowed_violations:
+        raise AssertionError(
+            f"{too_tight} values exceed tight tolerance "
+            f"(allowed {allowed_violations}), "
+            f"e.g. {allowed_violations + 1} exceed {(atol + rtol * torch.abs(expected)).max().item():.3e}"
+        )
+
+    return  # Passed
+
 # Source: https://github.com/huggingface/optimum/blob/main/tests/benchmark/memory_tracker.py
 import os
 import subprocess
