@@ -2,7 +2,7 @@
 
 This repo contains the tinygemm low-letency / small batch size Nvidia GPU GEMM library which implements bf16/fp16, int4 grouped quantization, any4 grouped quantization and MX4 quantization, and the code containing the technique to learn any4 quantization codes. 
 
-This code release is meant to accompany the accepted ICML 2025 paper *any4: Learned 4-bit Numeric Representation for LLMs* by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo), which will be available on arXiv soon.
+This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric Representation for LLMs*](https://openreview.net/forum?id=tJmhOPkWCj), **ICML 2025**, by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo).
 
 The techique and code for learning any4 representations and quantizing a model was authored by Mostafa Elhoushi (previously Meta FAIR SysML research). The Nvidia GPU tinygemm library was authored by Jeff Johnson (currently Meta FAIR SysML reserach).  An extremely early version of the tinygemm kernels without any4/MX4 support [were upstreamed to PyTorch core in Q4 2023](https://github.com/pytorch/pytorch/pull/110914) for use by the Torch compiler.
 
@@ -111,8 +111,24 @@ python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 python -m pytest .
 ```
 
+## Experiments
+In this section we provide the results in the paper and the command to reproduce each result.
+
+
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
 ## License
 tinygemm and any4 quantization code are CC-BY-NC 4.0 licensed, as found in the LICENSE file.
+
+## Citation
+If you use any4 quantization algorithm and/or tinygemm quantization library, please use the following BibTex entry:
+```
+@inproceedings{any4,
+    title={any4: Learned 4-bit Numeric Representation for {LLM}s},
+    author={Mostafa Elhoushi and Jeff Johnson},
+    booktitle={Forty-second International Conference on Machine Learning},
+    year={2025},
+    url={https://openreview.net/forum?id=tJmhOPkWCj}
+}
+```
