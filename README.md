@@ -336,13 +336,13 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 </details>
 
 #### Term to Minimize
-Referencing the paper, *Table A3: Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
+*Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
 
-|                                           | Term to Minimize                      | WikiText-2 | C4    | PTB   | CodeParrot |
-| ----------------------------------------- | ------------------------------------- | ---------- | ----- | ----- | ---------- |
-| Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 6.680      | 9.619 | 11.186| 2.751      |
-| Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 6.496      | 9.375 | 11.055| 2.675      |
-| Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 6.487      | 9.366 | 11.034| 2.680      |
+|                                           | Term to Minimize                      | WikiText-2 | C4     | PTB    | CodeParrot |
+| ----------------------------------------- | ------------------------------------- | ---------- | ------ | ------ | ---------- |
+| Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 11.143     | 14.740 | 18.715 | 3.858      |
+| Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 10.636     | 13.954 | 18.031 | 3.719      |
+| Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 10.603      | 13.949 | 18.085 | 3.710      |
 
 <details open>
 <summary>Commands to reproduce results:</summary>
