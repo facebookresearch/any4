@@ -119,7 +119,7 @@ python -m pytest .
 In this section we provide the results in the paper and the command to reproduce each result.
 
 ### Main Results
-**Llama3.2 1B**
+#### Llama3.2 1B
 |                | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | -------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[1]](#f1) | 9.76        | 12.77 | 16.56 | 3.49        | 16.46%     | 21.4% | 36.1%  | 47.7%      | 6.60%  | 31.1% |
@@ -128,7 +128,8 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[4]](#f4)  | 10.99       | 14.63 | 18.78 | 3.82        | 13.4%      | 13.8% | 33.3%  | 45.8%      | 3.65%  | 26.8% |
 | ANY4 [[5]](#f5) | 10.63       | 13.95 | 17.94 | 3.71        | 11.0%      | 18.6% | 32.9%  | 46.7%      | 3.71%  | 29.0% |
 
-Commands to reproduce results:
+<details>
+<summary>Commands to reproduce results:</summary>
 
 1. <span id="f1"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log--dir ./logs/llama3.2-1b/bf16`
 2. <span id="f2"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3.2-1b/int4`
@@ -136,7 +137,9 @@ Commands to reproduce results:
 4. <span id="f4"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3.2-1b/nf4`
 5. <span id="f5"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3.2-1b/any4`
 
-**Llama3 8B**
+</details>
+
+#### Llama3 8B
 |                  | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ---------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[6]](#f6)   | 6.14        | 8.93  | 10.59 | 2.54        | 29.3%      | 41.4% | 62.0%  | 60.1%      | 50.7%  | 62.8% |
