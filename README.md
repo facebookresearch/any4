@@ -375,7 +375,7 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 
 </details>
 
-# Contribution
+## Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
 ## License
