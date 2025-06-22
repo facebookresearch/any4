@@ -71,9 +71,6 @@ To run a simple text generation (with and without) quantization example script t
 python example.py
 ```
 
-### Generation
-TBD
-
 ### Evaluation
 Evaluate a model (with or without quantization) on downstream tasks.
 - Baseline fp16 model:
@@ -82,7 +79,11 @@ python eval.py --model-name facebook/opt-125m --tasks piqa
 ```
 - Quantized int4 model:
 ```
-python eval.py --model-name facebook/opt-125m --quantize intq --tasks piqa
+python eval.py --model-name facebook/opt-125m --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --tasks piqa
+```
+- Quantized any4 model:
+```
+python eval.py --model-name facebook/opt-125m --quantize anyq --quantize-args n_bit=4,sample_weight=calibrate,scale_sample_weight=True,skip_modules=lm_head --tasks piqa
 ```
 
 Arguments:
@@ -93,7 +94,7 @@ Arguments:
 ### Analyze
 To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
 ```
-python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize nf4
+python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize nf4 --quantize-args skip_modules=lm_head
 ```
 
 ### Calibrate
