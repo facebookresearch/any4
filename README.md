@@ -257,6 +257,32 @@ Commands to reproduce results:
 
 ### Ablation Studies
 
+**Group Size** for Llama3.2 1B on C4
+
+|      | 64                 | 128                | 256                | 512                | 1024               |
+| ---- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| FP4  | 16.19 [[41]](#f41) | 17.11 [[42]](#f42) | 18.12 [[43]](#f43) | 20.43 [[44]](#f44) | 2.3E6 [[45]](#f45) |
+| NF4  | 14.27 [[46]](#f46) | 14.63 [[47]](#f47) | 14.98 [[48]](#f48) | 15.38 [[49]](#f49) | 7.8E5 [[50]](#f50) |
+| ANY4 | 13.75 [[51]](#f51) | 13.95 [[52]](#f52) | 14.09 [[53]](#f53) | 14.24 [[54]](#f54) | 14.34 [[55]](#f55) |
+
+Commands to reproduce results:
+
+41. <span id="f41"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=64,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+42. <span id="f42"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=128,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+43. <span id="f43"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=256,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+44. <span id="f44"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=512,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+45. <span id="f45"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+46. <span id="f46"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,group_size=64,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+47. <span id="f47"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,group_size=128,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+48. <span id="f48"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,group_size=256,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+49. <span id="f49"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,group_size=512,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+50. <span id="f50"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
+51. <span id="f51"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=64,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
+52. <span id="f52"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=128,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
+53. <span id="f53"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=256,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
+54. <span id="f54"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=512,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
+55. <span id="f55"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
+
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
