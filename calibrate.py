@@ -210,7 +210,6 @@ def main(
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
     args = locals()
-    print(args)
     with Path(log_dir/"args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
@@ -246,7 +245,6 @@ def main(
         abs=abs,
         dataloader_type=dataloader_type,
     )
-    print(layer_to_num_activations)
 
     # Log Activations
     log_name = dataset.split("/")[-1] if dataset else "prompt"
