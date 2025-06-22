@@ -128,7 +128,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[4]](#f4)  | 10.99       | 14.63 | 18.78 | 3.82        | 13.4%      | 13.8% | 33.3%  | 45.8%      | 3.65%  | 26.8% |
 | ANY4 [[5]](#f5) | 10.63       | 13.95 | 17.94 | 3.71        | 11.0%      | 18.6% | 32.9%  | 46.7%      | 3.71%  | 29.0% |
 
-<details>
+<details open>
 <summary>Commands to reproduce results:</summary>
 
 1. <span id="f1"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log--dir ./logs/llama3.2-1b/bf16`
@@ -148,7 +148,8 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[9]](#f9)    | 6.63        | 9.52  | 11.14 | 2.72        | 23.2%      | 39.2% | 60.7%  | 59.1%      | 41.1%  | 59.0% |
 | ANY4 [[10]](#f10) | 6.51        | 9.40  | 11.07 | 2.68        | 21.3%      | 39.2% | 61.0%  | 59.5%      | 41.7%  | 59.2% |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 6. <span id="f6"></span> `python eval.py --model-name meta-llama/Meta-Llama-3-8B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log--dir ./logs/llama3-8b/bf16`
 7. <span id="f7"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Meta-Llama-3-8B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-8b/int4`
@@ -156,7 +157,9 @@ Commands to reproduce results:
 9. <span id="f9"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Meta-Llama-3-8B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-8b/nf4`
 10. <span id="f10"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Meta-Llama-3-8B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-8b/any4`
 
-**Llama3 70B**
+</details>
+
+#### Llama3 70B
 |                  | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ---------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[11]](#f11)  | 2.86        | 6.77  | 8.16  | 1.91        | 17.7%      | 60.8% | 75.4%  | 66.3%      | 80.6%  | 82.4% |
@@ -165,13 +168,16 @@ Commands to reproduce results:
 | NF4 [[14]](#f14)   | 3.43        | 7.67  | 8.84  | 2.15        | 18.9%      | 39.6% | 73.7%  | 66.1%      | 75.9%  | 79.3% |
 | ANY4 [[15]](#f15)  | 3.20        | 7.01  | 8.33  | 1.99        | 17.1%      | 57.4% | 75.1%  | 66.1%      | 78.5%  | 81.8% |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 11. <span id="f11"></span> `python eval.py --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/bf16`
 12. <span id="f12"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/int4`
 13. <span id="f13"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/fp4`
 14. <span id="f14"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/nf4`
 15. <span id="f15"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/any4`
+
+</details>
 
 **Llama2 7B**
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
@@ -182,7 +188,8 @@ Commands to reproduce results:
 | NF4 [[19]](#f19)   | 5.66        | 7.19  | 22.82  | 2.60        | 11.6%      | 19.2% | 37.4%  | 56.8%      | 10.2%  | 36.8% |
 | ANY4 [[20]](#f20)  | 5.59        | 7.10  | 21.23  | 2.57        | 14.0%      | 18.4% | 40.3%  | 56.7%      | 12.7%  | 36.9% |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 16. <span id="f16"></span> `python eval.py --model-name meta-llama/Llama-2-7b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-7b/fp16`
 17. <span id="f17"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-7b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-7b/int4`
@@ -190,7 +197,9 @@ Commands to reproduce results:
 19. <span id="f19"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-7b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-7b/nf4`
 20. <span id="f20"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-2-7b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-7b/any4`
 
-**Llama2 13B**
+</details>
+
+#### Llama2 13B
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ----------------- | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[21]](#f21)  | 4.88        | 6.47  | 28.93  | 2.40        | 19.5%      | 18.4% | 50.5%  | 60.0%      | 23.2%  | 47.4% |
@@ -199,7 +208,8 @@ Commands to reproduce results:
 | NF4 [[24]](#f24)   | 4.99        | 6.58  | 31.17  | 2.43        | 15.9%      | 16.6% | 49.9%  | 59.9%      | 22.1%  | 44.6% |
 | ANY4 [[25]](#f25)  | 4.97        | 6.55  | 28.83  | 2.42        | 15.2%      | 18.0% | 49.3%  | 59.5%      | 21.6%  | 44.6% |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 21. <span id="f21"></span> `python eval.py --model-name meta-llama/Llama-2-13b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-13b/fp16`
 22. <span id="f22"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-13b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-13b/int4`
@@ -207,8 +217,9 @@ Commands to reproduce results:
 24. <span id="f24"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-13b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-13b/nf4`
 25. <span id="f25"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-2-13b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-13b/any4`
 
+</details>
 
-**Llama2 70B**
+#### Llama2 70B
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ----------------- | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[26]](#f26)  | 3.32        | 5.52  | 14.44  | 2.11        | 31.7%      | 37.4% | 65.2%  | 64.8%      | 53.3%  | 67.1% |
@@ -217,7 +228,8 @@ Commands to reproduce results:
 | NF4 [[29]](#f29)   | 3.44        | 5.61  | 14.36  | 2.13        | 29.9%      | 37.2% | 64.4%  | 63.9%      | 51.9%  | 66.5% |
 | ANY4 [[30]](#f30)  | 3.40        | 5.58  | 14.64  | 2.13        | 26.8%      | 38.5% | 64.8%  | 63.6%      | 51.6%  | 66.6% |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 26. <span id="f26"></span> `python eval.py --model-name meta-llama/Llama-2-70b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-70b/fp16`
 27. <span id="f27"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-70b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-70b/int4`
@@ -225,7 +237,9 @@ Commands to reproduce results:
 29. <span id="f29"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-2-70b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-70b/nf4`
 30. <span id="f30"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-2-70b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-70b/any4`
 
-**Mistral-7B Instruct v0.2**
+</details>
+
+#### Mistral-7B Instruct v0.2
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[31]](#f31) | 5.95        | 8.82  | 21.77  | 2.63        | 58.7%  | 66.1%      | 41.7%  | 51.7%     |
@@ -234,7 +248,8 @@ Commands to reproduce results:
 | NF4 [[34]](#f34)  | 6.06        | 8.93  | 24.72  | 2.66        | 58.0%  | 65.5%      | 38.5%  | 51.8%     |
 | ANY4 [[35]](#f35) | 6.00        | 8.85  | 23.24  | 2.64        | 58.6%  | 65.4%      | 41.1%  | 51.7%     |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 31. <span id="f31"></span> `python eval.py --model-name mistralai/Mistral-7B-Instruct-v0.2 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mistral-7b-instruct-v0.2/fp16`
 32. <span id="f32"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name mistralai/Mistral-7B-Instruct-v0.2 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mistral-7b-instruct-v0.2/int4`
@@ -242,7 +257,9 @@ Commands to reproduce results:
 34. <span id="f34"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name mistralai/Mistral-7B-Instruct-v0.2 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mistral-7b-instruct-v0.2/nf4`
 35. <span id="f35"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name mistralai/Mistral-7B-Instruct-v0.2 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mistral-7b-instruct-v0.2/any4`
 
-**Mixtral-8x7B Instruct v0.1**
+</details>
+
+#### Mixtral-8x7B Instruct v0.1
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[36]](#f36) | 4.14        | 7.18  | 16.47  | 2.20        | 68.2%  | 67.6%      | 64.8%  | 68.1%     |
@@ -251,7 +268,8 @@ Commands to reproduce results:
 | NF4 [[39]](#f39)  | 4.30        | 7.32  | 15.00  | 2.24        | 67.6%  | 67.2%      | 61.0%  | 66.5%     |
 | ANY4 [[40]](#f40) | 4.27        | 7.27  | 16.14  | 2.22        | 67.7%  | 67.1%      | 62.8%  | 65.8%     |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 36. <span id="f36"></span> `python eval.py --model-name mistralai/Mixtral-8x7B-Instruct-v0.1 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mixtral-8x7b-instruct-v0.1/fp16`
 37. <span id="f37"></span> `python eval.py --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --model-name mistralai/Mixtral-8x7B-Instruct-v0.1 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mixtral-8x7b-instruct-v0.1/int4`
@@ -259,16 +277,21 @@ Commands to reproduce results:
 39. <span id="f39"></span> `python eval.py --quantize nf4 --quantize-args n_bit=4,skip_modules=lm_head --model-name mistralai/Mixtral-8x7B-Instruct-v0.1 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mixtral-8x7b-instruct-v0.1/nf4`
 40. <span id="f40"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name mistralai/Mixtral-8x7B-Instruct-v0.1 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mixtral-8x7b-instruct-v0.1/any4`
 
+</details>
+
 ### Ablation Studies
 
-**Group Size** *for Llama3.2 1B on C4*
+#### Group Size
+Referencing the paper, *Table 4: C4 perplexity after quantizing with different group sizes.*
+
 |      | 64                 | 128                | 256                | 512                | 1024               |
 | ---- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
 | FP4  | 16.19 [[41]](#f41) | 17.11 [[42]](#f42) | 18.12 [[43]](#f43) | 20.43 [[44]](#f44) | 2.3E6 [[45]](#f45) |
 | NF4  | 14.27 [[46]](#f46) | 14.63 [[47]](#f47) | 14.98 [[48]](#f48) | 15.38 [[49]](#f49) | 7.8E5 [[50]](#f50) |
 | ANY4 | 13.75 [[51]](#f51) | 13.95 [[52]](#f52) | 14.09 [[53]](#f53) | 14.24 [[54]](#f54) | 14.34 [[55]](#f55) |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 41. <span id="f41"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=64,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
 42. <span id="f42"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=128,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
@@ -286,7 +309,11 @@ Commands to reproduce results:
 54. <span id="f54"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=512,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 55. <span id="f55"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 
-**Calibration Data** *for Llama3.2 1B*
+</details>
+
+#### Calibration Data
+Referencing the paper, *Table 3: any4 quantization with different calibration data.*
+
 |                   | Calibration Data    | Number of Samples | Sequence Length per Sample | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ |
 | ----------------- | ------------------- | ----------------- | -------------------------- | ----------- | ----- | ----- | ----------- |
 | ANY4 [[57]](#f57) | WikiText-2          | 128               | 2048                       | 10.70       | 14.08 | 18.02 | 3.74        |
@@ -296,7 +323,8 @@ Commands to reproduce results:
 | ANY4 [[61]](#f61) | C4                  | 128               | 512                        | 10.62       | 13.96 | 18.03 | 3.72        |
 | ANY4 [[62]](#f62) | Handwritten Prompt  | 1                 | -                          | 10.63       | 13.95 | 17.94 | 3.71        |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 57. <span id="f57"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=wikitext-2,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 58. <span id="f58"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=pile,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
@@ -305,20 +333,29 @@ Commands to reproduce results:
 61. <span id="f61"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 62. <span id="f62"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
-**Term to Minimize** *for Llama3.2 1B*
+</details>
+
+#### Term to Minimize
+Referencing the paper, *Table A3: Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
+
 |                                           | Term to Minimize                      | WikiText-2 | C4    | PTB   | CodeParrot |
 | ----------------------------------------- | ------------------------------------- | ---------- | ----- | ----- | ---------- |
 | Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 6.680      | 9.619 | 11.186| 2.751      |
 | Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 6.496      | 9.375 | 11.055| 2.675      |
 | Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 6.487      | 9.366 | 11.034| 2.680      |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 63. <span id="f63"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 64. <span id="f64"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 65. <span id="f65"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
-**K-Means Initialization** *for Llama 3.2 1B*
+</details>
+
+#### K-Means Initialization
+Referencing the paper, *Table A4: any4 quantization with K-means clustering initialzied with different algorithms and values.*
+
 |                   | K-Means Initialization | WikiText-2 | C4    | PTB   |
 | ----------------- | ---------------------- | ---------- | ----- | ----- |
 | FP16 [[66]](#f66) | -                      | 9.76       | 12.77 | 16.56 |
@@ -327,13 +364,16 @@ Commands to reproduce results:
 | ANY4 [[69]](#f69) | int4                   | 10.83      | 14.21 | 18.69 |
 | ANY4 [[70]](#f70) | nf4                    | 10.65      | 13.96 | 18.21 |
 
-Commands to reproduce results:
+<details open>
+<summary>Commands to reproduce results:</summary>
 
 66. <span id="f66"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 67. <span id="f67"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=k-means++ --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 68. <span id="f68"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=random --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 69. <span id="f69"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=int --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 70. <span id="f70"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=nf4 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+
+</details>
 
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
