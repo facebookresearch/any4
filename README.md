@@ -283,6 +283,26 @@ Commands to reproduce results:
 54. <span id="f54"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=512,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 55. <span id="f55"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 
+**Calibration Data** for Llama3.2 1B
+
+|                   | Calibration Data    | Number of Samples | Sequence Length per Sample | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ |
+| ----------------- | ------------------- | ----------------- | -------------------------- | ----------- | ----- | ----- | ----------- |
+| ANY4 [[57]](#f57) | WikiText-2          | 128               | 2048                       | 10.70       | 14.08 | 18.02 | 3.74        |
+| ANY4 [[58]](#f58) | Pile                | 128               | 2048                       | 10.70       | 13.99 | 18.26 | 3.74        |
+| ANY4 [[59]](#f59) | C4                  | 128               | 2048                       | 10.67       | 14.05 | 17.97 | 3.74        |
+| ANY4 [[60]](#f60) | C4                  | 128               | 4096                       | 10.74       | 14.14 | 18.10 | 3.75        |
+| ANY4 [[61]](#f61) | C4                  | 128               | 512                        | 10.62       | 13.96 | 18.03 | 3.72        |
+| ANY4 [[62]](#f62) | Handwritten Prompt  | 1                 | -                          | 10.63       | 13.95 | 17.94 | 3.71        |
+
+Commands to reproduce results:
+
+57. <span id="f57"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=wikitext-2,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+58. <span id="f58"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=pile,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+59. <span id="f59"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+60. <span id="f60"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=4096 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+61. <span id="f61"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+62. <span id="f62"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
