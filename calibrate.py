@@ -279,7 +279,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", nargs="+", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--dataset-args", type=str, help="Comma separated string arguments for Hugging Face load_dataset() API.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
-    parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
+    parser.add_argument("--field", type=str, default="text", help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
     parser.add_argument("--start-rand", default=False, action=argparse.BooleanOptionalAction, help="Make each sample to start at a random start index.")
     parser.add_argument("--abs", default=False, action=argparse.BooleanOptionalAction, help="Apply absolute() on tensor before calculating average.")
