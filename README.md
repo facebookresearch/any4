@@ -303,6 +303,20 @@ Commands to reproduce results:
 61. <span id="f61"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 62. <span id="f62"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
+**Term to Minimize** for Llama3.2 1B
+
+|                                           | Term to Minimize                      | WikiText-2 | C4    | PTB   | CodeParrot |
+| ----------------------------------------- | ------------------------------------- | ---------- | ----- | ----- | ---------- |
+| Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 6.680      | 9.619 | 11.186| 2.751      |
+| Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 6.496      | 9.375 | 11.055| 2.675      |
+| Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 6.487      | 9.366 | 11.034| 2.680      |
+
+Commands to reproduce results:
+
+63. <span id="f63"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+64. <span id="f64"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+65. <span id="f65"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
