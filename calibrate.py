@@ -150,11 +150,11 @@ def calibrate(
                         rand_end_margin = min(rand_end_margin, inputs.input_ids.shape[1] - 1)
                         start_idx = random.randint(0, inputs.input_ids.shape[1] - rand_end_margin)
                     else:
-                        start_idx = None
+                        start_idx = 0
                     if max_seq_len is not None:
                         end_idx = start_idx + max_seq_len
                     else:
-                        end_idx = None
+                        end_idx = -1
                     inputs = trim_inputs(inputs, start_idx, end_idx)
                 elif dataloader_type == "gptq":
                     inputs = {"input_ids": batch[0].to(model.device)}
