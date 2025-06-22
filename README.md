@@ -353,10 +353,10 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 #### Term to Minimize
 *Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
 
-|                                           | Term to Minimize                      | WikiText-2 | C4     | PTB    | CodeParrot |
-| ----------------------------------------- | ------------------------------------- | ---------- | ------ | ------ | ---------- |
-| Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 11.143     | 14.740 | 18.715 | 3.858      |
-| Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 10.636     | 13.954 | 18.031 | 3.719      |
+|                                           | Term to Minimize                      | WikiText-2↓ | C4↓     | PTB↓    | CodeParrot↓ |
+| ----------------------------------------- | ------------------------------------- | ----------- | ------- | ------- | ----------- |
+| Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 11.143      | 14.740  | 18.715  | 3.858       |
+| Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 10.636      | 13.954  | 18.031  | 3.719       |
 | Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 10.603      | 13.949 | 18.085 | 3.710      |
 
 <details open>
@@ -371,13 +371,13 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 #### K-Means Initialization
 Referencing the paper, *Table A4: any4 quantization with K-means clustering initialzied with different algorithms and values.*
 
-|                   | K-Means Initialization | WikiText-2 | C4    | PTB   |
-| ----------------- | ---------------------- | ---------- | ----- | ----- |
-| FP16 [[66]](#f66) | -                      | 9.76       | 12.77 | 16.56 |
-| ANY4 [[67]](#f67) | k-means++              | 10.63      | 13.95 | 17.94 |
-| ANY4 [[68]](#f68) | random                 | 10.66      | 13.97 | 18.17 |
-| ANY4 [[69]](#f69) | int4                   | 10.83      | 14.21 | 18.69 |
-| ANY4 [[70]](#f70) | nf4                    | 10.65      | 13.96 | 18.21 |
+|                   | K-Means Initialization | WikiText-2↓ | C4↓    | PTB↓   |
+| ----------------- | ---------------------- | ----------- | ------ | ------ |
+| FP16 [[66]](#f66) | -                      | 9.76        | 12.77  | 16.56  |
+| ANY4 [[67]](#f67) | k-means++              | 10.63       | 13.95  | 17.94  |
+| ANY4 [[68]](#f68) | random                 | 10.66       | 13.97  | 18.17  |
+| ANY4 [[69]](#f69) | int4                   | 10.83       | 14.21  | 18.69  |
+| ANY4 [[70]](#f70) | nf4                    | 10.65       | 13.96  | 18.21  |
 
 <details open>
 <summary>Commands to reproduce results:</summary>
