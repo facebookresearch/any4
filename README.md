@@ -257,8 +257,7 @@ Commands to reproduce results:
 
 ### Ablation Studies
 
-**Group Size** for Llama3.2 1B on C4
-
+**Group Size** *for Llama3.2 1B on C4*
 |      | 64                 | 128                | 256                | 512                | 1024               |
 | ---- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
 | FP4  | 16.19 [[41]](#f41) | 17.11 [[42]](#f42) | 18.12 [[43]](#f43) | 20.43 [[44]](#f44) | 2.3E6 [[45]](#f45) |
@@ -283,8 +282,7 @@ Commands to reproduce results:
 54. <span id="f54"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=512,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 55. <span id="f55"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,group_size=1024,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks c4`
 
-**Calibration Data** for Llama3.2 1B
-
+**Calibration Data** *for Llama3.2 1B*
 |                   | Calibration Data    | Number of Samples | Sequence Length per Sample | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ |
 | ----------------- | ------------------- | ----------------- | -------------------------- | ----------- | ----- | ----- | ----------- |
 | ANY4 [[57]](#f57) | WikiText-2          | 128               | 2048                       | 10.70       | 14.08 | 18.02 | 3.74        |
@@ -303,8 +301,7 @@ Commands to reproduce results:
 61. <span id="f61"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 62. <span id="f62"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
-**Term to Minimize** for Llama3.2 1B
-
+**Term to Minimize** *for Llama3.2 1B*
 |                                           | Term to Minimize                      | WikiText-2 | C4    | PTB   | CodeParrot |
 | ----------------------------------------- | ------------------------------------- | ---------- | ----- | ----- | ---------- |
 | Weights Only [[63]](#f63)                 | $(w_{S_{i,j}} - w_{Q_{i,j}})$         | 6.680      | 9.619 | 11.186| 2.751      |
@@ -317,8 +314,7 @@ Commands to reproduce results:
 64. <span id="f64"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 65. <span id="f65"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
-**K-Means Initialization** for Llama 3.2 1B
-
+**K-Means Initialization** *for Llama 3.2 1B*
 |                   | K-Means Initialization | WikiText-2 | C4    | PTB   |
 | ----------------- | ---------------------- | ---------- | ----- | ----- |
 | FP16 [[66]](#f66) | -                      | 9.76       | 12.77 | 16.56 |
