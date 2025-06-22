@@ -326,11 +326,26 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 <details open>
 <summary>Commands to reproduce results:</summary>
 
-57. <span id="f57"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=wikitext-2,dataloader_type=gptq,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
-58. <span id="f58"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=monology/pile-uncopyrighted,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
-59. <span id="f59"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
-60. <span id="f60"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=4096 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
-61. <span id="f61"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+57. <span id="f57"></span>
+    a. Offline Calibration: `python calibrate.py --dataset wikitext-2 --dataloader-type gptq --num-samples 128 --max-seq-len 2048 --model-name meta-llama/Llama-3.2-1B --log-dir ./calibrations/llama3.2-1b/wikitext2_128_2048/` followed by `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=./calibrations/llama3.2-1b/wikitext2_128_2048/wikitext-2.pt,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+    
+    b. Online Calibration [will lead to different results]: `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=wikitext-2,dataloader_type=gptq,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+58. <span id="f58"></span>
+    a. Offline Calibration: `python calibrate.py --dataset monology/pile-uncopyrighted --num-samples 128 --max-seq-len 2048 --model-name meta-llama/Llama-3.2-1B --log-dir ./calibrations/llama3.2-1b/pile_128_2048/` followed by `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=./calibrations/llama3.2-1b/pile_128_2048/pile-uncopyrighted.pt,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
+    b. Online Calibration [will lead to different results]: `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=monology/pile-uncopyrighted,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+59. <span id="f59"></span>
+    a. Offline Calibration: `python calibrate.py --dataset c4 --dataloader-type gptq --num-samples 128 --max-seq-len 2048 --model-name meta-llama/Llama-3.2-1B --log-dir ./calibrations/llama3.2-1b/c4_128_2048/` followed by `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=./calibrations/llama3.2-1b/c4_128_2048/c4.pt,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
+    b. Online Calibration [will lead to different results]: `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=2048 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+60. <span id="f60"></span>
+    a. Offline Calibration: `python calibrate.py --dataset c4 --dataloader-type gptq --num-samples 128 --max-seq-len 4096 --model-name meta-llama/Llama-3.2-1B --log-dir ./calibrations/llama3.2-1b/c4_128_4096/` followed by `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=./calibrations/llama3.2-1b/c4_128_4096/c4.pt,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
+    b. Online Calibration [will lead to different results]: `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=4096 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+61. <span id="f61"></span> 
+    a. Offline Calibration: `python calibrate.py --dataset c4 --dataloader-type gptq --num-samples 128 --max-seq-len 4096 --model-name meta-llama/Llama-3.2-1B --log-dir ./calibrations/llama3.2-1b/c4_128_512/` followed by `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=./calibrations/llama3.2-1b/c4_128_512/c4.pt,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
+
+    b. Online Calibration [will lead to different results]: `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --calibrate-args dataset=c4,dataloader_type=gptq,num_samples=128,max_seq_len=512 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 62. <span id="f62"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
 </details>
