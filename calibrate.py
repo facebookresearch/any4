@@ -150,11 +150,11 @@ def calibrate(
                         rand_end_margin = min(rand_end_margin, inputs.input_ids.shape[1] - 1)
                         start_idx = random.randint(0, inputs.input_ids.shape[1] - rand_end_margin)
                     else:
-                        start_idx = None
+                        start_idx = 0
                     if max_seq_len is not None:
                         end_idx = start_idx + max_seq_len
                     else:
-                        end_idx = None
+                        end_idx = -1
                     inputs = trim_inputs(inputs, start_idx, end_idx)
                 elif dataloader_type == "gptq":
                     inputs = {"input_ids": batch[0].to(model.device)}
@@ -210,7 +210,6 @@ def main(
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
     args = locals()
-    print(args)
     with Path(log_dir/"args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
@@ -246,7 +245,6 @@ def main(
         abs=abs,
         dataloader_type=dataloader_type,
     )
-    print(layer_to_num_activations)
 
     # Log Activations
     log_name = dataset.split("/")[-1] if dataset else "prompt"
@@ -281,7 +279,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", nargs="+", type=str, help="Config to load from within the dataset.")
     parser.add_argument("--dataset-args", type=str, help="Comma separated string arguments for Hugging Face load_dataset() API.")
     parser.add_argument("--split", type=str, default="train", help="Split to load from within the dataset.")
-    parser.add_argument("--field", type=str, help="Field to load from within the dataset.")
+    parser.add_argument("--field", type=str, default="text", help="Field to load from within the dataset.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for shuffling dataset.")
     parser.add_argument("--start-rand", default=False, action=argparse.BooleanOptionalAction, help="Make each sample to start at a random start index.")
     parser.add_argument("--abs", default=False, action=argparse.BooleanOptionalAction, help="Apply absolute() on tensor before calculating average.")

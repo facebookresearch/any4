@@ -270,11 +270,11 @@ def trim_inputs(inputs, start_idx=None, end_idx=None):
     Returns:
         dict: The trimmed inputs dictionary.
     """
-    if start_idx is None and end_idx is None:
+    if (start_idx is None or start_idx == 0) and (end_idx is None or end_idx == -1):
         return inputs  # No trimming needed
-    elif start_idx is None:
+    elif start_idx is None or start_idx == 0:
         return {key: value[:, :end_idx] for key, value in inputs.items()}
-    elif end_idx is None:
+    elif end_idx is None or end_idx == -1:
         return {key: value[:, start_idx:] for key, value in inputs.items()}
     else:
         return {key: value[:, start_idx:end_idx] for key, value in inputs.items()}

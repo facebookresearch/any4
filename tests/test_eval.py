@@ -111,7 +111,7 @@ class TestEval(unittest.TestCase):
     ])
     def test_nf4(
         self,
-        group_size=64,
+        group_size=128,
         dtype="float16",
     ):
         quant_method=any4.nf4
@@ -143,7 +143,7 @@ class TestEval(unittest.TestCase):
     ])
     def test_fp4(
         self,
-        group_size=64,
+        group_size=128,
         dtype="float16",
     ):
         quant_method=any4.fp4
@@ -177,7 +177,7 @@ class TestEval(unittest.TestCase):
     def test_anyq(
         self,
         n_bit=4,
-        group_size=64,
+        group_size=128,
         dtype="bfloat16",
         device="cuda"
     ):

@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Callable, Dict, List, Tuple, Type
+import gc
 import random
 import time
 import torch
@@ -15,7 +16,6 @@ import sklearn.cluster
 import bitsandbytes as bnb
 
 import kmeans
-import gc
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -27,6 +27,7 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count
 
+# TODO: rename function to quantize?
 def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
 
@@ -44,6 +45,7 @@ def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_m
                 continue
 
             # Calibrate if necessary
+            # TODO: move this to inside the quantization function?
             if calibrate_fn is not None:
                 calibrate_args["seed"] = index
                 if calibrate_args.get("return_activations", False):

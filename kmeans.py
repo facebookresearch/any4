@@ -24,6 +24,9 @@ def build_init(x, n_clusters, init_type):
         case None:
             return None
 
+        case "k-means++":
+            return "k-means++"
+
         case "random":
             return "random"
 
