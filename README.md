@@ -317,6 +317,24 @@ Commands to reproduce results:
 64. <span id="f64"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 65. <span id="f65"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
 
+**K-Means Initialization** for Llama 3.2 1B
+
+|                   | K-Means Initialization | WikiText-2 | C4    | PTB   |
+| ----------------- | ---------------------- | ---------- | ----- | ----- |
+| FP16 [[66]](#f66) | -                      | 9.76       | 12.77 | 16.56 |
+| ANY4 [[67]](#f67) | k-means++              | 10.63      | 13.95 | 17.94 |
+| ANY4 [[68]](#f68) | random                 | 10.66      | 13.97 | 18.17 |
+| ANY4 [[69]](#f69) | int4                   | 10.83      | 14.21 | 18.69 |
+| ANY4 [[70]](#f70) | nf4                    | 10.65      | 13.96 | 18.21 |
+
+Commands to reproduce results:
+
+66. <span id="f66"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+67. <span id="f67"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=k-means++ --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+68. <span id="f68"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=random --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+69. <span id="f69"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=int --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+70. <span id="f70"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=nf4 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+
 # Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contribiuting Guidelines](CONTRIBUTING.md). 
 
