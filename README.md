@@ -118,6 +118,8 @@ python -m pytest .
 ## Experiments
 In this section we provide the results in the paper and the command to reproduce each result.
 
+_Please note: you need to expand "Commands to reproduce results" block below each table, in order for the links to commands in each row to work._
+
 ### Main Results
 #### Llama3.2 1B
 |                 | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
@@ -128,7 +130,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[4]](#f4)  | 10.99       | 14.63 | 18.78 | 3.82        | 13.4%      | 13.8% | 33.3%  | 45.8%      | 3.65%  | 26.8% |
 | ANY4 [[5]](#f5) | 10.63       | 13.95 | 17.94 | 3.71        | 11.0%      | 18.6% | 32.9%  | 46.7%      | 3.71%  | 29.0% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 1. <span id="f1"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log--dir ./logs/llama3.2-1b/bf16`
@@ -148,7 +150,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[9]](#f9)    | 6.63        | 9.52  | 11.14 | 2.72        | 23.2%      | 39.2% | 60.7%  | 59.1%      | 41.1%  | 59.0% |
 | ANY4 [[10]](#f10) | 6.51        | 9.40  | 11.07 | 2.68        | 21.3%      | 39.2% | 61.0%  | 59.5%      | 41.7%  | 59.2% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 6. <span id="f6"></span> `python eval.py --model-name meta-llama/Meta-Llama-3-8B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log--dir ./logs/llama3-8b/bf16`
@@ -168,7 +170,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[14]](#f14)   | 3.43        | 7.67  | 8.84  | 2.15        | 18.9%      | 39.6% | 73.7%  | 66.1%      | 75.9%  | 79.3% |
 | ANY4 [[15]](#f15)  | 3.20        | 7.01  | 8.33  | 1.99        | 17.1%      | 57.4% | 75.1%  | 66.1%      | 78.5%  | 81.8% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 11. <span id="f11"></span> `python eval.py --model-name meta-llama/Meta-Llama-3-70B --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama3-70b/bf16`
@@ -188,7 +190,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[19]](#f19)   | 5.66        | 7.19  | 22.82  | 2.60        | 11.6%      | 19.2% | 37.4%  | 56.8%      | 10.2%  | 36.8% |
 | ANY4 [[20]](#f20)  | 5.59        | 7.10  | 21.23  | 2.57        | 14.0%      | 18.4% | 40.3%  | 56.7%      | 12.7%  | 36.9% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 16. <span id="f16"></span> `python eval.py --model-name meta-llama/Llama-2-7b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-7b/fp16`
@@ -208,7 +210,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[24]](#f24)   | 4.99        | 6.58  | 31.17  | 2.43        | 15.9%      | 16.6% | 49.9%  | 59.9%      | 22.1%  | 44.6% |
 | ANY4 [[25]](#f25)  | 4.97        | 6.55  | 28.83  | 2.42        | 15.2%      | 18.0% | 49.3%  | 59.5%      | 21.6%  | 44.6% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 21. <span id="f21"></span> `python eval.py --model-name meta-llama/Llama-2-13b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-13b/fp16`
@@ -228,7 +230,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[29]](#f29)   | 3.44        | 5.61  | 14.36  | 2.13        | 29.9%      | 37.2% | 64.4%  | 63.9%      | 51.9%  | 66.5% |
 | ANY4 [[30]](#f30)  | 3.40        | 5.58  | 14.64  | 2.13        | 26.8%      | 38.5% | 64.8%  | 63.6%      | 51.6%  | 66.6% |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 26. <span id="f26"></span> `python eval.py --model-name meta-llama/Llama-2-70b-hf --tasks wikitext-2 c4 ptb codeparrot humaneval mbpp mmlu hellaswag gsm8k bbh --log-dir ./logs/llama2-70b/fp16`
@@ -248,7 +250,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[34]](#f34)  | 6.06        | 8.93  | 24.72  | 2.66        | 58.0%  | 65.5%      | 38.5%  | 51.8%     |
 | ANY4 [[35]](#f35) | 6.00        | 8.85  | 23.24  | 2.64        | 58.6%  | 65.4%      | 41.1%  | 51.7%     |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 31. <span id="f31"></span> `python eval.py --model-name mistralai/Mistral-7B-Instruct-v0.2 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mistral-7b-instruct-v0.2/fp16`
@@ -268,7 +270,7 @@ In this section we provide the results in the paper and the command to reproduce
 | NF4 [[39]](#f39)  | 4.30        | 7.32  | 15.00  | 2.24        | 67.6%  | 67.2%      | 61.0%  | 66.5%     |
 | ANY4 [[40]](#f40) | 4.27        | 7.27  | 16.14  | 2.22        | 67.7%  | 67.1%      | 62.8%  | 65.8%     |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 36. <span id="f36"></span> `python eval.py --model-name mistralai/Mixtral-8x7B-Instruct-v0.1 --tasks wikitext-2 c4 ptb codeparrot mmlu hellaswag gsm8k bigbench --log-dir ./logs/mixtral-8x7b-instruct-v0.1/fp16`
@@ -290,7 +292,7 @@ Referencing the paper, *Table 4: C4 perplexity after quantizing with different g
 | NF4  | 14.27 [[46]](#f46) | 14.63 [[47]](#f47) | 14.98 [[48]](#f48) | 15.38 [[49]](#f49) | 7.8E5 [[50]](#f50) |
 | ANY4 | 13.75 [[51]](#f51) | 13.95 [[52]](#f52) | 14.09 [[53]](#f53) | 14.24 [[54]](#f54) | 14.34 [[55]](#f55) |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 41. <span id="f41"></span> `python eval.py --quantize fp4 --quantize-args n_bit=4,group_size=64,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks c4`
@@ -323,7 +325,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 | ANY4 [[61]](#f61) | C4                  | 128               | 512                        | 10.62       | 13.96 | 18.03 | 3.72        |
 | ANY4 [[62]](#f62) | Handwritten Prompt  | 1                 | -                          | 10.63       | 13.95 | 17.94 | 3.71        |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 57. <span id="f57"></span>
@@ -359,7 +361,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 | Weights × Activations [[64]](#f64)        | $(w_{S_{i,j}}x_j - w_{Q_{i,j}}x_j)$   | 10.636      | 13.954  | 18.031  | 3.719       |
 | Weights × Activations × Group Scales [[65]](#f65) [Ours] | $(\alpha_{i,j}w_{S_{i,j}}x_j - \alpha_{i,j}w_{Q_{i,j}}x_j)$ | 10.603      | 13.949 | 18.085 | 3.710      |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 63. <span id="f63"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb codeparrot`
@@ -379,7 +381,7 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 | ANY4 [[69]](#f69) | int4                   | 10.83       | 14.21  | 18.69  |
 | ANY4 [[70]](#f70) | nf4                    | 10.65       | 13.96  | 18.21  |
 
-<details open>
+<details>
 <summary>Commands to reproduce results:</summary>
 
 66. <span id="f66"></span> `python eval.py --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
