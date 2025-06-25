@@ -29,10 +29,11 @@ template <int Warps, FloatType FT>
 struct ALayout_RM {
   static constexpr FloatType kFT = FT;
   static constexpr int32_t kInnerKTiles = 1;
-  static constexpr int32_t kSharedMemory = 0;
   static constexpr int32_t kMTileSize = 16;
   static constexpr int32_t kNTileSize = 8;
   static constexpr int32_t kKTileSize = 16;
+  static constexpr int32_t kSharedMemory = 0;
+  static constexpr bool kSyncAfterInit = false;
 
   // Dequantization information needed for all loads, if any
   struct InitT {};
@@ -48,9 +49,12 @@ struct ALayout_RM {
   static __device__ InitT init(
       int32_t warpId,
       int32_t laneId,
+      void* __restrict__ smem,
       int32_t mTile,
       int32_t nTile,
-      const DequantInfo& dqInfo) {};
+      const DequantInfo& dqInfo) {
+    return InitT();
+  };
 
   static __device__ const void* getMatrixTile(
       int32_t warpId,
@@ -208,10 +212,11 @@ template <int Warps, FloatType FT>
 struct ALayout_TC {
   static constexpr FloatType kFT = FT;
   static constexpr int32_t kInnerKTiles = 1;
-  static constexpr int32_t kSharedMemory = 0;
   static constexpr int32_t kMTileSize = 16;
   static constexpr int32_t kNTileSize = 8;
   static constexpr int32_t kKTileSize = 16;
+  static constexpr int32_t kSharedMemory = 0;
+  static constexpr bool kSyncAfterInit = false;
 
   // Dequantization information needed for all loads, if any
   struct InitT {};
@@ -226,9 +231,12 @@ struct ALayout_TC {
   static __device__ InitT init(
       int32_t warpId,
       int32_t laneId,
+      void* __restrict__ smem,
       int32_t mTile,
       int32_t nTile,
-      const DequantInfo& dqInfo) {};
+      const DequantInfo& dqInfo) {
+    return InitT();
+  };
 
   static __device__ const void* getMatrixTile(
       int32_t warpId,
@@ -373,21 +381,27 @@ template <
 struct ALayout_TC_int4 {
   static constexpr FloatType kFT = FT;
   static constexpr int32_t kInnerKTiles = InnerKTiles;
-  static constexpr int32_t kSharedMemory = 0;
   static constexpr int32_t kMTileSize = 16;
   static constexpr int32_t kNTileSize = 8;
   static constexpr int32_t kKTileSize = 16;
+  // 16 x 16 mma tile => need 16 rows of any4 data
+  static constexpr int32_t kSharedMemory =
+      QType == Int4_QType::Any4_RowWise_Grouped
+      ? sizeof(typename FloatDefs<FT>::T) * 16 * 16
+      : 0;
+  // need sync for the any4 smem LUTs
+  static constexpr bool kSyncAfterInit =
+      (QType == Int4_QType::Any4_RowWise_Grouped);
 
   // Dequantization information needed for all loads, if any
   struct InitT {
-    // If QType == Any4_QType, then across the warp this
+    // If QType == Any4_Global_Grouped, then across the warp this
     // holds the 16 float dequantized values that each int4 value
-    // maps to, prior to group dequantization, for the specific 2 rows
-    // that the current lane is accessing (at 0 and +8).
+    // maps to, prior to group dequantization
     // The 16 values are replicated across both half warps.
     //
     // FIXME: nvcc should remove these if they are not used for the given QType
-    typename FloatDefs<FT>::T dequantAny4[2];
+    typename FloatDefs<FT>::T any4LUT = 0;
 
     // If QType == MX4, then across the warp this holds the
     // 16 float dequantized values for the fp4 MX4 values.
@@ -397,7 +411,7 @@ struct ALayout_TC_int4 {
     // The 16 values are replicated across both half warps.
     //
     // FIXME: nvcc should remove these if they are not used for the given QType
-    typename FloatDefs<FT>::T dequantMX4;
+    typename FloatDefs<FT>::T dequantMX4 = 0;
   };
 
   // Raw data type of matrix (before dequantization) and
@@ -412,7 +426,8 @@ struct ALayout_TC_int4 {
 
     uint32_t data[KTilesToLoad];
 
-    // Group quantization scale/offset data for Int4_QType / Any4_QType
+    // Group quantization scale/offset data for
+    // Int4_Grouped / Any4_Global_Grouped / Any4_RowWise_Grouped
     //
     // Unlike the B layout where each lane only has values at row m,
     // for A layout each lane has values at row m and at row m + 8, hence the 2
@@ -433,27 +448,39 @@ struct ALayout_TC_int4 {
   static __device__ InitT init(
       int32_t warpId,
       int32_t laneId,
+      void* __restrict__ smem,
       int32_t mTile,
       int32_t nTile,
       const DequantInfo& dqInfo) {
     // qInfo2 is [16] : float representing what each int4 value dequantizes to
     InitT out;
 
-    if constexpr (QType == Int4_QType::Any4_Grouped) {
-      // this lane is accessing rows {laneM0, laneM0 + 8}
-      int32_t laneM0 = mTile * kMTileSize + (laneId / 4);
+    if constexpr (QType == Int4_QType::Any4_Global_Grouped) {
+      auto any4LUT =
+          reinterpret_cast<const typename FloatDefs<FT>::T*>(dqInfo.qInfo2);
 
-      auto dqPtr =
+      // Just a single table of 16
+      out.any4LUT = any4LUT[laneId % 16];
+
+    } else if constexpr (QType == Int4_QType::Any4_RowWise_Grouped) {
+      // We need to load 16 rows of data starting at this offset
+      int32_t mStart = mTile * kMTileSize;
+
+      auto any4LUT =
           reinterpret_cast<const typename FloatDefs<FT>::T*>(dqInfo.qInfo2) +
-          //        reinterpret_cast<const float*>(dqInfo.qInfo2) +
-          // DequantInfo::iInfo1 contains the stride between rows for the any4
-          // dequantization values.
-          // It is 16 for row-wise any4 dequant, 0 for matrix-wide any4 dequant
-          // duplicate values across the lower and upper warp
-          laneM0 * dqInfo.iInfo1 + (laneId % 16);
+          mStart * 16; // dqInfo.iInfo1;
 
-      out.dequantAny4[0] = dqPtr[0];
-      out.dequantAny4[1] = dqPtr[8 * dqInfo.iInfo1];
+      auto tid = threadIdx.y * kWarpSize + threadIdx.x;
+      auto smemT = reinterpret_cast<typename FloatDefs<FT>::T*>(smem);
+
+      // FIXME: might be better to have an
+      // 16 x 256 -> (b)f16x2 LUT with dequantization
+      // codes arranged as 76543210, can dequantize 2 values per smem lookup
+      if (tid < 16 * 16) {
+        smemT[tid] = any4LUT[tid];
+      }
+
+      // __syncthreads() is called by main kernel after all inits
     } else if constexpr (QType == Int4_QType::MX4_Grouped) {
       // We simply store the MX4 fp4 dequant values in device memory, is faster
       // than doing the bit manipulation to convert to a float
@@ -462,7 +489,8 @@ struct ALayout_TC_int4 {
     }
 
     return out;
-  };
+  }
+
   static __device__ const void* getMatrixTile(
       int32_t warpId,
       int32_t laneId,
@@ -557,23 +585,41 @@ struct ALayout_TC_int4 {
       auto aPtrCur = aPtr + i * kWarpSize * InnerKTiles;
 
       if constexpr (InnerKTiles == 1) {
-        auto v = *reinterpret_cast<const u32x1*>(aPtrCur);
-#pragma unroll
-        for (int j = 0; j < InnerKTiles; ++j) {
-          out.data[i * InnerKTiles + j] = v.vals[j];
-        }
+        //         auto v = *reinterpret_cast<const u32x1*>(aPtrCur);
+        // #pragma unroll
+        //         for (int j = 0; j < InnerKTiles; ++j) {
+        //           out.data[i * InnerKTiles + j] = v.vals[j];
+        //         }
+
+        asm volatile("ld.global.cs.u32 {%0}, [%1];"
+                     : "=r"(out.data[i * InnerKTiles + 0])
+                     : "l"(aPtrCur));
+
       } else if constexpr (InnerKTiles == 2) {
-        auto v = *reinterpret_cast<const u32x2*>(aPtrCur);
-#pragma unroll
-        for (int j = 0; j < InnerKTiles; ++j) {
-          out.data[i * InnerKTiles + j] = v.vals[j];
-        }
+        //         auto v = *reinterpret_cast<const u32x2*>(aPtrCur);
+        // #pragma unroll
+        //         for (int j = 0; j < InnerKTiles; ++j) {
+        //           out.data[i * InnerKTiles + j] = v.vals[j];
+        //         }
+
+        asm volatile("ld.global.cs.v2.u32 {%0, %1}, [%2];"
+                     : "=r"(out.data[i * InnerKTiles + 0]),
+                       "=r"(out.data[i * InnerKTiles + 1])
+                     : "l"(aPtrCur));
+
       } else if constexpr (InnerKTiles == 4) {
-        auto v = *reinterpret_cast<const u32x4*>(aPtrCur);
-#pragma unroll
-        for (int j = 0; j < InnerKTiles; ++j) {
-          out.data[i * InnerKTiles + j] = v.vals[j];
-        }
+        //         auto v = *reinterpret_cast<const u32x4*>(aPtrCur);
+        // #pragma unroll
+        //         for (int j = 0; j < InnerKTiles; ++j) {
+        //           out.data[i * InnerKTiles + j] = v.vals[j];
+        //         }
+
+        asm volatile("ld.global.cs.v4.u32 {%0, %1, %2, %3}, [%4];"
+                     : "=r"(out.data[i * InnerKTiles + 0]),
+                       "=r"(out.data[i * InnerKTiles + 1]),
+                       "=r"(out.data[i * InnerKTiles + 2]),
+                       "=r"(out.data[i * InnerKTiles + 3])
+                     : "l"(aPtrCur));
       }
     }
 
@@ -586,7 +632,9 @@ struct ALayout_TC_int4 {
 
     if constexpr (
         QType == Int4_QType::Int4_Grouped ||
-        QType == Int4_QType::Any4_Grouped || QType == Int4_QType::MX4_Grouped) {
+        QType == Int4_QType::Any4_Global_Grouped ||
+        QType == Int4_QType::Any4_RowWise_Grouped ||
+        QType == Int4_QType::MX4_Grouped) {
       static_assert(isPowerOf2(QGroupSize), "");
       static_assert(isEvenDivisor(QGroupSize, kKTileSize), "");
       // smallest quantization group size is 16 (1 k-tile is packed in an int32)
@@ -644,7 +692,8 @@ struct ALayout_TC_int4 {
       u32x4 out[KTilesToLoad]) {
     if constexpr (
         QType == Int4_QType::Int4_Grouped ||
-        QType == Int4_QType::Any4_Grouped) {
+        QType == Int4_QType::Any4_Global_Grouped ||
+        QType == Int4_QType::Any4_RowWise_Grouped) {
       //
       // De-quantize int4 values to bf16/fp16. Values are dequantized as truly
       // int4
@@ -672,12 +721,13 @@ struct ALayout_TC_int4 {
         typename FloatDefs<FT>::T2x4 v;
 
         // 8 x int4 -> 8 x bf16/fp16
-        if constexpr (QType == Int4_QType::Any4_Grouped) {
-          convert_any4x8_to_f16x2x4(
+        if constexpr (QType == Int4_QType::Any4_Global_Grouped) {
+          convert_any4x8_global_to_f16x2x4<FT>(in.data[i], init.any4LUT, v);
+        } else if constexpr (QType == Int4_QType::Any4_RowWise_Grouped) {
+          convert_any4x8_rowwise_A_to_f16x2x4<FT>(
+              laneId,
               in.data[i],
-              // lane for A is at row0, row0 + 8
-              init.dequantAny4[0],
-              init.dequantAny4[1],
+              reinterpret_cast<const typename FloatDefs<FT>::T*>(smem),
               v);
         } else {
           convert_i4x8_to_f16x2x4(in.data[i], v);
@@ -737,12 +787,7 @@ struct ALayout_TC_int4 {
         typename FloatDefs<FT>::T2x4 v;
 
         // 8 x MX4 fp4 -> 8 x bf16/fp16
-        convert_any4x8_to_f16x2x4(
-            in.data[i],
-            // same dequant for all rows
-            init.dequantMX4,
-            init.dequantMX4,
-            v);
+        convert_any4x8_global_to_f16x2x4<FT>(in.data[i], init.dequantMX4, v);
 
         auto curKTile = i;
         // q-group sizes are at least kKTileSize, so this is ok
@@ -774,10 +819,11 @@ template <int Warps, FloatType FT, int InnerKTiles, int QGroupSize>
 struct ALayout_TC_int8 {
   static constexpr FloatType kFT = FT;
   static constexpr int32_t kInnerKTiles = InnerKTiles;
-  static constexpr int32_t kSharedMemory = 0;
   static constexpr int32_t kMTileSize = 16;
   static constexpr int32_t kNTileSize = 8;
   static constexpr int32_t kKTileSize = 16;
+  static constexpr int32_t kSharedMemory = 0;
+  static constexpr bool kSyncAfterInit = false;
 
   // Dequantization information needed for all loads, if any
   struct InitT {};
@@ -803,9 +849,12 @@ struct ALayout_TC_int8 {
   static __device__ InitT init(
       int32_t warpId,
       int32_t laneId,
+      void* __restrict__ smem,
       int32_t mTile,
       int32_t nTile,
-      const DequantInfo& dqInfo) {};
+      const DequantInfo& dqInfo) {
+    return InitT();
+  };
 
   static __device__ const void* getMatrixTile(
       int32_t warpId,

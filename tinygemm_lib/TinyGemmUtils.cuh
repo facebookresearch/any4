@@ -19,9 +19,16 @@
 namespace tinygemm {
 
 enum class Int4_QType {
-  Int4_Grouped, // group-wise int4 quantization
-  Any4_Grouped, // group-wise/row-wise any4 quantization
-  MX4_Grouped, // mx4 (fp4 as s1e2m1) with group-wise exponent e8
+  // int4 with quantization grouping (scale + offset)
+  Int4_Grouped,
+  // single any4 lookup table per matrix
+  // with quantization grouping (scale + offset)
+  Any4_Global_Grouped,
+  // any4 lookup table per row
+  // with quantization grouping (scale + offset)
+  Any4_RowWise_Grouped,
+  // mx4 (fp4 as s1e2m1) with group-wise exponent e8
+  MX4_Grouped,
 };
 
 inline __device__ __nv_bfloat162 float22bf162(const float2 val) {

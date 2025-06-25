@@ -9,55 +9,92 @@
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
+#include "FloatDefs.cuh"
 #include "TinyGemmUtils.cuh"
 
 namespace tinygemm {
 
-inline __device__ void convert_any4x8_to_f16x2x4(
+template <FloatType FT>
+inline __device__ void convert_any4x8_rowwise_A_to_f16x2x4(
+    int32_t laneId,
     uint32_t source,
-    __nv_bfloat16 dq01_45,
-    __nv_bfloat16 dq23_67,
-    bf16x2x4& out) {
+    const typename FloatDefs<FT>::T* smem,
+    typename FloatDefs<FT>::T2x4& out) {
   // source is interleaved as 75316420
   uint32_t x_even = source; // 6420
   uint32_t x_odd = source >> 16; // 7531
 
-  // Note: Really the lane which we want to access is the 4 LSBs of
-  // x_even / x_odd, but it appears that if you pass non-zero LSBs
-  // beyond that, the ones beyond 5 are ignored. We can pass 0/1 for
-  // the 5th LSB because we duplicate data in the upper half of the
-  // warp. So we can omit the masking with 0xfU for lane selection.
-  //
-  // This is undocumented (?) and possibly not supported by subsequent
-  // GPUs / CUDA versions though.
-  __nv_bfloat16 v0 = __shfl_sync(0xffffffff, dq01_45, x_even);
-  __nv_bfloat16 v1 = __shfl_sync(0xffffffff, dq01_45, x_odd);
+  // For the A layout, a single uint32_t is one k-tile
+  // 01 / 45 are at row laneId / 4
+  // 23 / 67 are at row 8 + (laneId / 4) (8 rows of 16 any4 values ahead)
+  smem += (laneId / 4) * 16;
+
+  auto v0 = smem[x_even & 0xf];
+  auto v1 = smem[x_odd & 0xf];
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[0] = halves2bf162(v0, v1);
+  out.vals[0] = FloatDefs<FT>::Tx2ToT2(v0, v1);
 
-  __nv_bfloat16 v2 = __shfl_sync(0xffffffff, dq23_67, x_even);
-  __nv_bfloat16 v3 = __shfl_sync(0xffffffff, dq23_67, x_odd);
+  auto v2 = smem[8 * 16 + (x_even & 0xf)];
+  auto v3 = smem[8 * 16 + (x_odd & 0xf)];
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[1] = halves2bf162(v2, v3);
+  out.vals[1] = FloatDefs<FT>::Tx2ToT2(v2, v3);
 
-  __nv_bfloat16 v4 = __shfl_sync(0xffffffff, dq01_45, x_even);
-  __nv_bfloat16 v5 = __shfl_sync(0xffffffff, dq01_45, x_odd);
+  auto v4 = smem[x_even & 0xf];
+  auto v5 = smem[x_odd & 0xf];
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[2] = halves2bf162(v4, v5);
+  out.vals[2] = FloatDefs<FT>::Tx2ToT2(v4, v5);
 
-  __nv_bfloat16 v6 = __shfl_sync(0xffffffff, dq23_67, x_even);
-  __nv_bfloat16 v7 = __shfl_sync(0xffffffff, dq23_67, x_odd);
-  out.vals[3] = halves2bf162(v6, v7);
+  auto v6 = smem[8 * 16 + (x_even & 0xf)];
+  auto v7 = smem[8 * 16 + (x_odd & 0xf)];
+  out.vals[3] = FloatDefs<FT>::Tx2ToT2(v6, v7);
 }
 
-inline __device__ void convert_any4x8_to_f16x2x4(
+template <FloatType FT>
+inline __device__ void convert_any4x8_rowwise_B_to_f16x2x4(
+    int32_t laneId,
     uint32_t source,
-    half dq01_45,
-    half dq23_67,
-    f16x2x4& out) {
+    const typename FloatDefs<FT>::T* smem,
+    typename FloatDefs<FT>::T2x4& out) {
+  // source is interleaved as 75316420
+  uint32_t x_even = source; // 6420
+  uint32_t x_odd = source >> 16; // 7531
+
+  // For the B layout, a single uint32_t is two k-tiles
+  // each lane is at row laneId / 4 for both k-tiles
+  smem += (laneId / 4) * 16;
+
+  auto v0 = smem[x_even & 0xf];
+  auto v1 = smem[x_odd & 0xf];
+  x_even >>= 4;
+  x_odd >>= 4;
+  out.vals[0] = FloatDefs<FT>::Tx2ToT2(v0, v1);
+
+  auto v2 = smem[x_even & 0xf];
+  auto v3 = smem[x_odd & 0xf];
+  x_even >>= 4;
+  x_odd >>= 4;
+  out.vals[1] = FloatDefs<FT>::Tx2ToT2(v2, v3);
+
+  auto v4 = smem[x_even & 0xf];
+  auto v5 = smem[x_odd & 0xf];
+  x_even >>= 4;
+  x_odd >>= 4;
+  out.vals[2] = FloatDefs<FT>::Tx2ToT2(v4, v5);
+
+  auto v6 = smem[x_even & 0xf];
+  auto v7 = smem[x_odd & 0xf];
+  out.vals[3] = FloatDefs<FT>::Tx2ToT2(v6, v7);
+}
+
+template <FloatType FT>
+inline __device__ void convert_any4x8_global_to_f16x2x4(
+    uint32_t source,
+    typename FloatDefs<FT>::T any4LUT,
+    typename FloatDefs<FT>::T2x4& out) {
+  using T = typename FloatDefs<FT>::T;
   // source is interleaved as 75316420
   uint32_t x_even = source; // 6420
   uint32_t x_odd = source >> 16; // 7531
@@ -70,27 +107,27 @@ inline __device__ void convert_any4x8_to_f16x2x4(
   //
   // This is undocumented (?) and possibly not supported by subsequent
   // GPUs / CUDA versions though.
-  half v0 = __shfl_sync(0xffffffff, dq01_45, x_even);
-  half v1 = __shfl_sync(0xffffffff, dq01_45, x_odd);
+  auto v0 = __shfl_sync(0xffffffff, any4LUT, x_even);
+  auto v1 = __shfl_sync(0xffffffff, any4LUT, x_odd);
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[0] = __halves2half2(v0, v1);
+  out.vals[0] = FloatDefs<FT>::Tx2ToT2(v0, v1);
 
-  half v2 = __shfl_sync(0xffffffff, dq23_67, x_even);
-  half v3 = __shfl_sync(0xffffffff, dq23_67, x_odd);
+  auto v2 = __shfl_sync(0xffffffff, any4LUT, x_even);
+  auto v3 = __shfl_sync(0xffffffff, any4LUT, x_odd);
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[1] = __halves2half2(v2, v3);
+  out.vals[1] = FloatDefs<FT>::Tx2ToT2(v2, v3);
 
-  half v4 = __shfl_sync(0xffffffff, dq01_45, x_even);
-  half v5 = __shfl_sync(0xffffffff, dq01_45, x_odd);
+  auto v4 = __shfl_sync(0xffffffff, any4LUT, x_even);
+  auto v5 = __shfl_sync(0xffffffff, any4LUT, x_odd);
   x_even >>= 4;
   x_odd >>= 4;
-  out.vals[2] = __halves2half2(v4, v5);
+  out.vals[2] = FloatDefs<FT>::Tx2ToT2(v4, v5);
 
-  half v6 = __shfl_sync(0xffffffff, dq23_67, x_even);
-  half v7 = __shfl_sync(0xffffffff, dq23_67, x_odd);
-  out.vals[3] = __halves2half2(v6, v7);
+  auto v6 = __shfl_sync(0xffffffff, any4LUT, x_even);
+  auto v7 = __shfl_sync(0xffffffff, any4LUT, x_odd);
+  out.vals[3] = FloatDefs<FT>::Tx2ToT2(v6, v7);
 }
 
 // int4 x 8 -> bf16 x 8 uniform dequantization
@@ -146,8 +183,6 @@ inline __device__ void convert_i4x8_to_f16x2x4(
 inline __device__ void convert_i4x8_to_f16x2x4(
     uint32_t source,
     f16x2x4& result) {
-  constexpr int kElements = 8;
-
   uint32_t* h = reinterpret_cast<uint32_t*>(&result);
   uint32_t const source_i4s = source;
 

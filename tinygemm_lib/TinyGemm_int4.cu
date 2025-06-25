@@ -95,7 +95,9 @@ torch::Tensor tinygemm_y_FT16TC_x_FT16TC_w_int4TC(
   int64_t numQGroups = -1;
 
   if constexpr (
-      QType == Int4_QType::Int4_Grouped || QType == Int4_QType::Any4_Grouped) {
+      QType == Int4_QType::Int4_Grouped ||
+      QType == Int4_QType::Any4_Global_Grouped ||
+      QType == Int4_QType::Any4_RowWise_Grouped) {
     TORCH_CHECK(QGroup_Size);
     qGroupSize = *QGroup_Size;
     TORCH_CHECK(
@@ -136,7 +138,9 @@ torch::Tensor tinygemm_y_FT16TC_x_FT16TC_w_int4TC(
 
   if constexpr (QType == Int4_QType::Int4_Grouped) {
     dqInfo.qInfo1 = QGroup_scaleAndZeros->data_ptr();
-  } else if constexpr (QType == Int4_QType::Any4_Grouped) {
+  } else if constexpr (
+      QType == Int4_QType::Any4_Global_Grouped ||
+      QType == Int4_QType::Any4_RowWise_Grouped) {
     TORCH_CHECK(Any4_dequant);
     TORCH_CHECK(Any4_dequant->device() == A.device());
     TORCH_CHECK(Any4_dequant->dtype() == activationDtype);
@@ -144,14 +148,18 @@ torch::Tensor tinygemm_y_FT16TC_x_FT16TC_w_int4TC(
     // 1-d is matrix-wise any4 quantization
     // 2-d is row-wise any4 quantization (must match rows of weight matrix
     // %in A or B TC format, which is a multiple of 16 or 8 respectively)
-    TORCH_CHECK(
-        (Any4_dequant->dim() == 1 && Any4_dequant->size(0) == 16) ||
-        (Any4_dequant->dim() == 2 && Any4_dequant->size(0) == W_rows));
+    if constexpr (QType == Int4_QType::Any4_Global_Grouped) {
+      TORCH_CHECK(Any4_dequant->dim() == 1 && Any4_dequant->size(0) == 16);
+    } else if constexpr (QType == Int4_QType::Any4_RowWise_Grouped) {
+      TORCH_CHECK(
+          Any4_dequant->dim() == 2 && Any4_dequant->size(0) == W_rows &&
+          Any4_dequant->size(1) == 16);
+    }
 
     dqInfo.qInfo1 = QGroup_scaleAndZeros->data_ptr();
     dqInfo.qInfo2 = Any4_dequant->data_ptr();
     // row stride for any4 (whether matrix-wise or row-wise)
-    dqInfo.iInfo1 = Any4_dequant->dim() == 1
+    dqInfo.iInfo1 = (QType == Int4_QType::Any4_Global_Grouped)
         ? 0 /* same LUT for all rows */
         : 16 /* different LUT for each row */;
   } else if constexpr (QType == Int4_QType::MX4_Grouped) {
@@ -363,7 +371,9 @@ torch::Tensor tinygemm_y_FT16RM_x_FT16RM_w_int4TC(
   int64_t numQGroups = -1;
 
   if constexpr (
-      QType == Int4_QType::Int4_Grouped || QType == Int4_QType::Any4_Grouped) {
+      QType == Int4_QType::Int4_Grouped ||
+      QType == Int4_QType::Any4_Global_Grouped ||
+      QType == Int4_QType::Any4_RowWise_Grouped) {
     TORCH_CHECK(QGroup_Size);
     qGroupSize = *QGroup_Size;
     TORCH_CHECK(
@@ -404,7 +414,9 @@ torch::Tensor tinygemm_y_FT16RM_x_FT16RM_w_int4TC(
   if constexpr (QType == Int4_QType::Int4_Grouped) {
     dqInfo.qInfo1 = QGroup_scaleAndZeros->data_ptr();
 
-  } else if constexpr (QType == Int4_QType::Any4_Grouped) {
+  } else if constexpr (
+      QType == Int4_QType::Any4_Global_Grouped ||
+      QType == Int4_QType::Any4_RowWise_Grouped) {
     TORCH_CHECK(Any4_dequant);
     TORCH_CHECK(Any4_dequant->device() == A.device());
     TORCH_CHECK(Any4_dequant->dtype() == activationDtype);
@@ -412,14 +424,18 @@ torch::Tensor tinygemm_y_FT16RM_x_FT16RM_w_int4TC(
     // 1-d is matrix-wise any4 quantization
     // 2-d is row-wise any4 quantization (must match rows of weight matrix
     // %in A or B TC format, which is a multiple of 16 or 8 respectively)
-    TORCH_CHECK(
-        (Any4_dequant->dim() == 1 && Any4_dequant->size(0) == 16) ||
-        (Any4_dequant->dim() == 2 && Any4_dequant->size(0) == W_rows));
+    if constexpr (QType == Int4_QType::Any4_Global_Grouped) {
+      TORCH_CHECK(Any4_dequant->dim() == 1 && Any4_dequant->size(0) == 16);
+    } else if constexpr (QType == Int4_QType::Any4_RowWise_Grouped) {
+      TORCH_CHECK(
+          Any4_dequant->dim() == 2 && Any4_dequant->size(0) == W_rows &&
+          Any4_dequant->size(1) == 16);
+    }
 
     dqInfo.qInfo1 = QGroup_scaleAndZeros->data_ptr();
     dqInfo.qInfo2 = Any4_dequant->data_ptr();
     // row stride for any4 (whether matrix-wise or row-wise)
-    dqInfo.iInfo1 = Any4_dequant->dim() == 1
+    dqInfo.iInfo1 = (QType == Int4_QType::Any4_Global_Grouped)
         ? 0 /* same LUT for all rows */
         : 16 /* different LUT for each row */;
   } else if constexpr (QType == Int4_QType::MX4_Grouped) {
@@ -616,27 +632,53 @@ torch::Tensor tinygemm_y_f16TC_x_f16TC_w_any4TC(
       activationDtype == torch::kFloat16);
 
   if (activationDtype == torch::kBFloat16) {
-    return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
-        FloatType::BFloat16,
-        Int4_QType::Any4_Grouped>(
-        A,
-        B,
-        qGroupSize,
-        qScaleAndZeros,
-        int4Dequant,
-        std::nullopt,
-        weightOnRight);
+    if (int4Dequant.dim() == 1) {
+      return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
+          FloatType::BFloat16,
+          Int4_QType::Any4_Global_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    } else {
+      return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
+          FloatType::BFloat16,
+          Int4_QType::Any4_RowWise_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    }
   } else {
-    return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
-        FloatType::Float16,
-        Int4_QType::Any4_Grouped>(
-        A,
-        B,
-        qGroupSize,
-        qScaleAndZeros,
-        int4Dequant,
-        std::nullopt,
-        weightOnRight);
+    if (int4Dequant.dim() == 1) {
+      return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
+          FloatType::Float16,
+          Int4_QType::Any4_Global_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    } else {
+      return tinygemm_y_FT16TC_x_FT16TC_w_int4TC<
+          FloatType::Float16,
+          Int4_QType::Any4_RowWise_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    }
   }
 }
 
@@ -653,27 +695,53 @@ torch::Tensor tinygemm_y_f16RM_x_f16RM_w_any4TC(
       activationDtype == torch::kFloat16);
 
   if (activationDtype == torch::kBFloat16) {
-    return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
-        FloatType::BFloat16,
-        Int4_QType::Any4_Grouped>(
-        A,
-        B,
-        qGroupSize,
-        qScaleAndZeros,
-        int4Dequant,
-        std::nullopt,
-        weightOnRight);
+    if (int4Dequant.dim() == 1) {
+      return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
+          FloatType::BFloat16,
+          Int4_QType::Any4_Global_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    } else {
+      return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
+          FloatType::BFloat16,
+          Int4_QType::Any4_RowWise_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    }
   } else {
-    return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
-        FloatType::Float16,
-        Int4_QType::Any4_Grouped>(
-        A,
-        B,
-        qGroupSize,
-        qScaleAndZeros,
-        int4Dequant,
-        std::nullopt,
-        weightOnRight);
+    if (int4Dequant.dim() == 1) {
+      return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
+          FloatType::Float16,
+          Int4_QType::Any4_Global_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    } else {
+      return tinygemm_y_FT16RM_x_FT16RM_w_int4TC<
+          FloatType::Float16,
+          Int4_QType::Any4_RowWise_Grouped>(
+          A,
+          B,
+          qGroupSize,
+          qScaleAndZeros,
+          int4Dequant,
+          std::nullopt,
+          weightOnRight);
+    }
   }
 }
 

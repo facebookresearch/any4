@@ -87,8 +87,8 @@ __launch_bounds__(Warps* kWarpSize) void tinygemm_m16n8k16_chunk_kernel(
   auto warpId = threadIdx.y;
   auto laneId = threadIdx.x;
 
-  int32_t mTile = blockIdx.z;
-  int32_t nTile = blockIdx.y;
+  auto mTile = blockIdx.z;
+  auto nTile = blockIdx.y;
 
   //
   // Accumulators
@@ -106,8 +106,9 @@ __launch_bounds__(Warps* kWarpSize) void tinygemm_m16n8k16_chunk_kernel(
 
   // Global dequantization for layout objects, if there is any
   // (otherwise a no-op)
-  auto aLayoutInit = ALayout::init(warpId, laneId, mTile, nTile, dqInfo);
-  auto bLayoutInit = BLayout::init(warpId, laneId, mTile, nTile, dqInfo);
+  auto aLayoutInit =
+      ALayout::init(warpId, laneId, smemAC, mTile, nTile, dqInfo);
+  auto bLayoutInit = BLayout::init(warpId, laneId, smemB, mTile, nTile, dqInfo);
 
   // This warp starts processing this k-tile
   // gridDim.x > 1 means we are performing cross-block split-k reduction
@@ -122,6 +123,10 @@ __launch_bounds__(Warps* kWarpSize) void tinygemm_m16n8k16_chunk_kernel(
       warpId, laneId, smemAC, A, m, k, mTiles, mTile, kTiles, kTileBase);
   auto curB = BLayout::getMatrixTile(
       warpId, laneId, smemB, B, n, k, nTiles, nTile, kTiles, kTileBase);
+
+  if constexpr (ALayout::kSyncAfterInit || BLayout::kSyncAfterInit) {
+    __syncthreads();
+  }
 
   // Each warp handles a set of KTilesPerIteration under the above limit
   for (; kTileBase < kTilesLimit; kTileBase += Warps * KTilesPerIteration) {
