@@ -401,7 +401,7 @@ struct ALayout_TC_int4 {
     // The 16 values are replicated across both half warps.
     //
     // FIXME: nvcc should remove these if they are not used for the given QType
-    typename FloatDefs<FT>::T any4LUT = 0;
+    typename FloatDefs<FT>::T any4LUT;
 
     // If QType == MX4, then across the warp this holds the
     // 16 float dequantized values for the fp4 MX4 values.
@@ -411,7 +411,7 @@ struct ALayout_TC_int4 {
     // The 16 values are replicated across both half warps.
     //
     // FIXME: nvcc should remove these if they are not used for the given QType
-    typename FloatDefs<FT>::T dequantMX4 = 0;
+    typename FloatDefs<FT>::T dequantMX4;
   };
 
   // Raw data type of matrix (before dequantization) and
