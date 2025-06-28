@@ -343,7 +343,7 @@ if __name__ == '__main__':
     parser.add_argument("--append-results", default=False, action=argparse.BooleanOptionalAction, help="Append to any existing results file.")
     parser.add_argument("--overwrite-results", default=True, action=argparse.BooleanOptionalAction, help="If task already exist in results.json, re-run and overwrite it.")
     parser.add_argument("--save-weights", default=False, action=argparse.BooleanOptionalAction, help="Save checkpoint after quantizing to args.log_dir.")
-    parser.add_argument("--load-weights", type=Path, help="Path to laod weights")
+    parser.add_argument("--load-weights", type=Path, help="Path to load weights")
     parser.add_argument("--save-model", default=False, action=argparse.BooleanOptionalAction, help="Save model in HF format after quantizing to args.log_dir.")
 
     args = parser.parse_args()
