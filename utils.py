@@ -37,11 +37,31 @@ def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
     torch.cuda.synchronize()
     return start_event.elapsed_time(end_event) / float(iters)
 
-# Source: https://github.com/drisspg/transformer_nuggets/blob/8b0a671b7b30cc7e186edd654f9c1565251b9b97/transformer_nuggets/utils/benchmark.py#L55
 def benchmark_cuda_only_in_ms(func, warmup, iters, *args, **kwargs):
-    no_args = lambda: func(*args, **kwargs)
-    time = do_bench_using_profiling(no_args, warmup, iters)
-    return time
+    """
+    Measure GPU execution time using CUDA events
+    This excludes most CPU overhead but may include some kernel launch latency
+    """
+    # Warmup
+    for _ in range(warmup):
+        func(*args, **kwargs)
+    torch.cuda.synchronize()
+
+    # Create events for timing
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+
+    # Record timing for all iterations
+    start_event.record()
+    for _ in range(iters):
+        func(*args, **kwargs)
+    end_event.record()
+
+    torch.cuda.synchronize()
+
+    # Calculate average time per iteration
+    total_time = start_event.elapsed_time(end_event)  # Returns milliseconds
+    return total_time / iters
 
 # Source: https://github.com/pytorch-labs/gpt-fast/blob/main/generate.py
 def get_model_size(model):
