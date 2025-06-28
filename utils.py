@@ -155,7 +155,10 @@ from multiprocessing.connection import Connection
 class MemoryTracker:
     def __init__(self):
         self.peak_memory: int = 0
-        self.device_index = int(os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0])
+        if "CUDA_VISIBLE_DEVICES" in os.environ:
+            self.device_index = int(os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0])
+        else:
+            self.device_index = 0
 
     @contextmanager
     def track(self, interval: float = 0.1):
