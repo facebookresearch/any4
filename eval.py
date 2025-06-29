@@ -140,6 +140,7 @@ def main(
     # - `Your_LM.loglikelihood()`
     # - `Your_LM.loglikelihood_rolling()`
     # - `Your_LM.generate_until()`
+    dtype = model_args.pop("torch_dtype") if "torch_dtype" in model_args else "auto"
     lm_obj = lm_eval.models.huggingface.HFLM(
         pretrained=model_name,
         tokenizer=tokenizer_name,
@@ -147,6 +148,7 @@ def main(
         batch_size=batch_size if batch_size is not None else "auto:16",
         parallelize=parallelize,
         trust_remote_code=True,
+        dtype=dtype,
         **model_args
     )
 
