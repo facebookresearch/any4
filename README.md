@@ -91,6 +91,17 @@ Arguments:
     - You can specify a space separate list of tasks, e.g., `--tasks piqa mbpp`.
     - You can pass in any task supported by [Eleuther LM Eval Harness](https://github.com/EleutherAI/lm-evaluation-harness), [BigCode Eval Harness](https://github.com/bigcode-project/bigcode-evaluation-harness), and any Hugging Face dataset to measure its perplexity.
 
+### Benchmark
+To benchmark the performance time a single linear layer with tinygemm's kernels, you can run:
+```
+python microbenchmark.py --input-dim 4096 --output-dim 4096 --quantize anyq
+```
+
+To benchmark a model end-to-end with tinygemm's kernels:
+```
+python benchmark.py --batch-size 1 --seqlen 1 --model-name meta-llama/Llama-3.2-1B --quantize anyq --quantize-args skip_modules=lm_head
+```
+
 ### Analyze
 To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
 ```
