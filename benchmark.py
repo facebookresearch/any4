@@ -47,6 +47,7 @@ class LayerProfiler:
             return pre_hook
 
         # Register hooks for each layer
+        # TODO: Different models have different paths for "layers". Handle this in separate function or module.
         for i, layer in enumerate(model.model.layers):
             # Attention hooks
             attn_name = f"attention_layer_{i}"

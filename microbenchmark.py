@@ -23,8 +23,8 @@ def microbenchmark_module(
     seqlen: int = 1,
     input_dim: int = 16384,
     output_dim: int = 16384,
-    n_warmup: int = 5,
-    n_iters: int = 10,
+    n_warmup: int = 50,
+    n_iters: int = 100,
     device: str = default_device,
     dtype=torch.bfloat16,
     quant_method: Optional[Callable] = None,
@@ -66,8 +66,8 @@ if __name__ == '__main__':
     parser.add_argument("--seqlen", type=int, default=1, help="Sequence length of sample input.")
     parser.add_argument("--input-dim", type=int, default=4096, help="Input dimension of linear layer.")
     parser.add_argument("--output-dim", type=int, default=4096, help="Output dimension of linear layer.")
-    parser.add_argument("--warmup", type=int, default=5, help="Number of warmup iterations for benchmarking.")
-    parser.add_argument("--iters", type=int, default=10, help="Number of iterations for benchmarking.")
+    parser.add_argument("--warmup", type=int, default=50, help="Number of warmup iterations for benchmarking.")
+    parser.add_argument("--iters", type=int, default=100, help="Number of iterations for benchmarking.")
     parser.add_argument("--quantize", type=str, default="intq", choices=quant_methods.keys(), help="Quantization method.")
     parser.add_argument("--quantize-args", type=str, help="Comma separated string args to pass to quantization method.")
     parser.add_argument("--dtype", type=str, default="bfloat16", help="Input tensor data type.")

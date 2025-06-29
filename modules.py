@@ -7,6 +7,8 @@
 import torch
 import tinygemm_lib.functional
 
+# TODO: add NF4Linear, MX4Linear
+
 class Int4Linear(torch.nn.Module):
     def __init__(
         self,
