@@ -94,7 +94,7 @@ Arguments:
 ### Benchmark
 To benchmark the performance time a single linear layer with tinygemm's kernels, you can run:
 ```
-python microbenchmark.py --input-dim 4096 --output-dim 4096 --quantize anyq
+python microbenchmark.py --input-dim 4096 --output-dim 4096 --batch-size 1 --quantize anyq
 ```
 
 To benchmark a model end-to-end with tinygemm's kernels:
