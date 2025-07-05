@@ -2,7 +2,7 @@
 
 This repo contains the tinygemm low-letency / small batch size Nvidia GPU GEMM library which implements bf16/fp16, int4 grouped quantization, any4 grouped quantization and MX4 quantization, and the code containing the technique to learn any4 quantization codes. 
 
-This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric Representation for LLMs*](https://openreview.net/forum?id=tJmhOPkWCj), **ICML 2025**, by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo).
+> This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric Representation for LLMs*](https://openreview.net/forum?id=tJmhOPkWCj), **ICML 2025**, by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo).
 
 The technique and code for learning any4 representations and quantizing a model was authored by Mostafa Elhoushi (previously Meta FAIR SysML research). The Nvidia GPU tinygemm library was authored by Jeff Johnson (currently Meta FAIR SysML research).  An extremely early version of the tinygemm kernels without any4/MX4 support [were upstreamed to PyTorch core in Q4 2023](https://github.com/pytorch/pytorch/pull/110914) for use by the Torch compiler.
 
@@ -91,6 +91,17 @@ Arguments:
     - You can specify a space separate list of tasks, e.g., `--tasks piqa mbpp`.
     - You can pass in any task supported by [Eleuther LM Eval Harness](https://github.com/EleutherAI/lm-evaluation-harness), [BigCode Eval Harness](https://github.com/bigcode-project/bigcode-evaluation-harness), and any Hugging Face dataset to measure its perplexity.
 
+### Benchmark
+To benchmark the performance time a single linear layer with tinygemm's kernels, you can run:
+```
+python microbenchmark.py --input-dim 4096 --output-dim 4096 --batch-size 1 --quantize anyq
+```
+
+To benchmark a model end-to-end with tinygemm's kernels:
+```
+python benchmark.py --batch-size 1 --seqlen 1 --model-name meta-llama/Llama-3.2-1B --quantize anyq --quantize-args skip_modules=lm_head
+```
+
 ### Analyze
 To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
 ```
@@ -120,8 +131,8 @@ In this section we provide the results in the paper and the command to reproduce
 
 _Please note: you need to expand "Commands to reproduce results" block below each table, in order for the links to commands in each row to work._
 
-### Main Results
-#### Llama3.2 1B
+### Accuracy Results
+**Llama3.2 1B**
 |                 | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | --------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[1]](#f1) | 9.76        | 12.77 | 16.56 | 3.49        | 16.46%     | 21.4% | 36.1%  | 47.7%      | 6.60%  | 31.1% |
@@ -141,7 +152,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama3 8B
+**Llama3 8B**
 |                   | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ----------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[6]](#f6)   | 6.14        | 8.93  | 10.59 | 2.54        | 29.3%      | 41.4% | 62.0%  | 60.1%      | 50.7%  | 62.8% |
@@ -161,7 +172,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama3 70B
+**Llama3 70B**
 |                    | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[11]](#f11)  | 2.86        | 6.77  | 8.16  | 1.91        | 17.7%      | 60.8% | 75.4%  | 66.3%      | 80.6%  | 82.4% |
@@ -201,7 +212,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama2 13B
+**Llama2 13B**
 |                    | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[21]](#f21)  | 4.88        | 6.47  | 28.93  | 2.40        | 19.5%      | 18.4% | 50.5%  | 60.0%      | 23.2%  | 47.4% |
@@ -221,7 +232,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama2 70B
+**Llama2 70B**
 |                    | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[26]](#f26)  | 3.32        | 5.52  | 14.44  | 2.11        | 31.7%      | 37.4% | 65.2%  | 64.8%      | 53.3%  | 67.1% |
@@ -241,7 +252,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Mistral-7B Instruct v0.2
+**Mistral-7B Instruct v0.2**
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[31]](#f31) | 5.95        | 8.82  | 21.77  | 2.63        | 58.7%  | 66.1%      | 41.7%  | 51.7%     |
@@ -261,7 +272,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Mixtral-8x7B Instruct v0.1
+**Mixtral-8x7B Instruct v0.1**
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[36]](#f36) | 4.14        | 7.18  | 16.47  | 2.20        | 68.2%  | 67.6%      | 64.8%  | 68.1%     |
@@ -283,7 +294,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 ### Ablation Studies
 
-#### Group Size
+**Group Size**
 Referencing the paper, *Table 4: C4 perplexity after quantizing with different group sizes.*
 
 |      | 64                 | 128                | 256                | 512                | 1024               |
@@ -313,7 +324,7 @@ Referencing the paper, *Table 4: C4 perplexity after quantizing with different g
 
 </details>
 
-#### Calibration Data
+**Calibration Data**
 Referencing the paper, *Table 3: any4 quantization with different calibration data.*
 
 |                   | Calibration Data    | Number of Samples | Sequence Length per Sample | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ |
@@ -352,7 +363,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 
 </details>
 
-#### Term to Minimize
+**Term to Minimize**
 *Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
 
 |                                           | Term to Minimize                      | WikiText-2↓ | C4↓     | PTB↓    | CodeParrot↓ |
@@ -370,7 +381,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 
 </details>
 
-#### K-Means Initialization
+**K-Means Initialization**
 Referencing the paper, *Table A4: any4 quantization with K-means clustering initialzied with different algorithms and values.*
 
 |                   | K-Means Initialization | WikiText-2↓ | C4↓    | PTB↓   |
@@ -389,6 +400,32 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 68. <span id="f68"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=random --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 69. <span id="f69"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=int --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
 70. <span id="f70"></span> `python eval.py --quantize anyq --quantize-args n_bit=4,skip_modules=lm_head,sample_weight=calibrate,scale_sample_weight=True,init=nf4 --model-name meta-llama/Llama-3.2-1B --tasks wikitext-2 c4 ptb`
+
+</details>
+
+### Benchmarking
+Referencing the paper, *Figure 3: Speedup of our tinygemm CUDA kernels on matrix multiplication of 1 × K input by K × K weight, w.r.t PyTorch’s bfloat16 implementation.*
+Please note the results below are on Nvidia A5000, while the paper's figure was based on Nvidia A100.
+
+### **Microbenchmark Results (CUDA Speedup Only)**
+
+| Dimension ($DIM) | INT4 [[71]](#f71) | NF4 [[73]](#f73) | ANY4 [[72]](#f72) |
+|------------------|------------------|------------------|-------------------|
+| 1024             | 1.45x            | 1.37x            | 1.36x             |
+| 2048             | 2.75x            | 2.17x            | 2.32x             |
+| 3072             | 2.60x            | 2.07x            | 2.15x             |
+| 4096             | 3.26x            | 2.23x            | 2.29x             |
+| 5120             | 3.19x            | 2.26x            | 2.27x             |
+| 6144             | 3.40x            | 2.27x            | 2.23x             |
+| 7168             | 3.26x            | 2.19x            | 2.24x             |
+| 8192             | 3.52x            | 2.24x            | 2.25x             |
+
+<details>
+<summary>Commands to reproduce results:</summary>
+
+71. <span id="f71"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize intq`
+72. <span id="f72"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize anyq`
+73. <span id="f73"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize anyq --quantize-args per_row=False` (Note we have not yet implemented NF4 end-to-end modules. See https://github.com/facebookresearch/any4/issues/16).
 
 </details>
 

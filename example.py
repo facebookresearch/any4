@@ -14,7 +14,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_name = "meta-llama/Llama-3.2-1B"
 
-model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16).to(device)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 streamer = TextStreamer(tokenizer)
 
@@ -31,6 +31,6 @@ outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_to
 text = tokenizer.batch_decode(outputs)[0]
 
 print("Quantize:")
-model = convert(model, layer_from=torch.nn.Linear, layer_to=intq)
+model = convert(model, layer_from=torch.nn.Linear, layer_to=anyq, skip_modules=["lm_head"], pseudo=False)
 outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]

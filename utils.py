@@ -8,11 +8,15 @@ import itertools
 import gc
 import json
 from pathlib import Path, PurePosixPath
-from typing import Callable, Dict, OrderedDict
+from typing import Any, Callable, Dict, OrderedDict
+import time
+import warnings
 import torch
 import numpy as np
 import unittest
-from torch._inductor.utils import do_bench_using_profiling
+import re
+from torch.autograd import DeviceType
+from torch.autograd.profiler_util import EventList
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 
@@ -23,25 +27,86 @@ def import_or_skip(module_name: str):
         return None
 
 def benchmark_in_ms(f, warmup, iters, *args, **kwargs):
+    # Warm-up phase
     for _ in range(warmup):
         f(*args, **kwargs)
+
+    # Ensure all previous CUDA work is done before starting timing
     torch.cuda.synchronize()
-    start_event = torch.cuda.Event(enable_timing=True)
-    end_event = torch.cuda.Event(enable_timing=True)
-    start_event.record()
+    start_time = time.perf_counter()
 
     for _ in range(iters):
         f(*args, **kwargs)
 
-    end_event.record()
+    # Ensure all CUDA work is done before ending timing
     torch.cuda.synchronize()
-    return start_event.elapsed_time(end_event) / float(iters)
+    end_time = time.perf_counter()
+
+    elapsed_time_ms = (end_time - start_time) * 1000.0
+    return elapsed_time_ms / iters
 
 # Source: https://github.com/drisspg/transformer_nuggets/blob/8b0a671b7b30cc7e186edd654f9c1565251b9b97/transformer_nuggets/utils/benchmark.py#L55
 def benchmark_cuda_only_in_ms(func, warmup, iters, *args, **kwargs):
     no_args = lambda: func(*args, **kwargs)
-    time = do_bench_using_profiling(no_args, warmup, iters)
+    time = do_bench_cuda_using_profiling(no_args, warmup, iters)
     return time
+
+# Source: https://github.com/pytorch/pytorch/blob/8a8fac11318778aa5e4479b369b37fdb9e10ec17/torch/_inductor/utils.py#L186
+# Copied and removed one line that filters specific CUDA events. So this function is generic and doesn't exclude any CUDA event.
+def do_bench_cuda_using_profiling(
+    fn: Callable[[], Any], warmup: int = 25, rep: int = 100
+) -> float:
+    """
+    Returns benchmark results by examining torch profiler CUDA events.
+    """
+    from torch._inductor.utils import log
+    fn()
+    torch.cuda.synchronize()
+    cache = torch.empty(int(256e6 // 4), dtype=torch.float16, device="cuda")
+
+    # Estimate the runtime of the function
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
+    start_event.record()
+    for _ in range(5):
+        cache.zero_()
+        fn()
+    end_event.record()
+    torch.cuda.synchronize()
+    estimate_ms = start_event.elapsed_time(end_event) / 5
+
+    # compute number of warmup and repeat
+    n_warmup = max(1, int(warmup / estimate_ms))
+    n_repeat = max(1, int(rep / estimate_ms))
+
+    # Warm-up
+    for _ in range(n_warmup):
+        fn()
+
+    start_event = [torch.cuda.Event(enable_timing=True) for _ in range(n_repeat)]
+    end_event = [torch.cuda.Event(enable_timing=True) for _ in range(n_repeat)]
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CUDA,
+        ]
+    ) as p:
+        torch.cuda.synchronize()
+        for i in range(n_repeat):
+            cache.zero_()
+            start_event[i].record()
+            with torch.cuda.nvtx.range("RunCudaModule"):
+                fn()
+            end_event[i].record()
+        torch.cuda.synchronize()
+        times = torch.tensor(
+            [s.elapsed_time(e) for s, e in zip(start_event, end_event)]
+        )
+
+    res = torch.mean(times).item()
+    log.debug("raw events")
+    log.debug(p.key_averages().table(sort_by="self_device_time_total", row_limit=-1))
+    log.debug("profiling results: %s ms", res)
+    return res
 
 # Source: https://github.com/pytorch-labs/gpt-fast/blob/main/generate.py
 def get_model_size(model):
@@ -135,7 +200,10 @@ from multiprocessing.connection import Connection
 class MemoryTracker:
     def __init__(self):
         self.peak_memory: int = 0
-        self.device_index = int(os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0])
+        if "CUDA_VISIBLE_DEVICES" in os.environ:
+            self.device_index = int(os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0])
+        else:
+            self.device_index = 0
 
     @contextmanager
     def track(self, interval: float = 0.1):

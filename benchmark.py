@@ -8,7 +8,10 @@ from typing import Callable, Dict, Optional
 import argparse
 import gc
 import os
+import time
 import torch
+import numpy as np
+from collections import defaultdict
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, GPTQConfig
 
 from lm_eval.utils import simple_parse_args_string
@@ -16,13 +19,94 @@ from lm_eval.utils import simple_parse_args_string
 from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, MemoryTracker
 from any4 import convert, quant_methods
 
+def fmt(x): return f"{x:.4f}"
+def fmt_gb(x): return f"{x / 2**30:.4f} GB"
+def fmt_mb(x): return f"{x / 2**20:.4f} MB"
+
+def print_stat(title, total, cuda):
+    print(f"\t{title:<24}Total: {fmt(total):<10}CUDA: {fmt(cuda)}")
+
+def print_percentage(title, total_time, model_time, cuda_time, model_cuda_time):
+    print(f"\t{title:<24}Total: {fmt(total_time / model_time * 100):<10}%CUDA: {fmt(cuda_time / model_cuda_time * 100)}%")
+
+def print_speedup(title, base_total, base_cuda, quant_total, quant_cuda):
+    print(f"\t{title:<24}Total: {fmt(base_total / quant_total)}x\tCUDA: {fmt(base_cuda / quant_cuda)}x")
+
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# TODO: support int4, int8
+class HookBasedProfiler:
+    def __init__(self, mode="cpu"):
+        assert mode in ["cpu", "cuda"]
+        self.mode = mode
+        self.timings = defaultdict(list)
+        self.hooks = []
+
+    def register_hooks(self, model):
+        def make_pre_hook(name):
+            def pre_hook(module, input):
+                if self.mode == "cpu":
+                    module._start_time = time.perf_counter()
+                else:
+                    module._start_event = torch.cuda.Event(enable_timing=True)
+                    module._start_event.record()
+            return pre_hook
+
+        def make_post_hook(name):
+            def post_hook(module, input, output):
+                if self.mode == "cpu":
+                    elapsed = time.perf_counter() - module._start_time
+                    self.timings[name].append(elapsed * 1000)
+                else:
+                    end_event = torch.cuda.Event(enable_timing=True)
+                    end_event.record()
+                    torch.cuda.synchronize()
+                    elapsed = module._start_event.elapsed_time(end_event)
+                    self.timings[name].append(elapsed)
+            return post_hook
+
+        for i, layer in enumerate(model.model.layers):
+            attn_name = f"attention_layer_{i}"
+            mlp_name = f"mlp_layer_{i}"
+            self.hooks.append(layer.self_attn.register_forward_pre_hook(make_pre_hook(attn_name)))
+            self.hooks.append(layer.self_attn.register_forward_hook(make_post_hook(attn_name)))
+            self.hooks.append(layer.mlp.register_forward_pre_hook(make_pre_hook(mlp_name)))
+            self.hooks.append(layer.mlp.register_forward_hook(make_post_hook(mlp_name)))
+
+    def run_profiling(self, model, input_ids, attention_mask, warmup=5, iters=10):
+        model.eval()
+        with torch.no_grad():
+            for _ in range(warmup):
+                _ = model(input_ids=input_ids, attention_mask=attention_mask)
+        self.register_hooks(model)
+        with torch.no_grad():
+            for _ in range(iters):
+                _ = model(input_ids=input_ids, attention_mask=attention_mask)
+        self.clear_hooks()
+
+    def clear_hooks(self):
+        for h in self.hooks:
+            h.remove()
+        self.hooks = []
+
+    def summarize(self):
+        total_attn = 0
+        total_mlp = 0
+        for name, vals in self.timings.items():
+            avg = np.mean(vals)
+            if "attention" in name:
+                total_attn += avg
+            elif "mlp" in name:
+                total_mlp += avg
+        return {
+            "attention_time": total_attn,
+            "mlp_time": total_mlp,
+            "ratio": total_attn / total_mlp if total_mlp > 0 else 0
+        }
+
 @torch.no_grad()
 def benchmark_model(
     model_name: str,
-    model_args: Dict ={},
+    model_args: Dict = {},
     bs: int = 1,
     seqlen: int = 1,
     n_warmup: int = 50,
@@ -46,20 +130,23 @@ def benchmark_model(
 
     # Setup
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device, **model_args)
-    input_ids = torch.randint(0, model.config.vocab_size, (bs, seqlen), device=model.device)
-    attention_mask = torch.ones((bs, seqlen), dtype=torch.long, device=model.device)
-    hidden_states = torch.randn(bs, seqlen, model.config.hidden_size, dtype=model.dtype, device=model.device)
-    position_ids = torch.linspace(0, seqlen, steps=seqlen, device=model.device).repeat(bs, 1)
+    input_ids = torch.randint(0, model.config.vocab_size, (bs, seqlen), device=device)
+    attention_mask = torch.ones((bs, seqlen), dtype=torch.long, device=device)
 
-    # Benchmark
-    ## Total Time
+    # Benchmark using principled hook-based approach
+    ## Total Time (end-to-end)
     model_time = benchmark_in_ms(model, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-    attn_time = benchmark_in_ms(model.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
-    mlp_time = benchmark_in_ms(model.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
-    ## CUDA Time
     model_cuda_time = benchmark_cuda_only_in_ms(model, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-    attn_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
-    mlp_cuda_time = benchmark_cuda_only_in_ms(model.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+
+    ## Layer-wise profiling with hooks (most principled approach)
+    profiler_cpu = HookBasedProfiler(mode="cpu")
+    profiler_cpu.run_profiling(model, input_ids, attention_mask, n_warmup, n_iters)
+    profile_cpu = profiler_cpu.summarize()
+
+    profiler_cuda = HookBasedProfiler(mode="cuda")
+    profiler_cuda.run_profiling(model, input_ids, attention_mask, n_warmup, n_iters)
+    profile_cuda = profiler_cuda.summarize()
+
     ## Memory
     model_size = get_model_size(model)
     model_peak_memory_mb = benchmark_memory(model, MemoryTracker(), n_warmup, input_ids=input_ids, attention_mask=attention_mask)
@@ -74,32 +161,49 @@ def benchmark_model(
         # Benchmark Quantized
         ## Total Time
         qmodel_time = benchmark_in_ms(qmodel, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-        qattn_time = benchmark_in_ms(qmodel.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
-        qmlp_time = benchmark_in_ms(qmodel.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
-        ## CUDA Time
         qmodel_cuda_time = benchmark_cuda_only_in_ms(qmodel, n_warmup, n_iters, input_ids=input_ids, attention_mask=attention_mask)
-        qattn_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].self_attn, n_warmup, n_iters, hidden_states=hidden_states, position_ids=position_ids)
-        qmlp_cuda_time = benchmark_cuda_only_in_ms(qmodel.model.layers[-1].mlp, n_warmup, n_iters, hidden_states)
+
+        ## Layer-wise profiling for quantized model
+        profiler_q_cpu = HookBasedProfiler(mode="cpu")
+        profiler_q_cpu.run_profiling(qmodel, input_ids, attention_mask, n_warmup, n_iters)
+        qprofile_cpu = profiler_q_cpu.summarize()
+
+        profiler_q_cuda = HookBasedProfiler(mode="cuda")
+        profiler_q_cuda.run_profiling(qmodel, input_ids, attention_mask, n_warmup, n_iters)
+        qprofile_cuda = profiler_q_cuda.summarize()
+
         # Clean up Memory
         torch.cuda.empty_cache()
         gc.collect()
+        # FIXME: CUDA Peak memory doesn't seem to reduce after we quantize. Perhaps we need to do something else.
+
         ## Memory
         qmodel_size = get_model_size(qmodel)
         qmodel_peak_memory_mb = benchmark_memory(qmodel, MemoryTracker(), n_warmup, input_ids=input_ids, attention_mask=attention_mask)
 
-    # Log Results
     print("Baseline:")
-    print(f"\tModel Size: {model_size/1e9:.4f} GB\t\tCUDA Peak: {model_peak_memory_mb/1e3:.4f} GB")
-    print(f"\tModel: Total: {model_time:.4f} ms\tCUDA: {model_cuda_time:.4f} ms")
-    print(f"\tAttn: Total: {attn_time:.4f} ms\t\tCUDA: {attn_cuda_time:.4f} ms")
-    print(f"\tMLP: Total: {mlp_time:.4f} ms\t\tCUDA: {mlp_cuda_time:.4f} ms")
+    print(f"\tModel Size:\t\t{fmt_gb(model_size)}\tCUDA Peak:\t{fmt_mb(model_peak_memory_mb)}")
+    print_stat("Model:", model_time, model_cuda_time)
+    print_stat("Attention:", profile_cpu['attention_time'], profile_cuda['attention_time'])
+    print_stat("MLP:", profile_cpu['mlp_time'], profile_cuda['mlp_time'])
+    print_stat("Attention/MLP Ratio:", profile_cpu['ratio'], profile_cuda['ratio'])
+    print_percentage("Attention % of Model:", profile_cpu['attention_time'], model_time, profile_cuda['attention_time'], model_cuda_time)
+    print_percentage("MLP % of Model:", profile_cpu['mlp_time'], model_time, profile_cuda['mlp_time'], model_cuda_time)
+
     if quant_method:
         print("Quantized:")
-        print(f"\tModel Size: {qmodel_size/1e9:.4f} GB\t\tCUDA Peak: {qmodel_peak_memory_mb/1e3:.4f} GB")
-        print(f"\tModel: Total: {qmodel_time:.4f} ms\tCUDA: {qmodel_cuda_time:.4f} ms")
-        print(f"\tAttn: Total: {qattn_time:.4f} ms\t\tCUDA: {qattn_cuda_time:.4f} ms")
-        print(f"\tMLP: Total: {qmlp_time:.4f} ms\t\tCUDA: {qmlp_cuda_time:.4f} ms")
+        print(f"\tModel Size:\t\t{fmt_gb(qmodel_size)}\tCUDA Peak:\t{fmt_mb(qmodel_peak_memory_mb)}")
+        print_stat("Model:", qmodel_time, qmodel_cuda_time)
+        print_stat("Attention:", qprofile_cpu['attention_time'], qprofile_cuda['attention_time'])
+        print_stat("MLP:", qprofile_cpu['mlp_time'], qprofile_cuda['mlp_time'])
+        print_stat("Attention/MLP Ratio:", qprofile_cpu['ratio'], qprofile_cuda['ratio'])
+        print_percentage("Attention % of Model:", qprofile_cpu['attention_time'], qmodel_time, qprofile_cuda['attention_time'], qmodel_cuda_time)
+        print_percentage("MLP % of Model:", qprofile_cpu['mlp_time'], qmodel_time, qprofile_cuda['mlp_time'], qmodel_cuda_time)
 
+        print("Speedup Analysis:")
+        print_speedup("Model Speedup:", model_time, model_cuda_time, qmodel_time, qmodel_cuda_time)
+        print_speedup("Attention Speedup:", profile_cpu['attention_time'], profile_cuda['attention_time'], qprofile_cpu['attention_time'], qprofile_cuda['attention_time'])
+        print_speedup("MLP Speedup:", profile_cpu['mlp_time'], profile_cuda['mlp_time'], qprofile_cpu['mlp_time'], qprofile_cuda['mlp_time'])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Benchmark quantization on a language model.")
