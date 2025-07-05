@@ -403,6 +403,32 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 
 </details>
 
+### Benchmarking
+Referencing the paper, *Figure 3: Speedup of our tinygemm CUDA kernels on matrix multiplication of 1 × K input by K × K weight, w.r.t PyTorch’s bfloat16 implementation.*
+Please note the results below are on Nvidia A5000, while the paper's figure was based on Nvidia A100.
+
+### **Microbenchmark Results (CUDA Speedup Only)**
+
+| Dimension ($DIM) | INT4 [[71]](#f71) | NF4 [[73]](#f73) | ANY4 [[72]](#f72) |
+|------------------|------------------|------------------|-------------------|
+| 1024             | 1.45x            | 1.37x            | 1.36x             |
+| 2048             | 2.75x            | 2.17x            | 2.32x             |
+| 3072             | 2.60x            | 2.07x            | 2.15x             |
+| 4096             | 3.26x            | 2.23x            | 2.29x             |
+| 5120             | 3.19x            | 2.26x            | 2.27x             |
+| 6144             | 3.40x            | 2.27x            | 2.23x             |
+| 7168             | 3.26x            | 2.19x            | 2.24x             |
+| 8192             | 3.52x            | 2.24x            | 2.25x             |
+
+<details>
+<summary>Commands to reproduce results:</summary>
+
+71. <span id="f71"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize intq`
+72. <span id="f72"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize anyq`
+73. <span id="f73"></span> `python microbenchmark.py --input-dim $DIM --output-dim $DIM --quantize anyq --quantize-args per_row=False` (Note we have not yet implemented NF4 end-to-end modules. See https://github.com/facebookresearch/any4/issues/16).
+
+</details>
+
 ## Contribution
 We encourage contributions from the community. Please feel free to check our [Issues](https://github.com/facebookresearch/any4/issues) for any task to contribute with, especially our [TODOs](https://github.com/facebookresearch/any4/issues/8) issue, as well as our [Contributing Guidelines](CONTRIBUTING.md). 
 
