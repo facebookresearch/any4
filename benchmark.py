@@ -20,8 +20,8 @@ from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, be
 from any4 import convert, quant_methods
 
 def fmt(x): return f"{x:.4f}"
-def fmt_gb(x): return f"{x / 1e9:.4f} GB"
-def fmt_mb(x): return f"{x / 1e3:.4f} GB"
+def fmt_gb(x): return f"{x / 2**30:.4f} GB"
+def fmt_mb(x): return f"{x / 2**20:.4f} MB"
 
 def print_stat(title, total, cuda):
     print(f"\t{title:<24}Total: {fmt(total):<10}CUDA: {fmt(cuda)}")
