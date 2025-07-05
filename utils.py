@@ -49,11 +49,17 @@ def benchmark_cuda_only_in_ms(func, warmup, iters, *args, **kwargs):
     time = do_bench_cuda_using_profiling(no_args, warmup, iters)
     return time
 
-# Source: https://github.com/pytorch/pytorch/blob/bcc98bb2a4dd11ac696082731f8980b72deb6750/torch/_inductor/utils.py#L260C1-L343C15
-# FIXME: Commented code snippet that throws exceptions until the issue is solved: https://github.com/pytorch/pytorch/issues/153587
+# Source: https://github.com/pytorch/pytorch/blob/8a8fac11318778aa5e4479b369b37fdb9e10ec17/torch/_inductor/utils.py#L186
+# Copied and removed one line that filters specific CUDA events. So this function is generic and doesn't exclude any CUDA event.
 def do_bench_cuda_using_profiling(
     fn: Callable[[], Any], warmup: int = 25, rep: int = 100
 ) -> float:
+    #### Add imports to make function work
+    import re
+    from torch.autograd import DeviceType
+    from torch._inductor.utils import log
+    from torch.autograd.profiler_util import EventList
+
     """
     Returns benchmark results by examining torch profiler events.
     This could be more accurate as it doesn't count CPU side overhead.
@@ -62,14 +68,9 @@ def do_bench_cuda_using_profiling(
     various CUDA events, etc, so could also be fragile.
     """
 
-    #### Add imports to make function work
-    from torch.autograd import DeviceType
-    from torch._inductor.utils import log
-    from torch.autograd.profiler_util import EventList
-
     fn()
     torch.cuda.synchronize()
-    cache = torch.empty(int(256e6 // 4), dtype=torch.int, device="cuda")
+    cache = torch.empty(int(256e6 // 4), dtype=torch.float16, device="cuda")
 
     # Estimate the runtime of the function
     start_event = torch.cuda.Event(enable_timing=True)
@@ -90,53 +91,28 @@ def do_bench_cuda_using_profiling(
     for _ in range(n_warmup):
         fn()
 
-    torch.cuda.synchronize()
-
+    start_event = [torch.cuda.Event(enable_timing=True) for _ in range(n_repeat)]
+    end_event = [torch.cuda.Event(enable_timing=True) for _ in range(n_repeat)]
     with torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CUDA,
         ]
     ) as p:
-        # Benchmark
-        for i in range(n_repeat):
-            # we clear the L2 cache before each run
-            cache.zero_()
-            # record time of `fn`
-            fn()
-        # Record clocks
         torch.cuda.synchronize()
+        for i in range(n_repeat):
+            cache.zero_()
+            start_event[i].record()
+            with torch.cuda.nvtx.range("RunCudaModule"):
+                fn()
+            end_event[i].record()
+        torch.cuda.synchronize()
+        times = torch.tensor(
+            [s.elapsed_time(e) for s, e in zip(start_event, end_event)]
+        )
 
+    res = torch.mean(times).item()
     log.debug("raw events")
     log.debug(p.key_averages().table(sort_by="self_device_time_total", row_limit=-1))
-
-    filtered_events = EventList(
-        [
-            event
-            for event in p.events()
-            if event.device_type == DeviceType.CUDA and event.name != "Context Sync"
-        ]
-    )
-    if len(filtered_events) % n_repeat != 0:
-        #### Change from Error to Warning till https://github.com/pytorch/pytorch/issues/153587 is fixed
-        warnings.warn(
-            f"Failed to divide all profiling events into #repeat groups. "
-            f"#CUDA events: {len(filtered_events)}, #repeats: {n_repeat}"
-        )
-    num_event_per_group = len(filtered_events) / n_repeat
-    actual_events = EventList(
-        [
-            event
-            for i, event in enumerate(filtered_events)
-            if i % num_event_per_group != 0
-        ]
-    )
-    actual_events._build_tree()
-    actual_events = actual_events.key_averages()
-
-    log.debug("profiling time breakdown")
-    log.debug(actual_events.table(row_limit=-1))
-
-    res = sum(event.device_time_total for event in actual_events) / 1000.0 / n_repeat
     log.debug("profiling results: %s ms", res)
     return res
 
