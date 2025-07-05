@@ -30,7 +30,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             tasks=tasks,
             device=device,
             num_samples=num_samples,
@@ -59,7 +59,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -92,7 +92,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"n_bit": n_bit, "group_size":group_size},
             tasks=tasks,
@@ -124,7 +124,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -156,7 +156,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -190,7 +190,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"n_bit":n_bit, "group_size":group_size},
             tasks=tasks,
