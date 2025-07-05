@@ -14,7 +14,9 @@ import warnings
 import torch
 import numpy as np
 import unittest
-from torch._inductor.utils import do_bench_using_profiling
+import re
+from torch.autograd import DeviceType
+from torch.autograd.profiler_util import EventList
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 
@@ -54,20 +56,10 @@ def benchmark_cuda_only_in_ms(func, warmup, iters, *args, **kwargs):
 def do_bench_cuda_using_profiling(
     fn: Callable[[], Any], warmup: int = 25, rep: int = 100
 ) -> float:
-    #### Add imports to make function work
-    import re
-    from torch.autograd import DeviceType
+    """
+    Returns benchmark results by examining torch profiler CUDA events.
+    """
     from torch._inductor.utils import log
-    from torch.autograd.profiler_util import EventList
-
-    """
-    Returns benchmark results by examining torch profiler events.
-    This could be more accurate as it doesn't count CPU side overhead.
-    However, this also requires manually excluding irrelevant event, e.g.
-    vectorized_elementwise_kernel which is used to fill L2 cache,
-    various CUDA events, etc, so could also be fragile.
-    """
-
     fn()
     torch.cuda.synchronize()
     cache = torch.empty(int(256e6 // 4), dtype=torch.float16, device="cuda")
