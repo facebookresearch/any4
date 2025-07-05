@@ -7,7 +7,7 @@
 import unittest
 from parameterized import parameterized
 
-import any4
+import quantize
 from eval import main as eval
 
 class TestEval(unittest.TestCase):
@@ -24,8 +24,8 @@ class TestEval(unittest.TestCase):
         # TODO: create separate test_calibrate.py
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
-            quant_method=any4.anyq,
+            model_args={"torch_dtype":dtype},
+            quant_method=quantize.anyq,
             quant_args={
                 "group_size":128,
                 "skip_modules":"lm_head",
@@ -52,7 +52,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            quant_method=any4.anyq,
+            quant_method=quantize.anyq,
             tasks=tasks,
             device=device,
             overwrite_results=True,

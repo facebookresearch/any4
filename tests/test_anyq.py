@@ -10,7 +10,7 @@ from parameterized import parameterized
 import itertools
 import numpy as np
 
-import any4
+import quantize
 from utils import assert_close, import_or_skip
 
 import tinygemm_lib.functional
@@ -42,9 +42,9 @@ class TestAnyQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wq, lut, scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, parallelize=parallelize, zero_point=zero_point)
+        wq, lut, scales_and_zeros = quantize.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, parallelize=parallelize, zero_point=zero_point)
         #lut.sub_(2**(n_bit - 1))
-        wdeq = any4.anyq_dequantize(wq, lut, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping)
+        wdeq = quantize.anyq_dequantize(wq, lut, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping)
 
         torch.testing.assert_close(w, wdeq)
 
@@ -76,7 +76,7 @@ class TestAnyQ(unittest.TestCase):
         x = torch.randn(bs, input_dim, dtype=dtype, device=device)
         y_ref = x @ w.t()
 
-        w_int32, w_lut, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
+        w_int32, w_lut, w_scales_and_zeros = quantize.anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
         w_lut = w_lut - (2**(n_bit - 1))
 
         if not tinygemm_lib.functional.valid_tinygemm_kernel_call(functional_api, w_inner_k):
@@ -125,10 +125,10 @@ class TestAnyQ(unittest.TestCase):
         y_ref = x @ w.t()
 
         int4_dequant = torch.arange(16, dtype=x.dtype, device=x.device) - 8
-        w_int32, _, w_scales_and_zeros = any4.intq_quantize(w, n_bit, q_group, new_grouping=new_grouping, zero_point=zero_point)
+        w_int32, _, w_scales_and_zeros = quantize.intq_quantize(w, n_bit, q_group, new_grouping=new_grouping, zero_point=zero_point)
 
-        w_int32_b, int4_dequant_b, w_scales_and_zeros = any4.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
-        wdeq = any4.anyq_dequantize(w_int32_b, int4_dequant_b, scales_and_zeros=w_scales_and_zeros, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, per_row=per_row)
+        w_int32_b, int4_dequant_b, w_scales_and_zeros = quantize.anyq_quantize(w, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, zero_point=zero_point, per_row=per_row)
+        wdeq = quantize.anyq_dequantize(w_int32_b, int4_dequant_b, scales_and_zeros=w_scales_and_zeros, n_bit=n_bit, q_group_size=q_group, new_grouping=new_grouping, per_row=per_row)
         torch.testing.assert_close(w, wdeq)
 
         int4_dequant_c = int4_dequant_b - (2**(n_bit - 1))
@@ -182,7 +182,7 @@ class TestAnyQ(unittest.TestCase):
             kernel=functional_api,
             w_inner_k=w_inner_k,
         )
-        w_int32, w_lut, w_scales_and_zeros = any4.anyq_quantize(linear.weight, n_bit=n_bit, q_group_size=group_size, per_row=per_row)
+        w_int32, w_lut, w_scales_and_zeros = quantize.anyq_quantize(linear.weight, n_bit=n_bit, q_group_size=group_size, per_row=per_row)
         w_lut = w_lut - (2**(n_bit - 1))
         linear_quant.bias.data = linear.bias
         linear_quant.weight.data = w_int32
@@ -210,7 +210,7 @@ class TestAnyQ(unittest.TestCase):
 
         y_ref = linear(x)
 
-        linear_quant = any4.anyq(
+        linear_quant = quantize.anyq(
             module=linear,
             n_bit=n_bit,
             group_size=group_size,

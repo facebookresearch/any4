@@ -16,7 +16,7 @@ from pathlib import Path
 
 from utils import CustomJSONEncoder
 from lm_eval.utils import simple_parse_args_string
-from any4 import convert, quant_methods
+from quantize import convert, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import remove_all_hooks, dtype_str_to_torch

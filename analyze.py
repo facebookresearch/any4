@@ -19,7 +19,7 @@ import scipy
 import torch
 import transformers
 
-from any4 import convert, group_q, quant_methods
+from quantize import convert, group_q, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from lm_eval.utils import simple_parse_args_string
 from matplotlib.backends.backend_pdf import PdfPages

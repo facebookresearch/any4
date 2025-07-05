@@ -25,7 +25,7 @@ import bigcode_eval.evaluator
 import bigcode_eval.arguments
 from accelerate import Accelerator, InitProcessGroupKwargs
 
-from any4 import convert, quant_methods
+from quantize import convert, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import CustomJSONEncoder, dtype_str_to_torch

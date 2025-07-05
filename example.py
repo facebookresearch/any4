@@ -8,7 +8,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 
-from any4 import convert, intq, anyq
+from quantize import convert, intq, anyq
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 

@@ -7,7 +7,7 @@
 import unittest
 from parameterized import parameterized
 
-import any4
+import quantize
 import bigcode_eval
 from eval import main as eval
 
@@ -43,11 +43,11 @@ class TestEval(unittest.TestCase):
 
     @parameterized.expand([
         (quant_method)
-        for quant_method in [any4.intq, any4.fp4, any4.nf4, any4.anyq]
+        for quant_method in [quantize.intq, quantize.fp4, quantize.nf4, quantize.anyq]
     ])
     def test_quantize(
         self,
-        quant_method=any4.intq,
+        quant_method=quantize.intq,
         group_size=64,
         device="cuda",
         dtype="bfloat16",
@@ -83,7 +83,7 @@ class TestEval(unittest.TestCase):
         dtype="float16",
         device="cuda"
     ):
-        quant_method=any4.intq
+        quant_method=quantize.intq
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
@@ -114,7 +114,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=any4.nf4
+        quant_method=quantize.nf4
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -146,7 +146,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=any4.fp4
+        quant_method=quantize.fp4
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -181,7 +181,7 @@ class TestEval(unittest.TestCase):
         dtype="bfloat16",
         device="cuda"
     ):
-        quant_method=any4.anyq
+        quant_method=quantize.anyq
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
