@@ -77,8 +77,11 @@ class HookBasedProfiler:
         with torch.no_grad():
             for _ in range(warmup):
                 _ = model(input_ids=input_ids, attention_mask=attention_mask)
+        self.register_hooks(model)
+        with torch.no_grad():
             for _ in range(iters):
                 _ = model(input_ids=input_ids, attention_mask=attention_mask)
+        self.clear_hooks()
 
     def clear_hooks(self):
         for h in self.hooks:
@@ -137,16 +140,12 @@ def benchmark_model(
 
     ## Layer-wise profiling with hooks (most principled approach)
     profiler_cpu = HookBasedProfiler(mode="cpu")
-    profiler_cpu.register_hooks(model)
     profiler_cpu.run_profiling(model, input_ids, attention_mask, n_warmup, n_iters)
     profile_cpu = profiler_cpu.summarize()
-    profiler_cpu.clear_hooks()
 
     profiler_cuda = HookBasedProfiler(mode="cuda")
-    profiler_cuda.register_hooks(model)
     profiler_cuda.run_profiling(model, input_ids, attention_mask, n_warmup, n_iters)
     profile_cuda = profiler_cuda.summarize()
-    profiler_cuda.clear_hooks()
 
     ## Memory
     model_size = get_model_size(model)
@@ -166,16 +165,12 @@ def benchmark_model(
 
         ## Layer-wise profiling for quantized model
         profiler_q_cpu = HookBasedProfiler(mode="cpu")
-        profiler_q_cpu.register_hooks(qmodel)
         profiler_q_cpu.run_profiling(qmodel, input_ids, attention_mask, n_warmup, n_iters)
         qprofile_cpu = profiler_q_cpu.summarize()
-        profiler_q_cpu.clear_hooks()
 
         profiler_q_cuda = HookBasedProfiler(mode="cuda")
-        profiler_q_cuda.register_hooks(qmodel)
         profiler_q_cuda.run_profiling(qmodel, input_ids, attention_mask, n_warmup, n_iters)
         qprofile_cuda = profiler_q_cuda.summarize()
-        profiler_q_cuda.clear_hooks()
 
         # Clean up Memory
         torch.cuda.empty_cache()
