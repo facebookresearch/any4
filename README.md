@@ -131,8 +131,8 @@ In this section we provide the results in the paper and the command to reproduce
 
 _Please note: you need to expand "Commands to reproduce results" block below each table, in order for the links to commands in each row to work._
 
-### Main Results
-#### Llama3.2 1B
+### Accuracy Results
+**Llama3.2 1B**
 |                 | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | --------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[1]](#f1) | 9.76        | 12.77 | 16.56 | 3.49        | 16.46%     | 21.4% | 36.1%  | 47.7%      | 6.60%  | 31.1% |
@@ -152,7 +152,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama3 8B
+**Llama3 8B**
 |                   | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ----------------- | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[6]](#f6)   | 6.14        | 8.93  | 10.59 | 2.54        | 29.3%      | 41.4% | 62.0%  | 60.1%      | 50.7%  | 62.8% |
@@ -172,7 +172,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama3 70B
+**Llama3 70B**
 |                    | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ----- | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[11]](#f11)  | 2.86        | 6.77  | 8.16  | 1.91        | 17.7%      | 60.8% | 75.4%  | 66.3%      | 80.6%  | 82.4% |
@@ -212,7 +212,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama2 13B
+**Llama2 13B**
 |                    | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[21]](#f21)  | 4.88        | 6.47  | 28.93  | 2.40        | 19.5%      | 18.4% | 50.5%  | 60.0%      | 23.2%  | 47.4% |
@@ -232,7 +232,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Llama2 70B
+**Llama2 70B**
 |                    | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | HumanEval↑ | MBPP↑ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BBH↑  |
 | ------------------ | ----------- | ----- | ------ | ----------- | ---------- | ----- | ------ | ---------- | ------ | ----- |
 | FP16 [[26]](#f26)  | 3.32        | 5.52  | 14.44  | 2.11        | 31.7%      | 37.4% | 65.2%  | 64.8%      | 53.3%  | 67.1% |
@@ -252,7 +252,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Mistral-7B Instruct v0.2
+**Mistral-7B Instruct v0.2**
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[31]](#f31) | 5.95        | 8.82  | 21.77  | 2.63        | 58.7%  | 66.1%      | 41.7%  | 51.7%     |
@@ -272,7 +272,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 </details>
 
-#### Mixtral-8x7B Instruct v0.1
+**Mixtral-8x7B Instruct v0.1**
 |                   | WikiText-2↓ | C4↓   | PTB↓   | CodeParrot↓ | MMLU↑  | HellaSwag↑ | GSM8K↑ | BigBench↑ |
 | ----------------- | ----------- | ----- | ------ | ----------- | ------ | ---------- | ------ | --------- |
 | FP16 [[36]](#f36) | 4.14        | 7.18  | 16.47  | 2.20        | 68.2%  | 67.6%      | 64.8%  | 68.1%     |
@@ -294,7 +294,7 @@ _Please note: you need to expand "Commands to reproduce results" block below eac
 
 ### Ablation Studies
 
-#### Group Size
+**Group Size**
 Referencing the paper, *Table 4: C4 perplexity after quantizing with different group sizes.*
 
 |      | 64                 | 128                | 256                | 512                | 1024               |
@@ -324,7 +324,7 @@ Referencing the paper, *Table 4: C4 perplexity after quantizing with different g
 
 </details>
 
-#### Calibration Data
+**Calibration Data**
 Referencing the paper, *Table 3: any4 quantization with different calibration data.*
 
 |                   | Calibration Data    | Number of Samples | Sequence Length per Sample | WikiText-2↓ | C4↓   | PTB↓  | CodeParrot↓ |
@@ -363,7 +363,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 
 </details>
 
-#### Term to Minimize
+**Term to Minimize**
 *Perplexity after quantizing Llama3.2 1B with LUTs created by minimizing different terms.*
 
 |                                           | Term to Minimize                      | WikiText-2↓ | C4↓     | PTB↓    | CodeParrot↓ |
@@ -381,7 +381,7 @@ Referencing the paper, *Table 3: any4 quantization with different calibration da
 
 </details>
 
-#### K-Means Initialization
+**K-Means Initialization**
 Referencing the paper, *Table A4: any4 quantization with K-means clustering initialzied with different algorithms and values.*
 
 |                   | K-Means Initialization | WikiText-2↓ | C4↓    | PTB↓   |
