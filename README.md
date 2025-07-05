@@ -407,7 +407,7 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 Referencing the paper, *Figure 3: Speedup of our tinygemm CUDA kernels on matrix multiplication of 1 × K input by K × K weight, w.r.t PyTorch’s bfloat16 implementation.*
 Please note the results below are on Nvidia A5000, while the paper's figure was based on Nvidia A100.
 
-### **Microbenchmark Results (CUDA Speedup Only)**
+### **Microbenchmark Results**
 
 | Dimension ($DIM) | INT4 [[71]](#f71) | NF4 [[73]](#f73) | ANY4 [[72]](#f72) |
 |------------------|------------------|------------------|-------------------|
