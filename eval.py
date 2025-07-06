@@ -89,7 +89,6 @@ def main(
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
     args = locals()
-    print(args)
     with Path(log_dir/"args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
