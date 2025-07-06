@@ -17,7 +17,7 @@ import sklearn.cluster
 import bitsandbytes as bnb
 
 import kmeans
-from utils import import_or_skip, string_split
+from utils import get_lm_head_from_model, import_or_skip, string_split
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -29,23 +29,26 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count
 
-def quantize_model(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
-    index = 0
-
+def quantize_model(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=None, tokenizer=None, calibrate_args=None, **kwargs):
+    # Handle Default Arguments
+    if skip_modules is None:
+        # By default, we follow most quantization papers by excluding language model head
+        skip_modules = [get_lm_head_from_model(model)]
+    if isinstance(skip_modules, str):
+        skip_modules = string_split(skip_modules, ",")
+    if isinstance(skip_modules, torch.nn.Module):
+        skip_modules = [skip_modules]
     # TODO: add option to perform offline calibration before looping
+    if calibrate_args is None:
+        calibrate_args = {}
     calibrate_fn = None
     if "sample_weight" in kwargs:
         if isinstance(kwargs["sample_weight"], Callable):
             calibrate_fn = kwargs["sample_weight"]
 
-    if isinstance(skip_modules, str):
-        skip_modules = string_split(skip_modules, ",")
-    if isinstance(skip_modules, torch.nn.Module):
-        skip_modules = [skip_modules]
-
     modules = [(name, module) for name, module in model.named_modules() if isinstance(module, layer_from) and name not in skip_modules and module not in skip_modules]
     pbar = tqdm(modules, unit="layer", desc="Quantizing")
-    for name, module in pbar:
+    for index, (name, module) in enumerate(pbar):
         pbar.set_postfix_str(name)
 
         # Calibrate if necessary
@@ -69,8 +72,6 @@ def quantize_model(model: torch.nn.Module, layer_from: Type, layer_to: Callable,
             parent_module = model
         # Replace the old module with the new one
         setattr(parent_module, name.split('.')[-1], new_module)
-
-        index += 1
 
         # Save memory
         if calibrate_fn is not None:

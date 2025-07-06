@@ -405,3 +405,9 @@ def get_mlp_from_layer(layer):
             mlp_modules.append(getattr(layer, attr))
 
     return mlp_modules
+
+def get_lm_head_from_model(model):
+    if hasattr(model, "lm_head"):
+        return "lm_head"
+    else:
+        raise NotImplementedError(f"Extracting language model head is not implemented for {type(model)}.")

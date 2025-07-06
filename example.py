@@ -31,6 +31,6 @@ outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_to
 text = tokenizer.batch_decode(outputs)[0]
 
 print("\nQuantize:")
-model = any4(model, skip_modules=["lm_head"])
+model = any4(model)
 outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
