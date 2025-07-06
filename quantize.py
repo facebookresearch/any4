@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Callable, Dict, List, Tuple, Type
+from tqdm import tqdm
 import gc
 import random
 import time
@@ -31,51 +32,51 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
 def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
 
+    # TODO: add option to perform offline calibration before looping
     calibrate_fn = None
     if "sample_weight" in kwargs:
         if isinstance(kwargs["sample_weight"], Callable):
             calibrate_fn = kwargs["sample_weight"]
 
-    # TODO: use tqdm instead of printing each layer name
-    for name, module in list(model.named_modules()):
-        if isinstance(module, (layer_from)):
-            print(f"{name}")
-            if name in skip_modules:
-                print("\tSkip")
-                continue
+    modules = [(name, module) for name, module in model.named_modules() if isinstance(module, layer_from)]
+    pbar = tqdm(modules, unit="layer", desc="Quantizing")
+    for name, module in pbar:
+        pbar.set_postfix_str(name)
+        if name in skip_modules:
+            continue
 
-            # Calibrate if necessary
-            # TODO: move this to inside the quantization function?
-            if calibrate_fn is not None:
-                calibrate_args["seed"] = index
-                if calibrate_args.get("return_activations", False):
-                    # TODO: rename "sample_weight" to "sample_mean_activations" ?
-                    kwargs["sample_weight"], kwargs["sample_activations"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
-                    kwargs["sample_activations"] = kwargs["sample_activations"][name]
-                else:
-                    kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
-
-            new_module = layer_to(module, name=name, **kwargs)
-
-            # Get the parent module
-            parent_name = '.'.join(name.split('.')[:-1])
-            if parent_name:
-                parent_module = model.get_submodule(parent_name)
+        # Calibrate if necessary
+        # TODO: move this to inside the quantization function?
+        if calibrate_fn is not None:
+            calibrate_args["seed"] = index
+            if calibrate_args.get("return_activations", False):
+                # TODO: rename "sample_weight" to "sample_mean_activations" ?
+                kwargs["sample_weight"], kwargs["sample_activations"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
+                kwargs["sample_activations"] = kwargs["sample_activations"][name]
             else:
-                parent_module = model
-            # Replace the old module with the new one
-            setattr(parent_module, name.split('.')[-1], new_module)
+                kwargs["sample_weight"] = calibrate_fn(model=model, tokenizer=tokenizer, layers=[name], **calibrate_args)
 
-            index += 1
+        new_module = layer_to(module, name=name, **kwargs)
 
-            # Save memory
-            if calibrate_fn is not None:
-                if "sample_weight" in kwargs:
-                    del kwargs["sample_weight"]
-                if "sample_activations" in kwargs:
-                    del kwargs["sample_activations"]
-            torch.cuda.empty_cache()
-            gc.collect()
+        # Get the parent module
+        parent_name = '.'.join(name.split('.')[:-1])
+        if parent_name:
+            parent_module = model.get_submodule(parent_name)
+        else:
+            parent_module = model
+        # Replace the old module with the new one
+        setattr(parent_module, name.split('.')[-1], new_module)
+
+        index += 1
+
+        # Save memory
+        if calibrate_fn is not None:
+            if "sample_weight" in kwargs:
+                del kwargs["sample_weight"]
+            if "sample_activations" in kwargs:
+                del kwargs["sample_activations"]
+        torch.cuda.empty_cache()
+        gc.collect()
 
     return model
 
@@ -416,13 +417,11 @@ def cluster_matrix(x, n_bit=4, bias_pow=1.0, keep_outliers=False, cluster_row: C
     to_cluster = x.cpu().detach().float().numpy()
     surrogate_to_cluster = x_cluster.cpu().float().detach().numpy() if x_cluster is not None else None
     sample_weight = sample_weight.cpu().float().detach().numpy() if isinstance(sample_weight, torch.Tensor) else sample_weight
-    print(f"\tClustering...", end=" ", flush=True)
     if parallelize:
         assign, any4, assign_val = cluster_rows_parallel(to_cluster, cluster_row=cluster_row, n_bit=n_bit, init=init, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
     else:
         assign, any4, assign_val = cluster_rows(to_cluster, cluster_row=cluster_row, init=init, n_bit=n_bit, sample_weight=sample_weight, x_surrogate=surrogate_to_cluster, **kwargs)
     assign_val = assign_val.to(x.device)
-    print(f"{time.time() - start:.2f} s", flush=True)
 
 
     if keep_outliers:
