@@ -19,7 +19,7 @@ import scipy
 import torch
 import transformers
 
-from quantize import convert, group_q, quant_methods
+from quantize import quantize_model, group_q, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from lm_eval.utils import simple_parse_args_string
 from matplotlib.backends.backend_pdf import PdfPages
@@ -192,7 +192,7 @@ def main(
             per_layer_quant_args = quant_args.copy()
             # TODO: handle if transpose (default group_size will change)
             # TODO: handle default arguments in a different way
-            # TODO: consider reading wc from quantize or convert method
+            # TODO: consider reading wc from quantize or quantize_model method
             per_layer_quant_args["n_bit"] = per_layer_quant_args.get("n_bit", 4)
             per_layer_quant_args["group_size"] = per_layer_quant_args.get(
                 "group_size", w.shape[-1]
@@ -239,7 +239,7 @@ def main(
             fig.savefig(pdf, format="pdf")
 
             ## Analyze Quantization
-            module = convert(
+            module = quantize_model(
                 module,
                 layer_from=torch.nn.Linear,
                 layer_to=quant_method,

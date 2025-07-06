@@ -16,7 +16,7 @@ from pathlib import Path
 
 from utils import CustomJSONEncoder
 from lm_eval.utils import simple_parse_args_string
-from quantize import convert, quant_methods
+from quantize import quantize_model, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import remove_all_hooks, dtype_str_to_torch
@@ -102,7 +102,7 @@ def main(
         model = pre_quant_method(model, tokenizer, **pre_quant_args)
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        model = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, calibrate_args=calibrate_args, **quant_args)
+        model = quantize_model(model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=tokenizer, calibrate_args=calibrate_args, **quant_args)
 
     # Calibrate Quantized Model
     layer_to_output = {}

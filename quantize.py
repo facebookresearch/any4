@@ -28,8 +28,7 @@ def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
             count += count_layer_type(module, layer_type, 0)
     return count
 
-# TODO: rename function to quantize?
-def convert(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
+def quantize_model(model: torch.nn.Module, layer_from: Type, layer_to: Callable, skip_modules=[], tokenizer=None, calibrate_args={}, **kwargs):
     index = 0
 
     # TODO: add option to perform offline calibration before looping

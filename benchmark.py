@@ -17,7 +17,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig, GPTQConfig
 from lm_eval.utils import simple_parse_args_string
 
 from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, MemoryTracker
-from quantize import convert, quant_methods
+from quantize import quantize_model, quant_methods
 
 def fmt(x): return f"{x:.4f}"
 def fmt_gb(x): return f"{x / 2**30:.4f} GB"
@@ -154,7 +154,7 @@ def benchmark_model(
     if quant_method:
         # Quantize
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        qmodel = convert(model, layer_from=torch.nn.Linear, layer_to=quant_method, pseudo=False, **quant_args)
+        qmodel = quantize_model(model, layer_from=torch.nn.Linear, layer_to=quant_method, pseudo=False, **quant_args)
 
         print(qmodel)
 

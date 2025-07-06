@@ -8,7 +8,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 
-from quantize import convert, intq, anyq
+from quantize import quantize_model, intq, anyq
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -31,6 +31,6 @@ outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_to
 text = tokenizer.batch_decode(outputs)[0]
 
 print("Quantize:")
-model = convert(model, layer_from=torch.nn.Linear, layer_to=anyq, skip_modules=["lm_head"], pseudo=False)
+model = quantize_model(model, layer_from=torch.nn.Linear, layer_to=anyq, skip_modules=["lm_head"], pseudo=False)
 outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
