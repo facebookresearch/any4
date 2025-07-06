@@ -7,7 +7,7 @@
 import torch
 import tinygemm_lib.functional
 
-# TODO: add NF4Linear, MX4Linear
+# TODO: add Int8, FP4Linear, NF4Linear, MX4Linear
 
 class Int4Linear(torch.nn.Module):
     def __init__(
@@ -52,8 +52,9 @@ class Int4Linear(torch.nn.Module):
         self.w_inner_k = w_inner_k
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        orig_shape = input.shape
         # Reshape input to 2D
-        input = input.view(-1, input.shape[-1])
+        input = input.view(-1, orig_shape[-1])
 
         # Apply GEMM
         if self.kernel == "linear_y_f16RM_x_f16RM_W_int4TC":
@@ -70,7 +71,7 @@ class Int4Linear(torch.nn.Module):
             y = y + self.bias
 
         # Resshape output to input's original shape
-        y = y.view(*input.shape[:-1], y.shape[-1])
+        y = y.view(*orig_shape[:-1], y.shape[-1])
 
         return y
 
@@ -131,8 +132,9 @@ class Any4Linear(torch.nn.Module):
         self.w_inner_k = w_inner_k
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        orig_shape = input.shape
         # Reshape input to 2D
-        input = input.view(-1, input.shape[-1])
+        input = input.view(-1, orig_shape[-1])
 
         # Apply GEMM
         if self.kernel == "linear_y_f16RM_x_f16RM_W_any4TC":
@@ -146,8 +148,8 @@ class Any4Linear(torch.nn.Module):
         if self.bias is not None:
             y = y + self.bias
 
-        # Resshape output to input's original shape
-        y = y.view(*input.shape[:-1], y.shape[-1])
+        # Reshape output to input's original shape
+        y = y.view(*orig_shape[:-1], y.shape[-1])
 
         return y
 
