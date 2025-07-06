@@ -321,8 +321,14 @@ def degroup_q1(
 
     return w
 
-def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=True, **kwargs):
+def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=None, **kwargs):
     w = module.weight
+
+    if pseudo is None:
+        if n_bit in [4, 8] and import_or_skip("tinygemm"):
+            pseudo = False
+        else:
+            pseudo = True
 
     if transpose:
         w = w.t()
@@ -798,7 +804,13 @@ cluster_row_fn_dict = {
 }
 
 # TODO: create anyq, nf4, fp4, intq functions that take weight tensor as input and return weight tensor as output?
-def anyq_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=True, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, other_impl=False, **kwargs):
+def anyq_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int = 128, any_group_size: int = None, per_row = True, scale_only=False, parallelize=True, bias_pow=1.0, keep_outliers=False, transpose=False, cluster_row: str = "scikit", init=None, sample_weight=None, surrogate_cluster=False, pseudo=None, kernel: str = "linear_y_f16RM_x_f16RM_W_any4TC",  w_inner_k: int = 4, other_impl=False, **kwargs):
+    if pseudo is None:
+        if n_bit in [4] and import_or_skip("tinygemm"):
+            pseudo = False
+        else:
+            pseudo = True
+
     w = module.weight
     if isinstance(sample_weight, Dict):
         sample_weight = sample_weight[name]
