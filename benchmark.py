@@ -19,18 +19,18 @@ from lm_eval.utils import simple_parse_args_string
 from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, get_attention_from_layer, get_mlp_from_layer, get_layers_from_model, MemoryTracker
 from quantize import quantize_model, quant_methods
 
-def fmt(x): return f"{x:.4f}"
+def fmt(x, suffix=""): return f"{x:.4f}{suffix}"
 def fmt_gb(x): return f"{x / 2**30:.4f} GB"
 def fmt_mb(x): return f"{x / 2**20:.4f} MB"
 
-def print_stat(title, total, cuda):
-    print(f"\t{title:<24}Total: {fmt(total):<10}CUDA: {fmt(cuda)}")
+def print_stat(title, total, cuda, unit=""):
+    print(f"\t{title:<24}Total: {fmt(total, unit):<10}CUDA: {fmt(cuda, unit)}")
 
 def print_percentage(title, total_time, model_time, cuda_time, model_cuda_time):
-    print(f"\t{title:<24}Total: {fmt(total_time / model_time * 100):<10}%CUDA: {fmt(cuda_time / model_cuda_time * 100)}%")
+    print(f"\t{title:<24}Total: {fmt(total_time / model_time * 100, '%'):<10}CUDA: {fmt(cuda_time / model_cuda_time * 100, '%')}")
 
 def print_speedup(title, base_total, base_cuda, quant_total, quant_cuda):
-    print(f"\t{title:<24}Total: {fmt(base_total / quant_total)}x\tCUDA: {fmt(base_cuda / quant_cuda)}x")
+    print(f"\t{title:<24}Total: {fmt(base_total / quant_total, 'x')}\tCUDA: {fmt(base_cuda / quant_cuda, 'x')}")
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -189,21 +189,23 @@ def benchmark_model(
         qmodel_peak_memory_mb = benchmark_memory(qmodel, MemoryTracker(), n_warmup, input_ids=input_ids, attention_mask=attention_mask)
 
     print("Baseline:")
-    print(f"\tModel Size:\t\t{fmt_gb(model_size)}\tCUDA Peak:\t{fmt_mb(model_peak_memory_mb)}")
-    print_stat("Model:", model_time, model_cuda_time)
-    print_stat("Attention:", profile_cpu['attention_time'], profile_cuda['attention_time'])
-    print_stat("MLP:", profile_cpu['mlp_time'], profile_cuda['mlp_time'])
-    print_stat("Attention/MLP Ratio:", profile_cpu['ratio'], profile_cuda['ratio'])
+    print(f"\tModel Size:\t\t{fmt_gb(model_size)}")
+    print(f"\t\tCUDA Peak:{fmt_mb(model_peak_memory_mb)}")
+    print_stat("Model:", model_time, model_cuda_time, unit=" ms")
+    print_stat("Attention:", profile_cpu['attention_time'], profile_cuda['attention_time'], unit=" ms")
+    print_stat("MLP:", profile_cpu['mlp_time'], profile_cuda['mlp_time'], unit=" ms")
+    print_stat("Attention/MLP Ratio:", profile_cpu['ratio'], profile_cuda['ratio'], unit=" ms")
     print_percentage("Attention % of Model:", profile_cpu['attention_time'], model_time, profile_cuda['attention_time'], model_cuda_time)
     print_percentage("MLP % of Model:", profile_cpu['mlp_time'], model_time, profile_cuda['mlp_time'], model_cuda_time)
 
     if quant_method:
         print("Quantized:")
-        print(f"\tModel Size:\t\t{fmt_gb(qmodel_size)}\tCUDA Peak:\t{fmt_mb(qmodel_peak_memory_mb)}")
-        print_stat("Model:", qmodel_time, qmodel_cuda_time)
-        print_stat("Attention:", qprofile_cpu['attention_time'], qprofile_cuda['attention_time'])
-        print_stat("MLP:", qprofile_cpu['mlp_time'], qprofile_cuda['mlp_time'])
-        print_stat("Attention/MLP Ratio:", qprofile_cpu['ratio'], qprofile_cuda['ratio'])
+        print(f"\tModel Size:\t\t{fmt_gb(qmodel_size)}")
+        print(f"\tCUDA Peak:\t\t{fmt_mb(qmodel_peak_memory_mb)}")
+        print_stat("Model:", qmodel_time, qmodel_cuda_time, unit=" ms")
+        print_stat("Attention:", qprofile_cpu['attention_time'], qprofile_cuda['attention_time'], unit=" ms")
+        print_stat("MLP:", qprofile_cpu['mlp_time'], qprofile_cuda['mlp_time'], unit=" ms")
+        print_stat("Attention/MLP Ratio:", qprofile_cpu['ratio'], qprofile_cuda['ratio'], unit=" ms")
         print_percentage("Attention % of Model:", qprofile_cpu['attention_time'], qmodel_time, qprofile_cuda['attention_time'], qmodel_cuda_time)
         print_percentage("MLP % of Model:", qprofile_cpu['mlp_time'], qmodel_time, qprofile_cuda['mlp_time'], qmodel_cuda_time)
 
