@@ -916,9 +916,88 @@ def nf4_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int 
     module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     return module
 
+def intq_model(model: torch.nn.Module, layer_from: torch.nn.Module = torch.nn.Linear, *args, **kwargs):
+    return quantize_model(model=model, layer_from=layer_from, layer_to=intq_layer, *args, **kwargs)
+
+def fp4_model(model: torch.nn.Module, layer_from: torch.nn.Module = torch.nn.Linear, *args, **kwargs):
+    return quantize_model(model=model, layer_from=layer_from, layer_to=fp4_layer, *args, **kwargs)
+
+def nf4_model(model: torch.nn.Module, layer_from: torch.nn.Module = torch.nn.Linear, *args, **kwargs):
+    return quantize_model(model=model, layer_from=layer_from, layer_to=nf4_layer, *args, **kwargs)
+
+def anyq_model(model: torch.nn.Module, layer_from: torch.nn.Module = torch.nn.Linear, *args, **kwargs):
+    return quantize_model(model=model, layer_from=layer_from, layer_to=anyq_layer, *args, **kwargs)
+
+def intq(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    if isinstance(input_arg, torch.Tensor):
+        raise NotImplementedError("We have not yet created an API to quantize tensor although we have the functions for that.")
+    elif isinstance(input_arg, torch.nn.Module):
+        if hasattr(input_arg, "weight") and isinstance(input_arg.weight, torch.nn.Parameter):
+            # Assume linear layer
+            return intq_layer(input_arg, *args, **kwargs)
+        else:
+            # Assume model
+            return intq_model(input_arg, *args, **kwargs)
+    else:
+        return ValueError(f"Unsupported input type {type(input_arg)}.")
+
+def int4(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    assert kwargs.pop("n_bit", None) in [4, None]
+    return intq(input_arg=input_arg, n_bit=4, *args, **kwargs)
+
+def int8(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    assert kwargs.pop("n_bit", None) in [8, None]
+    return intq(input_arg=input_arg, n_bit=8, *args, **kwargs)
+
+def fp4(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    if isinstance(input_arg, torch.Tensor):
+        raise NotImplementedError("We have not yet created an API to quantize tensor although we have the functions for that.")
+    elif isinstance(input_arg, torch.nn.Module):
+        if hasattr(input_arg, "weight") and isinstance(input_arg.weight, torch.nn.Parameter):
+            # Assume linear layer
+            return fp4_layer(input_arg, *args, **kwargs)
+        else:
+            # Assume model
+            return fp4_model(input_arg, *args, **kwargs)
+    else:
+        return ValueError(f"Unsupported input type {type(input_arg)}.")
+
+def nf4(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    if isinstance(input_arg, torch.Tensor):
+        raise NotImplementedError("We have not yet created an API to quantize tensor although we have the functions for that.")
+    elif isinstance(input_arg, torch.nn.Module):
+        if hasattr(input_arg, "weight") and isinstance(input_arg.weight, torch.nn.Parameter):
+            # Assume linear layer
+            return nf4_layer(input_arg, *args, **kwargs)
+        else:
+            # Assume model
+            return nf4_model(input_arg, *args, **kwargs)
+    else:
+        return ValueError(f"Unsupported input type {type(input_arg)}.")
+
+def anyq(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    if isinstance(input_arg, torch.Tensor):
+        raise NotImplementedError("We have not yet created an API to quantize tensor although we have the functions for that.")
+    elif isinstance(input_arg, torch.nn.Module):
+        if hasattr(input_arg, "weight") and isinstance(input_arg.weight, torch.nn.Parameter):
+            # Assume linear layer
+            return anyq_layer(input_arg, *args, **kwargs)
+        else:
+            # Assume model
+            return anyq_model(input_arg, *args, **kwargs)
+    else:
+        return ValueError(f"Unsupported input type {type(input_arg)}.")
+
+def any4(input_arg: Union[torch.nn.Module, torch.Tensor], *args, **kwargs):
+    assert kwargs.pop("n_bit", None) in [4, None]
+    return anyq(input_arg=input_arg, n_bit=4, *args, **kwargs)
+
 quant_methods = {
-    "intq": intq_layer,
-    "anyq": anyq_layer,
-    "nf4": nf4_layer,
-    "fp4": fp4_layer,
+    "intq": intq,
+    "anyq": anyq,
+    "int4": int4,
+    "int8": int8,
+    "any4": any4,
+    "nf4": nf4,
+    "fp4": fp4,
 }

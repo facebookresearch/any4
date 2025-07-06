@@ -8,7 +8,7 @@ import itertools
 import gc
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, OrderedDict
+from typing import Any, Callable, Dict, List, Optional, OrderedDict
 import time
 import warnings
 import torch
@@ -19,6 +19,9 @@ from torch.autograd import DeviceType
 from torch.autograd.profiler_util import EventList
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
+
+def string_split(s: str, sep: Optional[str]=..., maxsplit: int=...) -> List[str]:
+    return s.split(sep, maxsplit) if "," in s else [s]
 
 def import_or_skip(module_name: str):
     try:

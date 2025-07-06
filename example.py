@@ -8,7 +8,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextStreamer
 
-from quantize import quantize_model, intq, anyq
+from quantize import int4, any4, int8
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -23,14 +23,14 @@ model.eval()
 prompt = "Once upon a time"
 inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-print("Warmup...")
+print("\nWarmup...")
 _ = model.generate(**inputs, max_new_tokens=4)
 
-print("Baseline:")
+print("\nBaseline:")
 outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
 
-print("Quantize:")
-model = quantize_model(model, layer_from=torch.nn.Linear, layer_to=anyq, skip_modules=["lm_head"], pseudo=False)
+print("\nQuantize:")
+model = any4(model, skip_modules=["lm_head"])
 outputs = model.generate(**inputs, streamer=streamer, do_sample=True, max_new_tokens=256)
 text = tokenizer.batch_decode(outputs)[0]
