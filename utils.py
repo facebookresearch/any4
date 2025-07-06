@@ -349,3 +349,59 @@ def trim_inputs(inputs, start_idx=None, end_idx=None):
         return {key: value[:, start_idx:] for key, value in inputs.items()}
     else:
         return {key: value[:, start_idx:end_idx] for key, value in inputs.items()}
+
+def get_layers_from_model(model):
+    if model.__class__.__name__ in ("LlamaForCausalLM", "Qwen2ForCausalLM"):
+        layers = model.model.layers
+    elif model.__class__.__name__ == "LlavaLlamaForCausalLM":
+        # layers = [model.model.layers, model.model.vision_tower.vision_tower.vision_model.encoder.layers]
+        layers = model.model.layers
+    elif model.__class__.__name__ ==  "OPTForCausalLM":
+        layers = model.model.decoder.layers
+    elif model.__class__.__name__ == "BloomForCausalLM":
+        layers = model.transformer.h
+    elif "mpt" in str(model.__class__).lower():
+        layers = model.transformer.blocks
+    elif "falcon" in str(model.__class__).lower():
+        layers = model.transformer.h
+    elif "bigcode" in str(model.__class__).lower():
+        layers = model.transformer.h
+    elif "neox" in str(model.__class__).lower():
+        layers = model.gpt_neox.layers
+    elif model.__class__.__name__ == "LlavaLlamaModel":
+        layers = model.llm.model.layers
+    elif hasattr(model, "layers"):
+        layers = model.layers
+    elif hasattr(model, "model.layers"):
+        layers = model.model.layers
+    else:
+        raise NotImplementedError(f"Extracting layers from {type(model)} is not implemented.")
+    return layers
+
+def get_attention_from_layer(layer):
+    if hasattr(layer, "self_attn"):
+        return [layer.self_attn]
+    elif hasattr(layer, "attention"):
+        return [layer.attention]
+    else:
+        return []
+
+def get_mlp_from_layer(layer):
+    mlp_modules = []
+
+    # Common dense/projection layers
+    for attr in ["mlp", "fc1", "fc2", "dense", "dense_h_to_4h", "dense_4h_to_h"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    # Common activations or non-linearities
+    for attr in ["activation_fn", "act_fn", "gelu", "relu"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    # Optional norms within or after MLP
+    for attr in ["final_layer_norm", "post_attention_layernorm"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    return mlp_modules

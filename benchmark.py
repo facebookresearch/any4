@@ -16,7 +16,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig, GPTQConfig
 
 from lm_eval.utils import simple_parse_args_string
 
-from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, MemoryTracker
+from utils import benchmark_in_ms, benchmark_cuda_only_in_ms, get_model_size, benchmark_memory, get_attention_from_layer, get_mlp_from_layer, get_layers_from_model, MemoryTracker
 from quantize import quantize_model, quant_methods
 
 def fmt(x): return f"{x:.4f}"
@@ -64,13 +64,20 @@ class HookBasedProfiler:
                     self.timings[name].append(elapsed)
             return post_hook
 
-        for i, layer in enumerate(model.model.layers):
-            attn_name = f"attention_layer_{i}"
-            mlp_name = f"mlp_layer_{i}"
-            self.hooks.append(layer.self_attn.register_forward_pre_hook(make_pre_hook(attn_name)))
-            self.hooks.append(layer.self_attn.register_forward_hook(make_post_hook(attn_name)))
-            self.hooks.append(layer.mlp.register_forward_pre_hook(make_pre_hook(mlp_name)))
-            self.hooks.append(layer.mlp.register_forward_hook(make_post_hook(mlp_name)))
+        for i, layer in enumerate(get_layers_from_model(model)):
+            attn_modules = get_attention_from_layer(layer)
+            assert len(attn_modules) > 0
+            for j, module in enumerate(attn_modules):
+                attn_name = f"attention_layer_{i}" if len(attn_modules) == 1 else f"attention_layer_{i}_{j}"
+                self.hooks.append(module.register_forward_pre_hook(make_pre_hook(attn_name)))
+                self.hooks.append(module.register_forward_hook(make_post_hook(attn_name)))
+
+            mlp_modules = get_mlp_from_layer(layer)
+            assert len(mlp_modules) > 0
+            for j, module in enumerate(mlp_modules):
+                mlp_name = f"mlp_layer_{i}" if len(mlp_modules) == 1 else f"mlp_layer_{i}_{j}"
+                self.hooks.append(module.register_forward_pre_hook(make_pre_hook(mlp_name)))
+                self.hooks.append(module.register_forward_hook(make_post_hook(mlp_name)))
 
     def run_profiling(self, model, input_ids, attention_mask, warmup=5, iters=10):
         model.eval()
