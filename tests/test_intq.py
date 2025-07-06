@@ -223,7 +223,7 @@ class TestIntQ(unittest.TestCase):
 
         y_ref = linear(x)
 
-        linear_quant = quantize.intq(
+        linear_quant = quantize.intq_layer(
             module=linear,
             n_bit=n_bit,
             group_size=group_size,

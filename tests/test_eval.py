@@ -43,11 +43,11 @@ class TestEval(unittest.TestCase):
 
     @parameterized.expand([
         (quant_method)
-        for quant_method in [quantize.intq, quantize.fp4, quantize.nf4, quantize.anyq]
+        for quant_method in [quantize.intq_layer, quantize.fp4_layer, quantize.nf4_layer, quantize.anyq_layer]
     ])
     def test_quantize(
         self,
-        quant_method=quantize.intq,
+        quant_method=quantize.intq_layer,
         group_size=64,
         device="cuda",
         dtype="bfloat16",
@@ -83,7 +83,7 @@ class TestEval(unittest.TestCase):
         dtype="float16",
         device="cuda"
     ):
-        quant_method=quantize.intq
+        quant_method=quantize.intq_layer
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
@@ -114,7 +114,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=quantize.nf4
+        quant_method=quantize.nf4_layer
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -146,7 +146,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=quantize.fp4
+        quant_method=quantize.fp4_layer
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -181,7 +181,7 @@ class TestEval(unittest.TestCase):
         dtype="bfloat16",
         device="cuda"
     ):
-        quant_method=quantize.anyq
+        quant_method=quantize.anyq_layer
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]

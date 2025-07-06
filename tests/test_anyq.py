@@ -210,7 +210,7 @@ class TestAnyQ(unittest.TestCase):
 
         y_ref = linear(x)
 
-        linear_quant = quantize.anyq(
+        linear_quant = quantize.anyq_layer(
             module=linear,
             n_bit=n_bit,
             group_size=group_size,

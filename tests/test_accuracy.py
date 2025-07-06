@@ -25,7 +25,7 @@ class TestEval(unittest.TestCase):
         results = eval(
             model_name=model_name,
             model_args={"torch_dtype":dtype},
-            quant_method=quantize.anyq,
+            quant_method=quantize.anyq_layer,
             quant_args={
                 "group_size":128,
                 "skip_modules":"lm_head",
@@ -52,7 +52,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            quant_method=quantize.anyq,
+            quant_method=quantize.anyq_layer,
             tasks=tasks,
             device=device,
             overwrite_results=True,
