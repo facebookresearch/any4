@@ -176,7 +176,7 @@ def expand_q_groups(x, orig_size, q_group_size):
     out = out.expand(orig_size[0], orig_size[1] // q_group_size, q_group_size)
     return out.contiguous().view(orig_size)
 
-def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=False, **kwargs):
+def intq_quantize_tensor(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=False, **kwargs):
     if new_grouping:
         intq, scales, zeros = group_q1(x, n_bit=n_bit, assymetric=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
@@ -192,7 +192,7 @@ def intq_quantize(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=F
 
     return intq, intq_zeros, scales_and_zeros
 
-def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16, unsigned=False):
+def intq_dequantize_tensor(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=4, q_group_size=128, new_grouping=False, dtype=torch.float16, unsigned=False):
     if new_grouping:
         reconstructed = degroup_q1(intq, scales_and_zeros=scales_and_zeros, scales=scales, zeros=zeros, q_group_size=q_group_size, inplace=False)
     else:
@@ -202,9 +202,9 @@ def intq_dequantize(intq, scales_and_zeros=None, scales=None, zeros=None, n_bit=
 
 # performs quantization and dequantization under N-bit grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def intq_reconstruct(x, n_bit = 4, q_group_size=128, parallelize=True, unsigned=False, new_grouping=False, zero_point=False,  scale_only=False, dtype=torch.float16, *args, **kwargs):
-    intq, intq_zeros, scales_and_zeros = intq_quantize(x, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only, unsigned=unsigned, zero_point=zero_point)
-    reconstructed = intq_dequantize(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
+def intq_reconstruct_tensor(x, n_bit = 4, q_group_size=128, parallelize=True, unsigned=False, new_grouping=False, zero_point=False,  scale_only=False, dtype=torch.float16, *args, **kwargs):
+    intq, intq_zeros, scales_and_zeros = intq_quantize_tensor(x, n_bit=n_bit, q_group_size=q_group_size, new_grouping=new_grouping, scale_only=scale_only, unsigned=unsigned, zero_point=zero_point)
+    reconstructed = intq_dequantize_tensor(intq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
     return reconstructed
 
@@ -325,7 +325,7 @@ def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, t
         w = w.t()
 
     if pseudo:
-        w_deq = intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        w_deq = intq_reconstruct_tensor(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
         # w_deq = pseudo_quantize_tensor(w, n_bit=n_bit, assymetric=not kwargs.get("scale_only", False), q_group_size=group_size)
 
         if transpose:
@@ -333,7 +333,7 @@ def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, t
 
         module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     else:
-        intq, _, scales_and_zeros = intq_quantize(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        intq, _, scales_and_zeros = intq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
 
         if transpose:
             intq = intq.t()
@@ -491,7 +491,7 @@ def cluster_rows_parallel(x, cluster_row: Callable = cluster_row_scikit, x_surro
 
     return assign, any4, assign_val
 
-def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, zero_point=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+def anyq_quantize_tensor(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, zero_point=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
     orig_device = W.device
     if device is not None:
         W = W.to(device)
@@ -580,7 +580,7 @@ def anyq_quantize(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True
 
     return assign.to(orig_device), any4.to(orig_device, W.dtype), scales_and_zeros.to(orig_device, W.dtype)
 
-def anyq_dequantize(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, per_row=True, new_grouping=False, scale_only=False):
+def anyq_dequantize_tensor(assign, any4, scales_and_zeros, n_bit=4, q_group_size=128, per_row=True, new_grouping=False, scale_only=False):
     if not per_row:
         orig_shape = assign.shape
         assign = assign.reshape(1, -1)
@@ -778,9 +778,9 @@ def learn_anyq(Wc, scales, zeros, W, n_bit=4, q_group_size=128, scale_only=False
 
 # performs quantization and dequantization under any4 scalar k-means grouped integer quantization
 # (i.e., returns the effective result of the quantization algorithm)
-def anyq_reconstruct(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
-    assign, any4, scales_and_zeros = anyq_quantize(W, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, sample_weight_preprocess=sample_weight_preprocess, sample_activations=sample_activations, scale_sample_weight=scale_sample_weight, abs_weight_sample_weight=abs_weight_sample_weight, parallelize=parallelize, surrogate_cluster=surrogate_cluster, nnq=nnq, nnq_args=nnq_args, device=device, **kwargs)
-    Wdeq = anyq_dequantize(assign, any4, scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only)
+def anyq_reconstruct_tensor(W, n_bit=4, q_group_size=128, new_grouping=False, per_row=True, scale_only=False, bias_pow=1.0, keep_outliers=False, cluster_row: Callable = cluster_row_scikit, init=None, sample_weight=None, sample_weight_preprocess=None, sample_activations=None, scale_sample_weight=False, abs_weight_sample_weight=False, parallelize=True, surrogate_cluster=False, nnq=False, nnq_args={}, device=None, **kwargs):
+    assign, any4, scales_and_zeros = anyq_quantize_tensor(W, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row, init=init, sample_weight=sample_weight, sample_weight_preprocess=sample_weight_preprocess, sample_activations=sample_activations, scale_sample_weight=scale_sample_weight, abs_weight_sample_weight=abs_weight_sample_weight, parallelize=parallelize, surrogate_cluster=surrogate_cluster, nnq=nnq, nnq_args=nnq_args, device=device, **kwargs)
+    Wdeq = anyq_dequantize_tensor(assign, any4, scales_and_zeros, n_bit=n_bit, q_group_size=q_group_size, per_row=per_row, new_grouping=new_grouping, scale_only=scale_only)
 
     del assign, any4
     torch.cuda.empty_cache()
@@ -812,7 +812,7 @@ def anyq_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int
                 from pre_process.awq.quantizer import pseudo_any_quantize_tensor
                 w_deq = pseudo_any_quantize_tensor(w.detach().half(), n_bit=n_bit, zero_point=True, q_group_size=group_size, get_scale_zp=False)
             else:
-                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+                w_deq = anyq_reconstruct_tensor(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
         except RuntimeError as e:
             if 'out of memory' in str(e):
                 torch.cuda.empty_cache()
@@ -820,7 +820,7 @@ def anyq_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int
                 print(f"Hit OOM so will move weights to CPU and re-run")
                 orig_device = w.device
                 w.to("cpu")
-                w_deq = anyq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+                w_deq = anyq_reconstruct_tensor(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
                 w_deq.to(orig_device)
             else:
                 raise
@@ -836,7 +836,7 @@ def anyq_layer(module: torch.nn.Module, name="", n_bit: int = 4, group_size: int
     else:
         assert transpose is False, "anyq quantized modules don't yet support transpose."
         assert any_group_size is None, "anyq quantized modules don't yet support transpose."
-        intq, lut, scales_and_zeros = anyq_quantize(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
+        intq, lut, scales_and_zeros = anyq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, per_row=per_row, scale_only=scale_only, parallelize=parallelize, bias_pow=bias_pow, keep_outliers=keep_outliers, cluster_row=cluster_row_fn_dict[cluster_row], init=init, sample_weight=sample_weight, surrogate_cluster=surrogate_cluster, **kwargs)
 
         if n_bit == 4:
             from modules import Any4Linear

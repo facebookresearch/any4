@@ -40,8 +40,8 @@ class TestIntQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wq, _, scales_and_zeros = quantize.intq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
-        wdeq = quantize.intq_dequantize(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
+        wq, _, scales_and_zeros = quantize.intq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
+        wdeq = quantize.intq_dequantize_tensor(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
         torch.testing.assert_close(w, wdeq)
 
@@ -68,7 +68,7 @@ class TestIntQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wdeq = quantize.intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
+        wdeq = quantize.intq_reconstruct_tensor(w, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
 
         torch.testing.assert_close(w, wdeq)
 
@@ -87,7 +87,7 @@ class TestIntQ(unittest.TestCase):
         w = torch.randn(M, N, dtype=dtype, device="cuda")
 
         wq1, scales_and_zeros1 = tinygemm_lib.utils.group_quantize_tensor(w, n_bit, group_size)
-        wq2, _, scales_and_zeros2 = quantize.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
+        wq2, _, scales_and_zeros2 = quantize.intq_quantize_tensor(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
 
         torch.testing.assert_close(wq1, wq2)
         torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
