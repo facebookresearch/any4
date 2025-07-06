@@ -360,6 +360,16 @@ def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, t
                 dtype=module.weight.dtype,
                 group_size=group_size,
             )
+        elif n_bit == 8:
+            from modules import Int8Linear
+            qmodule = Int8Linear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                device=module.weight.device,
+                dtype=module.weight.dtype,
+                group_size=group_size,
+            )
         else:
             raise ValueError(f"No int quantized modules supported for n_bit={n_bit}. You may consider setting pseudo=True.")
         qmodule.weight.data = intq.to(device=module.weight.device)
