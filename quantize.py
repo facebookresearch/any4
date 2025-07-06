@@ -4,7 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, List, Tuple, Type
+from typing import Callable, Dict, List, Tuple, Type, Union
 from tqdm import tqdm
 import gc
 import random
@@ -17,6 +17,7 @@ import sklearn.cluster
 import bitsandbytes as bnb
 
 import kmeans
+from utils import import_or_skip, string_split
 
 def count_layer_type(model, layer_type=torch.nn.Linear, count=0):
     for _, module in model._modules.items():
@@ -37,12 +38,15 @@ def quantize_model(model: torch.nn.Module, layer_from: Type, layer_to: Callable,
         if isinstance(kwargs["sample_weight"], Callable):
             calibrate_fn = kwargs["sample_weight"]
 
-    modules = [(name, module) for name, module in model.named_modules() if isinstance(module, layer_from)]
+    if isinstance(skip_modules, str):
+        skip_modules = string_split(skip_modules, ",")
+    if isinstance(skip_modules, torch.nn.Module):
+        skip_modules = [skip_modules]
+
+    modules = [(name, module) for name, module in model.named_modules() if isinstance(module, layer_from) and name not in skip_modules and module not in skip_modules]
     pbar = tqdm(modules, unit="layer", desc="Quantizing")
     for name, module in pbar:
         pbar.set_postfix_str(name)
-        if name in skip_modules:
-            continue
 
         # Calibrate if necessary
         # TODO: move this to inside the quantization function?
