@@ -24,9 +24,10 @@ def linear_y_f16TC_x_f16TC_W_int4TC(
         q_group: int,
         w_inner_k: int = 4,
         x_inner_k: int = 1,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(x, x_inner_k)
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int4TC(
         x2, w2, q_group, w_scales_and_zeros, True
     )
@@ -41,9 +42,10 @@ def linear_y_f16TC_W_int4TC_x_f16TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
-        x_inner_k: int = 1
+        x_inner_k: int = 1,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(x, x_inner_k)
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int4TC(
         w2, x2, q_group, w_scales_and_zeros, False
@@ -61,10 +63,7 @@ def linear_y_f16RM_x_f16RM_W_int4TC(
         w_inner_k: int = 4,
         reshape_weight: bool = True,
     ) -> torch.Tensor:
-    if reshape_weight:
-        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
-    else:
-        w2 = w_int32
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int4TC(
         x, w2, q_group, w_scales_and_zeros, True
     )
@@ -78,10 +77,7 @@ def linear_y_f16RM_W_int4TC_x_f16RM(
         w_inner_k: int = 4,
         reshape_weight: bool = True,
     ) -> torch.Tensor:
-    if reshape_weight:
-        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
-    else:
-        w2 = w_int32
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int4TC(
         w2, x, q_group, w_scales_and_zeros, False
     )
@@ -93,9 +89,10 @@ def linear_y_f16TC_x_f16TC_W_int8TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(x, 1)
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(x2, w2, q_group, w_scales_and_zeros, True)
     y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(y2, x.shape[0], w_int32.shape[0])
     return y
@@ -107,8 +104,9 @@ def linear_y_f16TC_W_int8TC_x_f16TC(
         q_group: int,
         w_inner_k: int = 4,
         x_inner_k: int = 1,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(x, x_inner_k)
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_int8TC(w2, x2, q_group, w_scales_and_zeros, False)
     y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(y2, x.shape[0], x.shape[1])
@@ -120,8 +118,9 @@ def linear_y_f16RM_x_f16RM_W_int8TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint8_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(x, w2, q_group, w_scales_and_zeros, True)
     return y
 
@@ -131,8 +130,9 @@ def linear_y_f16RM_W_int8TC_x_f16RM(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint8_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_int8TC(w2, x, q_group, w_scales_and_zeros, False)
     return y
 
@@ -143,10 +143,11 @@ def linear_y_f16TC_x_f16TC_W_any4TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
-        x_inner_k: int = 1
+        x_inner_k: int = 1,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(x, x_inner_k)
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_any4TC(
         x2, w2, q_group, w_scales_and_zeros, w_lut, True
     )
@@ -163,9 +164,10 @@ def linear_y_f16TC_W_any4TC_x_f16TC(
         w_scales_and_zeros: torch.Tensor,
         q_group: int,
         w_inner_k: int = 4,
-        x_inner_k: int = 1
+        x_inner_k: int = 1,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(x, x_inner_k)
     y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_any4TC(
         w2, x2, q_group, w_scales_and_zeros, w_lut, False
@@ -185,10 +187,7 @@ def linear_y_f16RM_x_f16RM_W_any4TC(
         w_inner_k: int = 4,
         reshape_weight: bool = True,
     ) -> torch.Tensor:
-    if reshape_weight:
-        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k)
-    else:
-        w2 = w_int32
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_any4TC(
         x, w2, q_group, w_scales_and_zeros, w_lut, True
     )
@@ -204,10 +203,7 @@ def linear_y_f16RM_W_any4TC_x_f16RM(
         w_inner_k: int = 4,
         reshape_weight: bool = True,
     ) -> torch.Tensor:
-    if reshape_weight:
-        w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k)
-    else:
-        w2 = w_int32
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(w_int32, w_inner_k) if reshape_weight else w_int32
     y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_any4TC(
         w2, x, q_group, w_scales_and_zeros, w_lut, False
     )
@@ -218,19 +214,12 @@ def linear_y_f16TC_x_f16TC_W_f16TC(
         x: torch.Tensor,
         w: torch.Tensor,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-        x, 1
-    )
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-        w, w_inner_k
-    )
-    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-        x2, w2, True
-    )
-    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(
-        y2, x.shape[0], w.shape[0]
-    )
+    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(x, 1)
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(w, w_inner_k) if reshape_weight else w
+    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(x2, w2, True)
+    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_A_layout(y2, x.shape[0], w.shape[0])
 
     return y
 
@@ -238,19 +227,12 @@ def linear_y_f16TC_W_f16TC_x_f16TC(
         x: torch.Tensor,
         w: torch.Tensor,
         x_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-        w, 1
-    )
-    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-        x, x_inner_k
-    )
-    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(
-        w2, x2, False
-    )
-    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(
-        y2, x.shape[0], w.shape[0]
-    )
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(w, 1) if reshape_weight else w
+    x2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(x, x_inner_k)
+    y2 = torch.ops.tinygemm.tinygemm_y_f16TC_x_f16TC_w_f16TC(w2, x2, False)
+    y = torch.ops.tinygemm.convert_matrix_from_m16n8k16_B_layout(y2, x.shape[0], w.shape[0])
 
     return y
 
@@ -258,13 +240,10 @@ def linear_y_f16RM_x_f16RM_W_f16TC(
         x: torch.Tensor,
         w: torch.Tensor,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(
-        w, w_inner_k
-    )
-    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-        x, w2, True
-    )
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_B_layout(w, w_inner_k) if reshape_weight else w
+    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(x, w2, True)
 
     return y
 
@@ -272,12 +251,9 @@ def linear_y_f16RM_W_f16TC_x_f16RM(
         x: torch.Tensor,
         w: torch.Tensor,
         w_inner_k: int = 4,
+        reshape_weight: bool = True,
     ) -> torch.Tensor:
-    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(
-        w, w_inner_k
-    )
-    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(
-        w2, x, False
-    )
+    w2 = torch.ops.tinygemm.convert_matrix_to_m16n8k16_A_layout(w, w_inner_k) if reshape_weight else w
+    y = torch.ops.tinygemm.tinygemm_y_f16RM_x_f16RM_w_f16TC(w2, x, False)
 
     return y
