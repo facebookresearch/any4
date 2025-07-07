@@ -60,15 +60,24 @@ cd ..
 
 ## Run
 Most of the scripts below will run baseline fp16 model by default. To quantize add the following arguments:
-- `--model-args`: pass in any args that are passed to Hugging Face's [`from_pretrained()`](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained) function, including `load_in_4bit` and `load_in_8bit`.
-- `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `anyq` (proposed lookup table quantization).
+- `--model-args`: pass in any args that are passed to Hugging Face's [`from_pretrained()`].
+- `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `any4` (proposed lookup table quantization).
     - `--quantize-args`: comma-separated arguments to pass to a quantization algorithm, e.g., `--quantize-args n_bit=4,group_size=128` will perform 4-bit quantization with group size 128.
-- `--bnb-args`: comma-separated arguments to pass to [`BitsAndBytesConfig`](https://huggingface.co/docs/transformers/v4.46.3/en/main_classes/quantization#transformers.BitsAndBytesConfig), e.g., `load_in_4bit=True,bnb_4bit_compute_dtype=fp32`
 
 ### Quick Example
-To run a simple text generation (with and without) quantization example script that you can try and edit:
+You should now be able to run a code snippet like this where can you just quantize a model by calling `int4(..)`, `int8(...)`, `nf4(...)`, `fp4(...)`, or `any4(...)`.
 ```
-python example.py
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from quantize import int4, any4, int8, nf4, fp4
+
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").cuda().bfloat16()
+tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m")
+
+model = any4(model)
+
+inputs = tokenizer("Once upon a time", return_tensors="pt").to("cuda")
+outputs = model.generate(**inputs, do_sample=True, max_new_tokens=256)
+print(tokenizer.batch_decode(outputs)[0])
 ```
 
 ### Evaluation
