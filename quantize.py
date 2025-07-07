@@ -181,7 +181,15 @@ def expand_q_groups(x, orig_size, q_group_size):
     return out.contiguous().view(orig_size)
 
 def intq_quantize_tensor(x, n_bit = 4, q_group_size=128, parallelize=True, scale_only=False, new_grouping=False, unsigned=False, zero_point=False, **kwargs):
-    if new_grouping:
+    # FIXME: this is a hack to get tinygemm int4 kernel to work. Please instead call group_q or group_q1
+    if new_grouping == "tinygemm":
+        from tinygemm_lib.utils import group_quantize_tensor
+        intq, scales_and_zeros = group_quantize_tensor(
+            x, n_bit=n_bit, q_group_size=q_group_size
+        )
+        _, intq_zeros = extract_scales_and_zeros(scales_and_zeros, x.shape, q_group_size)
+    elif new_grouping == True:
+        # TODO: Please unify group_q, group_q1, and group_quantize_tensor
         intq, scales, zeros = group_q1(x, n_bit=n_bit, assymetric=not scale_only, q_group_size=q_group_size, inplace=False, get_scale_zp=True)
         scales_and_zeros = pack_scales_and_zeros(scales, zeros, x.shape)
         intq = intq.round()
@@ -322,7 +330,7 @@ def degroup_q1(
 
     return w
 
-def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=None, **kwargs):
+def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, transpose=False, pseudo=None, new_grouping=False, zero_point=False, **kwargs):
     w = module.weight
 
     if pseudo is None:
@@ -343,7 +351,8 @@ def intq_layer(module: torch.nn.Linear, n_bit: int = 4, group_size: int = 128, t
 
         module.weight.data = w_deq.to(device=module.weight.device, dtype=module.weight.dtype)
     else:
-        intq, _, scales_and_zeros = intq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, **kwargs)
+        # FIXME: find a better way than hacking the values of `new_grouping` and `zero_point`
+        intq, _, scales_and_zeros = intq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, new_grouping="tinygemm", zero_point=False, **kwargs)
 
         if transpose:
             intq = intq.t()
