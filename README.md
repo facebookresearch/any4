@@ -37,14 +37,14 @@ Please defer to the paper for additional details.
 ## Getting Started
 
 1. Clone Repo
-```
+```bash
 git clone git@github.com:fairinternal/any4.git
 
 cd any4
 ```
 
 2. Setup Environment
-```
+```bash
 conda create --name any4 python=3.10
 conda activate any4
 
@@ -60,12 +60,12 @@ a. Submit a request to access a Llama checkpoint, e.g., https://huggingface.co/m
 b. Setup Hugging Face token access by following the steps described [here](https://huggingface.co/docs/hub/en/security-tokens).
 
 c. Then you will be able to login to Hugging Face by running the cell below and entering the token you obtain from Step b. above:
-```
+```bash
 huggingface-cli login
 ```
 
 4. Install tinygemm kernels
-```
+```bash
 cd tinygemm_lib
 python setup.py install
 cd ..
@@ -79,7 +79,7 @@ Most of the scripts below will run baseline fp16 model by default. To quantize a
 
 ### Quick Example
 You should now be able to run a code snippet like this where can you just quantize a model by calling `int4(..)`, `int8(...)`, `nf4(...)`, `fp4(...)`, or `any4(...)`.
-```
+```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from quantize import int4, any4, int8, nf4, fp4
 
@@ -94,22 +94,22 @@ print(tokenizer.batch_decode(outputs)[0])
 ```
 
 Feel also free to edit `example.py` and run it:
-```
+```bash
 python example.py
 ```
 
 ### Evaluation
 Evaluate a model (with or without quantization) on downstream tasks.
 - Baseline fp16 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --tasks piqa
 ```
 - Quantized int4 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --tasks piqa
 ```
 - Quantized any4 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --quantize anyq --quantize-args n_bit=4,sample_weight=calibrate,scale_sample_weight=True,skip_modules=lm_head --tasks piqa
 ```
 
@@ -120,36 +120,36 @@ Arguments:
 
 ### Benchmark
 To benchmark the performance time a single linear layer with tinygemm's kernels, you can run:
-```
+```bash
 python microbenchmark.py --input-dim 4096 --output-dim 4096 --batch-size 1 --quantize anyq
 ```
 
 To benchmark a model end-to-end with tinygemm's kernels:
-```
+```bash
 python benchmark.py --batch-size 1 --seqlen 1 --model-name meta-llama/Llama-3.2-1B --quantize anyq --quantize-args skip_modules=lm_head
 ```
 
 ### Analyze
 To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
-```
+```bash
 python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize nf4 --quantize-args skip_modules=lm_head
 ```
 
 ### Calibrate
 To pass a dataset or pompt over a model and store output activations of each layer:
-```
+```bash
 python calibrate.py --model-name meta-llama/Llama-3.2-1B --dataset cerebras/SlimPajama-627B --num-batches 10
 ```
 
 ### Diff
 To pass a prompt to both a baseline model and quantized model and measure the mean square error along each layer:
-```
+```bash
 python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 ```
 
 ## Test
 To run all unit test cases:
-```
+```bash
 python -m pytest .
 ```
 
