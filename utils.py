@@ -8,7 +8,7 @@ import itertools
 import gc
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, OrderedDict
+from typing import Any, Callable, Dict, List, Optional, OrderedDict
 import time
 import warnings
 import torch
@@ -19,6 +19,9 @@ from torch.autograd import DeviceType
 from torch.autograd.profiler_util import EventList
 
 dtype_str_to_torch = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
+
+def string_split(s: str, sep: Optional[str]=..., maxsplit: int=...) -> List[str]:
+    return s.split(sep, maxsplit) if "," in s else [s]
 
 def import_or_skip(module_name: str):
     try:
@@ -271,8 +274,8 @@ def benchmark_memory(
 
     memory_stats = torch.cuda.memory_stats()
 
-    peak_allocated_torch_mb = memory_stats["allocated_bytes.all.peak"] * 1e-6
-    peak_reserved_torch_mb = memory_stats["reserved_bytes.all.peak"] * 1e-6
+    peak_allocated_torch_mb = memory_stats["allocated_bytes.all.peak"] / (1024**2)
+    peak_reserved_torch_mb = memory_stats["reserved_bytes.all.peak"] / (1024**2)
 
     peak_nvml_mb = memory_tracker.peak_memory
 
@@ -346,3 +349,65 @@ def trim_inputs(inputs, start_idx=None, end_idx=None):
         return {key: value[:, start_idx:] for key, value in inputs.items()}
     else:
         return {key: value[:, start_idx:end_idx] for key, value in inputs.items()}
+
+def get_layers_from_model(model):
+    if model.__class__.__name__ in ("LlamaForCausalLM", "Qwen2ForCausalLM"):
+        layers = model.model.layers
+    elif model.__class__.__name__ == "LlavaLlamaForCausalLM":
+        # layers = [model.model.layers, model.model.vision_tower.vision_tower.vision_model.encoder.layers]
+        layers = model.model.layers
+    elif model.__class__.__name__ ==  "OPTForCausalLM":
+        layers = model.model.decoder.layers
+    elif model.__class__.__name__ == "BloomForCausalLM":
+        layers = model.transformer.h
+    elif "mpt" in str(model.__class__).lower():
+        layers = model.transformer.blocks
+    elif "falcon" in str(model.__class__).lower():
+        layers = model.transformer.h
+    elif "bigcode" in str(model.__class__).lower():
+        layers = model.transformer.h
+    elif "neox" in str(model.__class__).lower():
+        layers = model.gpt_neox.layers
+    elif model.__class__.__name__ == "LlavaLlamaModel":
+        layers = model.llm.model.layers
+    elif hasattr(model, "layers"):
+        layers = model.layers
+    elif hasattr(model, "model.layers"):
+        layers = model.model.layers
+    else:
+        raise NotImplementedError(f"Extracting layers from {type(model)} is not implemented.")
+    return layers
+
+def get_attention_from_layer(layer):
+    if hasattr(layer, "self_attn"):
+        return [layer.self_attn]
+    elif hasattr(layer, "attention"):
+        return [layer.attention]
+    else:
+        return []
+
+def get_mlp_from_layer(layer):
+    mlp_modules = []
+
+    # Common dense/projection layers
+    for attr in ["mlp", "fc1", "fc2", "dense", "dense_h_to_4h", "dense_4h_to_h"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    # Common activations or non-linearities
+    for attr in ["activation_fn", "act_fn", "gelu", "relu"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    # Optional norms within or after MLP
+    for attr in ["final_layer_norm", "post_attention_layernorm"]:
+        if hasattr(layer, attr):
+            mlp_modules.append(getattr(layer, attr))
+
+    return mlp_modules
+
+def get_lm_head_from_model(model):
+    if hasattr(model, "lm_head"):
+        return "lm_head"
+    else:
+        raise NotImplementedError(f"Extracting language model head is not implemented for {type(model)}.")

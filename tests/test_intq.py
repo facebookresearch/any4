@@ -10,7 +10,7 @@ from parameterized import parameterized
 import itertools
 import numpy as np
 
-import any4
+import quantize
 from utils import assert_close, import_or_skip
 
 import tinygemm_lib.utils
@@ -40,8 +40,8 @@ class TestIntQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wq, _, scales_and_zeros = any4.intq_quantize(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
-        wdeq = any4.intq_dequantize(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
+        wq, _, scales_and_zeros = quantize.intq_quantize_tensor(w, n_bit=n_bit, q_group_size=group_size, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
+        wdeq = quantize.intq_dequantize_tensor(wq, scales_and_zeros=scales_and_zeros, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned)
 
         torch.testing.assert_close(w, wdeq)
 
@@ -68,7 +68,7 @@ class TestIntQ(unittest.TestCase):
         w_indices = torch.stack([torch.randperm(2**n_bit) for _ in range(M * N // 2**n_bit)]).view(M, N)
         w = w_vals[w_indices]
 
-        wdeq = any4.intq_reconstruct(w, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
+        wdeq = quantize.intq_reconstruct_tensor(w, n_bit=n_bit, q_group_size=group_size, dtype=dtype, new_grouping=new_grouping, unsigned=unsigned, zero_point=zero_point)
 
         torch.testing.assert_close(w, wdeq)
 
@@ -87,7 +87,7 @@ class TestIntQ(unittest.TestCase):
         w = torch.randn(M, N, dtype=dtype, device="cuda")
 
         wq1, scales_and_zeros1 = tinygemm_lib.utils.group_quantize_tensor(w, n_bit, group_size)
-        wq2, _, scales_and_zeros2 = any4.intq_quantize(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
+        wq2, _, scales_and_zeros2 = quantize.intq_quantize_tensor(w, n_bit, group_size, new_grouping=new_grouping, zero_point=zero_point)
 
         torch.testing.assert_close(wq1, wq2)
         torch.testing.assert_close(scales_and_zeros1, scales_and_zeros2)
@@ -223,7 +223,7 @@ class TestIntQ(unittest.TestCase):
 
         y_ref = linear(x)
 
-        linear_quant = any4.intq(
+        linear_quant = quantize.intq_layer(
             module=linear,
             n_bit=n_bit,
             group_size=group_size,

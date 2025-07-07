@@ -25,7 +25,7 @@ import bigcode_eval.evaluator
 import bigcode_eval.arguments
 from accelerate import Accelerator, InitProcessGroupKwargs
 
-from any4 import convert, quant_methods
+from quantize import quantize_model, quant_methods
 from pre_process.pre_quant import pre_quant_methods
 from calibrate import calibrate
 from utils import CustomJSONEncoder, dtype_str_to_torch
@@ -89,7 +89,6 @@ def main(
     log_dir.mkdir(parents=True, exist_ok=True)
     # Log args
     args = locals()
-    print(args)
     with Path(log_dir/"args.json").open("w") as f:
         json.dump(args, f, indent=4, cls=CustomJSONEncoder)
 
@@ -163,7 +162,7 @@ def main(
     # TODO: move nnq_args into quant_args only if quant_type is anyq
     if quant_method:
         os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        lm_obj._model = convert(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, calibrate_args=calibrate_args, nnq_args=nnq_args, **quant_args)
+        lm_obj._model = quantize_model(lm_obj.model, layer_from=torch.nn.Linear, layer_to=quant_method, tokenizer=lm_obj.tokenizer, calibrate_args=calibrate_args, nnq_args=nnq_args, **quant_args)
 
     # Save weights
     if save_weights:

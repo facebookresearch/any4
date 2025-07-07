@@ -12,7 +12,7 @@ import torch
 from lm_eval.utils import simple_parse_args_string
 
 from utils import benchmark_in_ms, benchmark_cuda_only_in_ms
-from any4 import quant_methods
+from quantize import quant_methods
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 

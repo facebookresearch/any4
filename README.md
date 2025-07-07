@@ -1,10 +1,23 @@
 # any4 + tinygemm
 
-This repo contains the tinygemm low-letency / small batch size Nvidia GPU GEMM library which implements bf16/fp16, int4 grouped quantization, any4 grouped quantization and MX4 quantization, and the code containing the technique to learn any4 quantization codes. 
+This repo contains: 
+- **tinygemm** low-letency / small batch size Nvidia GPU GEMM library which implements:
+    - bf16/fp16,
+    - int4 grouped quantization,
+    - NF4 grouped quantization,
+    - any4 grouped quantization, and
+    - MX4 quantization, and
+- algorithm to learn **any4** quantization codes.
+
+It also contains easy to use scripts to
+- **evaluate** perplexity, NLP, and coding tasks
+- **analyze** and plot weights and activations across layers
+
+that should work on any 🤗 model.
 
 > This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric Representation for LLMs*](https://openreview.net/forum?id=tJmhOPkWCj), **ICML 2025**, by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo).
 
-The technique and code for learning any4 representations and quantizing a model was authored by Mostafa Elhoushi (previously Meta FAIR SysML research). The Nvidia GPU tinygemm library was authored by Jeff Johnson (currently Meta FAIR SysML research).  An extremely early version of the tinygemm kernels without any4/MX4 support [were upstreamed to PyTorch core in Q4 2023](https://github.com/pytorch/pytorch/pull/110914) for use by the Torch compiler.
+The technique and code for learning any4 representations and quantizing a model was authored by Mostafa Elhoushi (previously Meta FAIR SysML research). The Nvidia GPU tinygemm library was authored by Jeff Johnson (currently Meta FAIR SysML research).  An extremely early version of the tinygemm kernels without any4/MX4 support [were upstreamed to PyTorch core in Q4 2023](https://github.com/pytorch/pytorch/pull/110914) for use by the `torch` compiler.
 
 ## What is any4?
 <div align="center">
@@ -24,14 +37,14 @@ Please defer to the paper for additional details.
 ## Getting Started
 
 1. Clone Repo
-```
+```bash
 git clone git@github.com:fairinternal/any4.git
 
 cd any4
 ```
 
 2. Setup Environment
-```
+```bash
 conda create --name any4 python=3.10
 conda activate any4
 
@@ -47,12 +60,12 @@ a. Submit a request to access a Llama checkpoint, e.g., https://huggingface.co/m
 b. Setup Hugging Face token access by following the steps described [here](https://huggingface.co/docs/hub/en/security-tokens).
 
 c. Then you will be able to login to Hugging Face by running the cell below and entering the token you obtain from Step b. above:
-```
+```bash
 huggingface-cli login
 ```
 
 4. Install tinygemm kernels
-```
+```bash
 cd tinygemm_lib
 python setup.py install
 cd ..
@@ -60,29 +73,43 @@ cd ..
 
 ## Run
 Most of the scripts below will run baseline fp16 model by default. To quantize add the following arguments:
-- `--model-args`: pass in any args that are passed to Hugging Face's [`from_pretrained()`](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained) function, including `load_in_4bit` and `load_in_8bit`.
-- `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `anyq` (proposed lookup table quantization).
+- `--model-args`: pass in any args that are passed to Hugging Face's [`from_pretrained()`].
+- `--quantize`: implements different (fake) quantization algorithms implemented in this codebase. It can take: `intq` (integer quantization), `fp4` (4-bit float quantization), `nf4` (4-bit normal float quantization), `any4` (proposed lookup table quantization).
     - `--quantize-args`: comma-separated arguments to pass to a quantization algorithm, e.g., `--quantize-args n_bit=4,group_size=128` will perform 4-bit quantization with group size 128.
-- `--bnb-args`: comma-separated arguments to pass to [`BitsAndBytesConfig`](https://huggingface.co/docs/transformers/v4.46.3/en/main_classes/quantization#transformers.BitsAndBytesConfig), e.g., `load_in_4bit=True,bnb_4bit_compute_dtype=fp32`
 
 ### Quick Example
-To run a simple text generation (with and without) quantization example script that you can try and edit:
+You should now be able to run a code snippet like this where can you just quantize a model by calling `int4(..)`, `int8(...)`, `nf4(...)`, `fp4(...)`, or `any4(...)`.
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from quantize import int4, any4, int8, nf4, fp4
+
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").cuda().bfloat16()
+tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m")
+
+model = any4(model)
+
+inputs = tokenizer("Once upon a time", return_tensors="pt").to("cuda")
+outputs = model.generate(**inputs, do_sample=True, max_new_tokens=256)
+print(tokenizer.batch_decode(outputs)[0])
 ```
+
+Feel also free to edit `example.py` and run it:
+```bash
 python example.py
 ```
 
 ### Evaluation
 Evaluate a model (with or without quantization) on downstream tasks.
 - Baseline fp16 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --tasks piqa
 ```
 - Quantized int4 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --quantize intq --quantize-args n_bit=4,skip_modules=lm_head --tasks piqa
 ```
 - Quantized any4 model:
-```
+```bash
 python eval.py --model-name facebook/opt-125m --quantize anyq --quantize-args n_bit=4,sample_weight=calibrate,scale_sample_weight=True,skip_modules=lm_head --tasks piqa
 ```
 
@@ -93,36 +120,36 @@ Arguments:
 
 ### Benchmark
 To benchmark the performance time a single linear layer with tinygemm's kernels, you can run:
-```
+```bash
 python microbenchmark.py --input-dim 4096 --output-dim 4096 --batch-size 1 --quantize anyq
 ```
 
 To benchmark a model end-to-end with tinygemm's kernels:
-```
+```bash
 python benchmark.py --batch-size 1 --seqlen 1 --model-name meta-llama/Llama-3.2-1B --quantize anyq --quantize-args skip_modules=lm_head
 ```
 
 ### Analyze
 To analyze weights and mean square errors on weights and activations between baseline model and quantized model at each layer:
-```
+```bash
 python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize nf4 --quantize-args skip_modules=lm_head
 ```
 
 ### Calibrate
 To pass a dataset or pompt over a model and store output activations of each layer:
-```
+```bash
 python calibrate.py --model-name meta-llama/Llama-3.2-1B --dataset cerebras/SlimPajama-627B --num-batches 10
 ```
 
 ### Diff
 To pass a prompt to both a baseline model and quantized model and measure the mean square error along each layer:
-```
+```bash
 python analyze.py --model-name meta-llama/Llama-3.2-1B --quantize anyq
 ```
 
 ## Test
 To run all unit test cases:
-```
+```bash
 python -m pytest .
 ```
 
@@ -407,18 +434,18 @@ Referencing the paper, *Table A4: any4 quantization with K-means clustering init
 Referencing the paper, *Figure 3: Speedup of our tinygemm CUDA kernels on matrix multiplication of 1 × K input by K × K weight, w.r.t PyTorch’s bfloat16 implementation.*
 Please note the results below are on Nvidia A5000, while the paper's figure was based on Nvidia A100.
 
-### **Microbenchmark Results (CUDA Speedup Only)**
+### **Microbenchmark Results**
 
-| Dimension ($DIM) | INT4 [[71]](#f71) | NF4 [[73]](#f73) | ANY4 [[72]](#f72) |
-|------------------|------------------|------------------|-------------------|
-| 1024             | 1.45x            | 1.37x            | 1.36x             |
-| 2048             | 2.75x            | 2.17x            | 2.32x             |
-| 3072             | 2.60x            | 2.07x            | 2.15x             |
-| 4096             | 3.26x            | 2.23x            | 2.29x             |
-| 5120             | 3.19x            | 2.26x            | 2.27x             |
-| 6144             | 3.40x            | 2.27x            | 2.23x             |
-| 7168             | 3.26x            | 2.19x            | 2.24x             |
-| 8192             | 3.52x            | 2.24x            | 2.25x             |
+| Dimension (`$DIM`) | INT4 [[71]](#f71) | NF4 [[73]](#f73) | ANY4 [[72]](#f72) |
+|--------------------|------------------|------------------|-------------------|
+| 1024               | 1.45x            | 1.37x            | 1.36x             |
+| 2048               | 2.75x            | 2.17x            | 2.32x             |
+| 3072               | 2.60x            | 2.07x            | 2.15x             |
+| 4096               | 3.26x            | 2.23x            | 2.29x             |
+| 5120               | 3.19x            | 2.26x            | 2.27x             |
+| 6144               | 3.40x            | 2.27x            | 2.23x             |
+| 7168               | 3.26x            | 2.19x            | 2.24x             |
+| 8192               | 3.52x            | 2.24x            | 2.25x             |
 
 <details>
 <summary>Commands to reproduce results:</summary>

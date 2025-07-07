@@ -7,7 +7,7 @@
 import unittest
 from parameterized import parameterized
 
-import any4
+import quantize
 import bigcode_eval
 from eval import main as eval
 
@@ -30,7 +30,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             tasks=tasks,
             device=device,
             num_samples=num_samples,
@@ -43,11 +43,11 @@ class TestEval(unittest.TestCase):
 
     @parameterized.expand([
         (quant_method)
-        for quant_method in [any4.intq, any4.fp4, any4.nf4, any4.anyq]
+        for quant_method in [quantize.intq_layer, quantize.fp4_layer, quantize.nf4_layer, quantize.anyq_layer]
     ])
     def test_quantize(
         self,
-        quant_method=any4.intq,
+        quant_method=quantize.intq_layer,
         group_size=64,
         device="cuda",
         dtype="bfloat16",
@@ -59,7 +59,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -83,7 +83,7 @@ class TestEval(unittest.TestCase):
         dtype="float16",
         device="cuda"
     ):
-        quant_method=any4.intq
+        quant_method=quantize.intq_layer
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
@@ -92,7 +92,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"n_bit": n_bit, "group_size":group_size},
             tasks=tasks,
@@ -114,7 +114,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=any4.nf4
+        quant_method=quantize.nf4_layer
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -124,7 +124,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -146,7 +146,7 @@ class TestEval(unittest.TestCase):
         group_size=128,
         dtype="float16",
     ):
-        quant_method=any4.fp4
+        quant_method=quantize.fp4_layer
         device="cuda"
 
         model_name="facebook/opt-125m"
@@ -156,7 +156,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"group_size":group_size},
             tasks=tasks,
@@ -181,7 +181,7 @@ class TestEval(unittest.TestCase):
         dtype="bfloat16",
         device="cuda"
     ):
-        quant_method=any4.anyq
+        quant_method=quantize.anyq_layer
 
         model_name="facebook/opt-125m"
         tasks = ["piqa"]
@@ -190,7 +190,7 @@ class TestEval(unittest.TestCase):
 
         results = eval(
             model_name=model_name,
-            model_args={"dtype":dtype},
+            model_args={"torch_dtype":dtype},
             quant_method=quant_method,
             quant_args={"n_bit":n_bit, "group_size":group_size},
             tasks=tasks,
