@@ -46,6 +46,8 @@ class Int4Linear(torch.nn.Module):
             self.weight.data = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(self.weight, w_inner_k)
         elif self.kernel == "linear_y_f16RM_W_int4TC_x_f16RM":
             self.weight.data = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Aint4_layout(self.weight, w_inner_k)
+        elif self.kernel == "linear_y_f16TC_x_f16TC_W_int4TC":
+            self.weight.data = torch.ops.tinygemm.convert_matrix_to_m16n8k16_Bint4_layout(self.weight, w_inner_k)
         else:
             raise ValueError(f"Unsupported kernel type {self.kernel}")
         self.weight_reshaped = True
@@ -62,7 +64,9 @@ class Int4Linear(torch.nn.Module):
         elif self.kernel == "linear_y_f16RM_W_int4TC_x_f16RM":
             y = tinygemm_lib.functional.linear_y_f16RM_W_int4TC_x_f16RM(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
         elif self.kernel == "linear_y_f16TC_W_int4TC_x_f16TC":
-            y = tinygemm_lib.functional.linear_y_f16TC_W_int4TC_x_f16TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k)
+            y = tinygemm_lib.functional.linear_y_f16TC_W_int4TC_x_f16TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
+        elif self.kernel == "linear_y_f16TC_x_f16TC_W_int4TC":
+            y = tinygemm_lib.functional.linear_y_f16TC_x_f16TC_W_int4TC(input, self.weight, self.scales_and_zeros, self.group_size, w_inner_k=self.w_inner_k, reshape_weight=not self.weight_reshaped)
         else:
             raise ValueError(f"Unsupported kernel type {self.kernel}")
 
