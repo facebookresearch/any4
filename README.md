@@ -87,6 +87,11 @@ outputs = model.generate(**inputs, do_sample=True, max_new_tokens=256)
 print(tokenizer.batch_decode(outputs)[0])
 ```
 
+Feel also free to edit `example.py` and run it:
+```
+python example.py
+```
+
 ### Evaluation
 Evaluate a model (with or without quantization) on downstream tasks.
 - Baseline fp16 model:
