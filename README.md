@@ -1,7 +1,7 @@
 # any4 + tinygemm
 
 This repo contains: 
-- **tinygemm** low-letency / small batch size Nvidia GPU GEMM library which implements:
+- **tinygemm** low-latency / small batch size Nvidia GPU GEMM library which implements:
     - bf16/fp16,
     - int4 grouped quantization,
     - NF4 grouped quantization,
