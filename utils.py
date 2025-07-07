@@ -274,8 +274,8 @@ def benchmark_memory(
 
     memory_stats = torch.cuda.memory_stats()
 
-    peak_allocated_torch_mb = memory_stats["allocated_bytes.all.peak"] / (2e20)
-    peak_reserved_torch_mb = memory_stats["reserved_bytes.all.peak"] / (2e20)
+    peak_allocated_torch_mb = memory_stats["allocated_bytes.all.peak"] / (1024**2)
+    peak_reserved_torch_mb = memory_stats["reserved_bytes.all.peak"] / (1024**2)
 
     peak_nvml_mb = memory_tracker.peak_memory
 
