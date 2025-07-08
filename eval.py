@@ -58,6 +58,32 @@ def log_results(
     with Path(json_path).open("w") as f:
         json.dump(results, f, indent=4)
 
+bigcode_default_args = {
+    "modeltype": "causal",
+    "n_samples": 1, # number of generated candidate solutions
+    "batch_size": 1, # for BigCode, batch_size <= n_samples
+    "max_length_generation": 512,
+    "limit": None,
+    "limit_start": 0,
+    "instruction_tokens": None,
+    "save_every_k_tasks": 1,
+    "postprocess": True,
+    "allow_code_execution": True,
+    "generation_only": False,
+    "load_generations_path": None,
+    "load_data_path": None,
+    "save_every_k_tasks": -1,
+    "metric_output_path": str(Path("bigcode_evaluation_results.json")),
+    "load_generations_intermediate_paths": None,
+    "save_generations": False,
+    "save_generations_path": str(Path("bigcode_generations.json")),
+    "save_references": False,
+    "save_generations_path": str(Path("bigcode_references.json")),
+    "check_references": False,
+    "max_memory_per_gpu": "dummy", # setting this to "dummy" instead of None to avoid error of loading model to specific device
+    **asdict(bigcode_eval.arguments.EvalArguments())
+}
+
 def main(
     model_name: str,
     tasks: List[str],
