@@ -72,13 +72,12 @@ bigcode_default_args = {
     "generation_only": False,
     "load_generations_path": None,
     "load_data_path": None,
-    "save_every_k_tasks": -1,
     "metric_output_path": str(Path("bigcode_evaluation_results.json")),
     "load_generations_intermediate_paths": None,
     "save_generations": False,
     "save_generations_path": str(Path("bigcode_generations.json")),
     "save_references": False,
-    "save_generations_path": str(Path("bigcode_references.json")),
+    "save_references_path": str(Path("bigcode_references.json")),
     "check_references": False,
     "max_memory_per_gpu": "dummy", # setting this to "dummy" instead of None to avoid error of loading model to specific device
     **asdict(bigcode_eval.arguments.EvalArguments())
@@ -277,7 +276,7 @@ def main(
                 "metric_output_path": str(log_dir / "bigcode_evaluation_results.json"),
                 "save_generations_path": str(log_dir / "bigcode_generations.json"),
                 "save_references": False,
-                "save_generations_path": str(log_dir / "bigcode_references.json"),
+                "save_references_path": str(log_dir / "bigcode_references.json"),
                 **generation_args,
             })
         bigcode_evaluator = bigcode_eval.evaluator.Evaluator(
