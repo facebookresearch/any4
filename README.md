@@ -2,20 +2,16 @@
 
 [![License: CC BY-NC](https://img.shields.io/badge/License-CC_BY--NC-lightgrey.svg)](./LICENSE) [![Slides](https://img.shields.io/badge/Slides-PPT-orange)](https://docs.google.com/presentation/d/14Lalv6rzYsErJ_M9DTjgrKNy6XdpQEVKWLezpTYySEM/edit?usp=sharing) [![arXiv](https://img.shields.io/badge/arXiv-2507.04610-b31b1b.svg)](https://www.arxiv.org/abs/2507.04610) [![alphaXiv](https://img.shields.io/badge/alphaXiv-2507.04610-9a2037.svg)](https://www.alphaxiv.org/abs/2507.04610)
 
-This repo contains: 
-- **tinygemm** low-latency / small batch size Nvidia GPU GEMM library which implements:
-    - bf16/fp16,
-    - int4 grouped quantization,
-    - NF4 grouped quantization,
-    - any4 grouped quantization, and
-    - MX4 quantization, and
-- algorithm to learn **any4** quantization codes.
+🔧 This repo presents: 
+* **tinygemm** low-latency / small batch size Nvidia GPU GEMM library which implements:
+    - BF16/FP16,
+    - INT4, NF4, MX4, any4 grouped quantization
+* **any4** algorithm that outperforms INT4, FP4, and NF4 by learning the optimal quantization codebook from the model’s weights.
 
-It also contains easy to use scripts to
-- **evaluate** perplexity, NLP, and coding tasks
-- **analyze** and plot weights and activations across layers
-
-that should work on any 🤗 model.
+🧪 The repo also includes easy-to-use scripts to:
+* **Evaluate** LLMs on perplexity, natural language, and code generation tasks
+* **Analyze** and **visualize** weights and activations across layers
+* **Run** on any 🤗 HuggingFace-compatible model
 
 > This code release is meant to accompany our paper [*any4: Learned 4-bit Numeric Representation for LLMs*](https://openreview.net/forum?id=tJmhOPkWCj), **ICML 2025**, by [Mostafa Elhoushi](https://github.com/mostafaelhoushi) and [Jeff Johnson](https://github.com/wickedfoo).
 
