@@ -102,6 +102,8 @@ Feel also free to edit `example.py` and run it:
 python example.py
 ```
 
+and we encourage you to play around with our [Jupyter Notebook tutorial](./tutorial.ipynb).
+
 ### Evaluation
 Evaluate a model (with or without quantization) on downstream tasks.
 - Baseline fp16 model:
