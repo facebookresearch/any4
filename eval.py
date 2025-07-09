@@ -271,30 +271,15 @@ def main(
             accelerator = lm_obj.accelerator
         else:
             accelerator = Accelerator(InitProcessGroupKwargs(timeout=timedelta(weeks=52)))
-        bigcode_args = {
-            "modeltype": "causal",
-            "n_samples": 1, # number of generated candidate solutions
-            "batch_size": 1, # for BigCode, batch_size <= n_samples
-            "max_length_generation": 512,
-            "limit": num_samples,
-            "limit_start": 0,
-            "instruction_tokens": None,
-            "save_every_k_tasks": 1,
-            "postprocess": True,
-            "allow_code_execution": True,
-            "generation_only": False,
-            "load_generations_path": None,
-            "load_data_path": None,
-            "metric_output_path": str(Path(log_dir/"bigcode_evaluation_results.json")),
-            "load_generations_intermediate_paths": None,
-            "save_generations": False,
-            "save_generations_path": str(Path(log_dir/"bigcode_generations.json")),
-            "save_references": False,
-            "save_generations_path": str(Path(log_dir/"bigcode_references.json")),
-            "check_references": False,
-            "max_memory_per_gpu": "dummy", # setting this to "dummy" instead of None to avoid error of loading model to specific device
-            **generation_args,
-        }
+            bigcode_args = bigcode_default_args.copy()
+            bigcode_args.update({
+                "limit": num_samples,
+                "metric_output_path": str(log_dir / "bigcode_evaluation_results.json"),
+                "save_generations_path": str(log_dir / "bigcode_generations.json"),
+                "save_references": False,
+                "save_generations_path": str(log_dir / "bigcode_references.json"),
+                **generation_args,
+            })
         bigcode_evaluator = bigcode_eval.evaluator.Evaluator(
             accelerator=accelerator,
             model=lm_obj.model,
