@@ -6,7 +6,7 @@
 <img width="512" height="260" alt="image" src="https://github.com/user-attachments/assets/bd315fa0-3fef-4c0e-83b7-749366c52b04" />
 
 🧠 <b>any4</b>: Learns optimal 4-bit representation • Outperforms INT4, FP4, NF4<br>
-🚀 <b>tinygemm</b>: Fast CUDA kernels for BF16/FP16 • INT4/NF4/MX4/any4 quantization<br>
+🚀 <b>tinygemm</b>: Fast Small Batch CUDA kernels for BF16/FP16 • INT4/NF4/MX4/any4 quantization<br>
 ✨ <b>Effortless Scripts</b>: Evaluate LLMs on NLP, Code, & Perplexity • Analyze & Visualize Weights/Activations<br>
 🤗 <b>Hugging Face</b> Compatible
 
