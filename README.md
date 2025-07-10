@@ -1,9 +1,9 @@
 <div align="center">
 
 # any4 & tinygemm
-[![License: CC BY-NC](https://img.shields.io/badge/License-CC_BY--NC-lightgrey.svg)](./LICENSE) [![Tutorial](https://img.shields.io/badge/Jupyter%20Notebook-F37626)](./tutorial.ipynb) [![Slides](https://img.shields.io/badge/Slides-PPT-orange)](https://docs.google.com/presentation/d/14Lalv6rzYsErJ_M9DTjgrKNy6XdpQEVKWLezpTYySEM/edit?usp=sharing) [![arXiv](https://img.shields.io/badge/arXiv-2507.04610-b31b1b.svg)](https://www.arxiv.org/abs/2507.04610) [![alphaXiv](https://img.shields.io/badge/alphaXiv-2507.04610-9a2037.svg)](https://www.alphaxiv.org/abs/2507.04610)
-
 <img width="512" height="260" alt="image" src="https://github.com/user-attachments/assets/bd315fa0-3fef-4c0e-83b7-749366c52b04" />
+
+[![License: CC BY-NC](https://img.shields.io/badge/License-CC_BY--NC-lightgrey.svg)](./LICENSE) [![Tutorial](https://img.shields.io/badge/Jupyter%20Notebook-F37626)](./tutorial.ipynb) [![Slides](https://img.shields.io/badge/Slides-PPT-orange)](https://docs.google.com/presentation/d/14Lalv6rzYsErJ_M9DTjgrKNy6XdpQEVKWLezpTYySEM/edit?usp=sharing) [![arXiv](https://img.shields.io/badge/arXiv-2507.04610-b31b1b.svg)](https://www.arxiv.org/abs/2507.04610) [![alphaXiv](https://img.shields.io/badge/alphaXiv-2507.04610-9a2037.svg)](https://www.alphaxiv.org/abs/2507.04610)
 
 🧠 <b>any4</b>: Learns optimal 4-bit representation • Outperforms INT4, FP4, NF4<br>
 🚀 <b>tinygemm</b>: Fast Small Batch CUDA kernels for BF16/FP16 • INT4/NF4/MX4/any4 quantization<br>
