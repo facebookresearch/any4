@@ -351,6 +351,17 @@ def trim_inputs(inputs, start_idx=None, end_idx=None):
         return {key: value[:, start_idx:end_idx] for key, value in inputs.items()}
 
 def get_layers_from_model(model):
+    """Return the transformer layers exposed by a supported model.
+
+    Args:
+        model: Model instance whose transformer layers should be located.
+
+    Returns:
+        The model's ordered transformer-layer collection.
+
+    Raises:
+        NotImplementedError: If the model structure is not supported.
+    """
     if model.__class__.__name__ in ("LlamaForCausalLM", "Qwen2ForCausalLM"):
         layers = model.model.layers
     elif model.__class__.__name__ == "LlavaLlamaForCausalLM":
@@ -379,6 +390,10 @@ def get_layers_from_model(model):
     return layers
 
 def get_attention_from_layer(layer):
+    """Return the attention module exposed by a transformer layer.
+
+    Returns an empty list when the layer has no recognized attention attribute.
+    """
     if hasattr(layer, "self_attn"):
         return [layer.self_attn]
     elif hasattr(layer, "attention"):
@@ -387,6 +402,11 @@ def get_attention_from_layer(layer):
         return []
 
 def get_mlp_from_layer(layer):
+    """Collect recognized projection, activation, and normalization modules.
+
+    Modules are returned in the order in which their supported attributes are
+    checked.
+    """
     mlp_modules = []
 
     # Common dense/projection layers
@@ -407,6 +427,11 @@ def get_mlp_from_layer(layer):
     return mlp_modules
 
 def get_lm_head_from_model(model):
+    """Return the attribute name of the model's language-modeling head.
+
+    Raises:
+        NotImplementedError: If the model does not expose an `lm_head`.
+    """
     if hasattr(model, "lm_head"):
         return "lm_head"
     else:
